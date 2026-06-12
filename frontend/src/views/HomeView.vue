@@ -1,403 +1,184 @@
 <template>
-  <!-- Custom Home Content: Full Page Mode -->
-  <div v-if="homeContent" class="min-h-screen">
-    <!-- iframe mode -->
-    <iframe
-      v-if="isHomeContentUrl"
-      :src="homeContent.trim()"
-      class="h-screen w-full border-0"
-      allowfullscreen
-    ></iframe>
-    <!-- HTML mode - SECURITY: homeContent is admin-only setting, XSS risk is acceptable -->
-    <div v-else v-html="homeContent"></div>
-  </div>
+  <div class="lingxi-home min-h-screen overflow-hidden bg-[#f7f3ea] text-[#211f1a] dark:bg-[#151715] dark:text-[#f6f0e4]">
+    <header class="relative z-30 border-b border-[#272016]/10 bg-[#f7f3ea]/86 backdrop-blur-xl dark:border-white/10 dark:bg-[#151715]/86">
+      <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-7 lg:px-10">
+        <router-link to="/home" class="brand-mark group flex items-center gap-3" aria-label="灵犀文创首页">
+          <span class="brand-seal">犀</span>
+          <span>
+            <span class="block text-base font-semibold tracking-[0.18em] text-[#211f1a] dark:text-[#f6f0e4]">灵犀文创</span>
+            <span class="block text-[11px] tracking-[0.24em] text-[#716957] dark:text-[#b7ad9a]">LINGXI CREATIVE</span>
+          </span>
+        </router-link>
 
-  <!-- Default Home Page -->
-  <div
-    v-else
-    class="relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-primary-50/30 to-gray-100 dark:from-dark-950 dark:via-dark-900 dark:to-dark-950"
-  >
-    <!-- Background Decorations -->
-    <div class="pointer-events-none absolute inset-0 overflow-hidden">
-      <div
-        class="absolute -right-40 -top-40 h-96 w-96 rounded-full bg-primary-400/20 blur-3xl"
-      ></div>
-      <div
-        class="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-primary-500/15 blur-3xl"
-      ></div>
-      <div
-        class="absolute left-1/3 top-1/4 h-72 w-72 rounded-full bg-primary-300/10 blur-3xl"
-      ></div>
-      <div
-        class="absolute bottom-1/4 right-1/4 h-64 w-64 rounded-full bg-primary-400/10 blur-3xl"
-      ></div>
-      <div
-        class="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.03)_1px,transparent_1px)] bg-[size:64px_64px]"
-      ></div>
-    </div>
-
-    <!-- Header -->
-    <header class="relative z-20 px-6 py-4">
-      <nav class="mx-auto flex max-w-6xl items-center justify-between">
-        <!-- Logo -->
-        <div class="flex items-center">
-          <div class="h-10 w-10 overflow-hidden rounded-xl shadow-md">
-            <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
-          </div>
-        </div>
-
-        <!-- Nav Actions -->
-        <div class="flex items-center gap-3">
-          <!-- Language Switcher -->
-          <LocaleSwitcher />
-
-          <!-- Doc Link -->
-          <a
-            v-if="docUrl"
-            :href="docUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
-            :title="t('home.viewDocs')"
-          >
-            <Icon name="book" size="md" />
-          </a>
-
-          <!-- Theme Toggle -->
-          <button
-            @click="toggleTheme"
-            class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
-            :title="isDark ? t('home.switchToLight') : t('home.switchToDark')"
-          >
-            <Icon v-if="isDark" name="sun" size="md" />
-            <Icon v-else name="moon" size="md" />
-          </button>
-
-          <!-- Login / Dashboard Button -->
-          <router-link
-            v-if="isAuthenticated"
-            :to="dashboardPath"
-            class="inline-flex items-center gap-1.5 rounded-full bg-gray-900 py-1 pl-1 pr-2.5 transition-colors hover:bg-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
-          >
-            <span
-              class="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-[10px] font-semibold text-white"
-            >
-              {{ userInitial }}
-            </span>
-            <span class="text-xs font-medium text-white">{{ t('home.dashboard') }}</span>
-            <svg
-              class="h-3 w-3 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"
-              />
-            </svg>
+        <div class="flex items-center gap-2 sm:gap-3">
+          <router-link to="/purchase" class="hidden px-3 py-2 text-sm font-medium text-[#554d3f] transition hover:text-[#0d766f] dark:text-[#d7cdbb] dark:hover:text-[#70e0d4] sm:inline-flex">
+            套餐
           </router-link>
-          <router-link
-            v-else
-            to="/login"
-            class="inline-flex items-center rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
+          <LocaleSwitcher class="hidden sm:block" />
+          <button
+            class="grid h-9 w-9 place-items-center border border-[#2a2418]/12 bg-white/55 text-[#5c5546] transition hover:border-[#0d766f]/40 hover:text-[#0d766f] dark:border-white/12 dark:bg-white/6 dark:text-[#d8cebd] dark:hover:text-[#70e0d4]"
+            :title="isDark ? '切换到浅色' : '切换到深色'"
+            @click="toggleTheme"
           >
-            {{ t('home.login') }}
+            <Icon v-if="isDark" name="sun" size="sm" />
+            <Icon v-else name="moon" size="sm" />
+          </button>
+          <router-link
+            :to="isAuthenticated ? dashboardPath : '/login'"
+            class="nav-primary"
+          >
+            {{ isAuthenticated ? '进入控制台' : '登录' }}
           </router-link>
         </div>
       </nav>
     </header>
 
-    <!-- Main Content -->
-    <main class="relative z-10 flex-1 px-6 py-16">
-      <div class="mx-auto max-w-6xl">
-        <!-- Hero Section - Left/Right Layout -->
-        <div class="mb-12 flex flex-col items-center justify-between gap-12 lg:flex-row lg:gap-16">
-          <!-- Left: Text Content -->
-          <div class="flex-1 text-center lg:text-left">
-            <h1
-              class="mb-4 text-4xl font-bold text-gray-900 dark:text-white md:text-5xl lg:text-6xl"
-            >
-              {{ siteName }}
+    <main>
+      <section ref="heroSection" class="relative border-b border-[#272016]/10 dark:border-white/10">
+        <div class="paper-grid absolute inset-0"></div>
+        <div class="mx-auto grid min-h-[calc(100vh-73px)] max-w-7xl items-center gap-10 px-5 py-12 sm:px-7 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-16">
+          <div class="relative z-10 max-w-2xl">
+            <div class="hero-kicker mb-5 inline-flex items-center gap-2 border border-[#0d766f]/20 bg-white/55 px-3 py-2 text-xs font-semibold tracking-[0.18em] text-[#0d766f] shadow-sm dark:border-[#70e0d4]/25 dark:bg-white/6 dark:text-[#70e0d4]">
+              AI 写作 · AIGC 视频 · 创作 Skill
+            </div>
+            <h1 class="hero-title text-balance text-[clamp(3rem,8vw,7.6rem)] font-black leading-[0.88] tracking-[-0.02em]">
+              灵犀文创
             </h1>
-            <p class="mb-8 text-lg text-gray-600 dark:text-dark-300 md:text-xl">
-              {{ siteSubtitle }}
+            <p class="hero-subtitle mt-6 max-w-xl text-balance text-xl font-medium leading-8 text-[#4f493c] dark:text-[#d9cfbc] sm:text-2xl sm:leading-9">
+              为小说作者与内容创作者打造的 AI 创作平台。
+            </p>
+            <p class="hero-copy mt-5 max-w-2xl text-base leading-8 text-[#746c5c] dark:text-[#aaa18f]">
+              从灵感、角色、世界观到章节续写和视频分镜，把零散想法整理成可以持续生长的作品宇宙。
             </p>
 
-            <!-- CTA Button -->
-            <div>
-              <router-link
-                :to="isAuthenticated ? dashboardPath : '/login'"
-                class="btn btn-primary px-8 py-3 text-base shadow-lg shadow-primary-500/30"
-              >
-                {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
-                <Icon name="arrowRight" size="md" class="ml-2" :stroke-width="2" />
+            <div class="hero-actions mt-8 flex flex-col gap-3 sm:flex-row">
+              <router-link :to="isAuthenticated ? dashboardPath : '/register'" class="cta-main">
+                {{ isAuthenticated ? '进入创作台' : '开始创作' }}
+                <span aria-hidden="true">→</span>
               </router-link>
+              <router-link to="/purchase" class="cta-secondary">
+                查看创作套餐
+              </router-link>
+            </div>
+
+            <div class="hero-metrics mt-10 grid max-w-xl grid-cols-3 border-y border-[#2a2418]/10 py-4 dark:border-white/10">
+              <div v-for="metric in metrics" :key="metric.label" class="metric-item">
+                <strong>{{ metric.value }}</strong>
+                <span>{{ metric.label }}</span>
+              </div>
             </div>
           </div>
 
-          <!-- Right: Terminal Animation -->
-          <div class="flex flex-1 justify-center lg:justify-end">
-            <div class="terminal-container">
-              <div class="terminal-window">
-                <!-- Window header -->
-                <div class="terminal-header">
-                  <div class="terminal-buttons">
-                    <span class="btn-close"></span>
-                    <span class="btn-minimize"></span>
-                    <span class="btn-maximize"></span>
-                  </div>
-                  <span class="terminal-title">terminal</span>
+          <div ref="deskScene" class="creator-desk relative z-10">
+            <div class="desk-shell">
+              <div class="desk-toolbar">
+                <span>长篇项目</span>
+                <div class="flex gap-1.5">
+                  <i></i><i></i><i></i>
                 </div>
-                <!-- Terminal content -->
-                <div class="terminal-body">
-                  <div class="code-line line-1">
-                    <span class="code-prompt">$</span>
-                    <span class="code-cmd">curl</span>
-                    <span class="code-flag">-X POST</span>
-                    <span class="code-url">/v1/messages</span>
+              </div>
+              <div class="desk-layout">
+                <aside class="desk-sidebar">
+                  <div class="sidebar-title">灵感库</div>
+                  <button v-for="item in sidebarItems" :key="item" class="sidebar-pill">{{ item }}</button>
+                </aside>
+                <div class="desk-main">
+                  <div class="chapter-card floating-card">
+                    <div class="card-eyebrow">Chapter 07</div>
+                    <h3>雨夜，主角第一次听见城市的心跳</h3>
+                    <p>系统正在根据角色动机、上一章情绪曲线与伏笔清单生成下一段转折...</p>
+                    <div class="writing-lines">
+                      <span></span><span></span><span></span>
+                    </div>
                   </div>
-                  <div class="code-line line-2">
-                    <span class="code-comment"># Routing to upstream...</span>
+                  <div class="desk-card character-card floating-card">
+                    <span>角色卡</span>
+                    <strong>林见微</strong>
+                    <p>外冷内热，记忆缺口，擅长解构梦境。</p>
                   </div>
-                  <div class="code-line line-3">
-                    <span class="code-success">200 OK</span>
-                    <span class="code-response">{ "content": "Hello!" }</span>
+                  <div class="desk-card world-card floating-card">
+                    <span>世界观</span>
+                    <strong>北境书塔</strong>
+                    <p>每本书都会生成一座可进入的城市。</p>
                   </div>
-                  <div class="code-line line-4">
-                    <span class="code-prompt">$</span>
-                    <span class="cursor"></span>
-                  </div>
+                  <div class="skill-node node-a">爽点增强</div>
+                  <div class="skill-node node-b">伏笔检查</div>
+                  <div class="skill-node node-c">视频分镜</div>
+                  <svg class="skill-lines" viewBox="0 0 420 280" aria-hidden="true">
+                    <path class="flow-path" d="M70 214 C130 142 180 120 250 154 S338 150 374 82" />
+                    <path class="flow-path delay" d="M92 74 C150 112 190 168 250 154 S320 182 366 220" />
+                  </svg>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </section>
 
-        <!-- Feature Tags - Centered -->
-        <div class="mb-12 flex flex-wrap items-center justify-center gap-4 md:gap-6">
-          <div
-            class="inline-flex items-center gap-2.5 rounded-full border border-gray-200/50 bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/80"
-          >
-            <Icon name="swap" size="sm" class="text-primary-500" />
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{
-              t('home.tags.subscriptionToApi')
-            }}</span>
+      <section class="section-band">
+        <div class="mx-auto max-w-7xl px-5 py-16 sm:px-7 lg:px-10">
+          <div class="section-heading">
+            <p>创作流程</p>
+            <h2>让故事从一句灵感，走到完整作品。</h2>
           </div>
-          <div
-            class="inline-flex items-center gap-2.5 rounded-full border border-gray-200/50 bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/80"
-          >
-            <Icon name="shield" size="sm" class="text-primary-500" />
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{
-              t('home.tags.stickySession')
-            }}</span>
-          </div>
-          <div
-            class="inline-flex items-center gap-2.5 rounded-full border border-gray-200/50 bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/80"
-          >
-            <Icon name="chart" size="sm" class="text-primary-500" />
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{
-              t('home.tags.realtimeBilling')
-            }}</span>
+          <div class="mt-10 grid gap-4 md:grid-cols-4">
+            <article v-for="(step, index) in workflow" :key="step.title" class="workflow-card reveal-card">
+              <span>{{ String(index + 1).padStart(2, '0') }}</span>
+              <h3>{{ step.title }}</h3>
+              <p>{{ step.desc }}</p>
+            </article>
           </div>
         </div>
+      </section>
 
-        <!-- Features Grid -->
-        <div class="mb-12 grid gap-6 md:grid-cols-3">
-          <!-- Feature 1: Unified Gateway -->
-          <div
-            class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
-          >
-            <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30 transition-transform group-hover:scale-110"
-            >
-              <Icon name="server" size="lg" class="text-white" />
-            </div>
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('home.features.unifiedGateway') }}
-            </h3>
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
-              {{ t('home.features.unifiedGatewayDesc') }}
+      <section class="section-band alt">
+        <div class="mx-auto grid max-w-7xl gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[0.8fr_1.2fr] lg:px-10">
+          <div class="section-heading sticky-copy">
+            <p>Skill 平台</p>
+            <h2>把作者的经验，沉淀成可复用的创作技能。</h2>
+            <router-link to="/purchase" class="mt-6 inline-flex w-fit border border-[#0d766f]/30 px-4 py-2 text-sm font-semibold text-[#0d766f] transition hover:bg-[#0d766f] hover:text-white dark:text-[#70e0d4] dark:hover:text-[#151715]">
+              解锁更多 Skill
+            </router-link>
+          </div>
+          <div class="skill-grid">
+            <article v-for="skill in skills" :key="skill.title" class="skill-card reveal-card">
+              <div class="skill-symbol">{{ skill.symbol }}</div>
+              <h3>{{ skill.title }}</h3>
+              <p>{{ skill.desc }}</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="mx-auto max-w-7xl px-5 py-16 sm:px-7 lg:px-10">
+        <div class="conversion-panel reveal-card">
+          <div>
+            <p class="text-sm font-semibold tracking-[0.2em] text-[#0d766f] dark:text-[#70e0d4]">创作额度</p>
+            <h2 class="mt-3 max-w-2xl text-3xl font-black leading-tight sm:text-5xl">
+              购买创作额度，开启更长的故事线。
+            </h2>
+            <p class="mt-4 max-w-2xl text-base leading-8 text-[#746c5c] dark:text-[#b5ac9b]">
+              套餐用于 AI 写作、角色设定、章节生成、AIGC 视频脚本与后续插件调用。支付和额度仍由底层系统稳定管理。
             </p>
           </div>
-
-          <!-- Feature 2: Account Pool -->
-          <div
-            class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
-          >
-            <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/30 transition-transform group-hover:scale-110"
-            >
-              <svg
-                class="h-6 w-6 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="1.5"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
-                />
-              </svg>
-            </div>
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('home.features.multiAccount') }}
-            </h3>
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
-              {{ t('home.features.multiAccountDesc') }}
-            </p>
-          </div>
-
-          <!-- Feature 3: Billing & Quota -->
-          <div
-            class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
-          >
-            <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-500/30 transition-transform group-hover:scale-110"
-            >
-              <svg
-                class="h-6 w-6 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="1.5"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"
-                />
-              </svg>
-            </div>
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('home.features.balanceQuota') }}
-            </h3>
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
-              {{ t('home.features.balanceQuotaDesc') }}
-            </p>
+          <div class="flex flex-col gap-3 sm:flex-row lg:flex-col">
+            <router-link to="/purchase" class="cta-main">查看套餐 <span aria-hidden="true">→</span></router-link>
+            <router-link :to="isAuthenticated ? dashboardPath : '/login'" class="cta-secondary">
+              {{ isAuthenticated ? '进入控制台' : '登录账户' }}
+            </router-link>
           </div>
         </div>
-
-        <!-- Supported Providers -->
-        <div class="mb-8 text-center">
-          <h2 class="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
-            {{ t('home.providers.title') }}
-          </h2>
-          <p class="text-sm text-gray-600 dark:text-dark-400">
-            {{ t('home.providers.description') }}
-          </p>
-        </div>
-
-        <div class="mb-16 flex flex-wrap items-center justify-center gap-4">
-          <!-- Claude - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-orange-500"
-            >
-              <span class="text-xs font-bold text-white">C</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.claude') }}</span>
-            <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
-              >{{ t('home.providers.supported') }}</span
-            >
-          </div>
-          <!-- GPT - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-green-600"
-            >
-              <span class="text-xs font-bold text-white">G</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">GPT</span>
-            <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
-              >{{ t('home.providers.supported') }}</span
-            >
-          </div>
-          <!-- Gemini - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600"
-            >
-              <span class="text-xs font-bold text-white">G</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.gemini') }}</span>
-            <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
-              >{{ t('home.providers.supported') }}</span
-            >
-          </div>
-          <!-- Antigravity - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-pink-600"
-            >
-              <span class="text-xs font-bold text-white">A</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.antigravity') }}</span>
-            <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
-              >{{ t('home.providers.supported') }}</span
-            >
-          </div>
-          <!-- More - Coming Soon -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-gray-200/50 bg-white/40 px-5 py-3 opacity-60 backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/40"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-gray-500 to-gray-600"
-            >
-              <span class="text-xs font-bold text-white">+</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.more') }}</span>
-            <span
-              class="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-dark-700 dark:text-dark-400"
-              >{{ t('home.providers.soon') }}</span
-            >
-          </div>
-        </div>
-      </div>
+      </section>
     </main>
 
-    <!-- Footer -->
-    <footer class="relative z-10 border-t border-gray-200/50 px-6 py-8 dark:border-dark-800/50">
-      <div
-        class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-4 text-center sm:flex-row sm:text-left"
-      >
-        <p class="text-sm text-gray-500 dark:text-dark-400">
-          &copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}
-        </p>
-        <div class="flex items-center gap-4">
-          <a
-            v-if="docUrl"
-            :href="docUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
-          >
-            {{ t('home.docs') }}
-          </a>
-          <a
-            :href="githubUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
-          >
-            GitHub
-          </a>
+    <footer class="border-t border-[#272016]/10 bg-[#eee7d9] px-5 py-8 dark:border-white/10 dark:bg-[#101210] sm:px-7 lg:px-10">
+      <div class="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-[#746c5c] dark:text-[#aaa18f] md:flex-row md:items-center md:justify-between">
+        <p>© {{ currentYear }} 灵犀文创 · AI 写作与内容创作平台</p>
+        <div class="flex flex-wrap gap-4">
+          <router-link to="/home" class="hover:text-[#0d766f] dark:hover:text-[#70e0d4]">首页</router-link>
+          <router-link to="/purchase" class="hover:text-[#0d766f] dark:hover:text-[#70e0d4]">套餐</router-link>
+          <router-link :to="dashboardPath" class="hover:text-[#0d766f] dark:hover:text-[#70e0d4]">控制台</router-link>
+          <a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer" class="hover:text-[#0d766f] dark:hover:text-[#70e0d4]">文档</a>
         </div>
       </div>
     </footer>
@@ -405,240 +186,640 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { gsap } from 'gsap'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
 
-const { t } = useI18n()
-
 const authStore = useAuthStore()
 const appStore = useAppStore()
 
-// Site settings - directly from appStore (already initialized from injected config)
-const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
-const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
-const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform')
-const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
-const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
-
-// Check if homeContent is a URL (for iframe display)
-const isHomeContentUrl = computed(() => {
-  const content = homeContent.value.trim()
-  return content.startsWith('http://') || content.startsWith('https://')
-})
-
-// Theme
+const heroSection = ref<HTMLElement | null>(null)
+const deskScene = ref<HTMLElement | null>(null)
 const isDark = ref(document.documentElement.classList.contains('dark'))
+let animationContext: gsap.Context | null = null
+let removeParallaxListener: (() => void) | null = null
 
-// GitHub URL
-const githubUrl = 'https://github.com/Wei-Shaw/sub2api'
-
-// Auth state
+const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const isAdmin = computed(() => authStore.isAdmin)
-const dashboardPath = computed(() => isAdmin.value ? '/admin/dashboard' : '/dashboard')
-const userInitial = computed(() => {
-  const user = authStore.user
-  if (!user || !user.email) return ''
-  return user.email.charAt(0).toUpperCase()
-})
-
-// Current year for footer
+const dashboardPath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
 const currentYear = computed(() => new Date().getFullYear())
 
-// Toggle theme
+const metrics = [
+  { value: '6+', label: '创作 Skill' },
+  { value: '24h', label: '灵感归档' },
+  { value: 'AI', label: '持续协作' },
+]
+
+const sidebarItems = ['故事种子', '角色关系', '世界观', '章节草稿']
+
+const workflow = [
+  { title: '捕捉灵感', desc: '把一句想法、一个画面或一段设定保存成可扩展的故事种子。' },
+  { title: '构建设定', desc: '沉淀角色、地点、组织、时间线，让作品世界保持一致。' },
+  { title: '生成章节', desc: '按大纲、文风和伏笔续写章节，减少卡文时的空白感。' },
+  { title: '扩展内容', desc: '把小说内容延展为短视频脚本、分镜和宣发素材。' },
+]
+
+const skills = [
+  { symbol: '人', title: '角色小传', desc: '生成动机、弱点、口癖、人物弧光与关系冲突。' },
+  { symbol: '纲', title: '章节大纲', desc: '把灵感拆成起承转合，保留节奏和悬念。' },
+  { symbol: '燃', title: '爽点增强', desc: '检查情绪峰值、反转力度和读者期待兑现。' },
+  { symbol: '伏', title: '伏笔检查', desc: '追踪线索、暗示和回收点，减少剧情断裂。' },
+  { symbol: '润', title: '文风润色', desc: '统一叙述口吻，让章节更贴近目标风格。' },
+  { symbol: '映', title: '视频分镜', desc: '把章节场景转成镜头、旁白和画面提示。' },
+]
+
 function toggleTheme() {
   isDark.value = !isDark.value
   document.documentElement.classList.toggle('dark', isDark.value)
   localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
 }
 
-// Initialize theme
 function initTheme() {
   const savedTheme = localStorage.getItem('theme')
-  if (
-    savedTheme === 'dark' ||
-    (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
-  ) {
+  if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
     isDark.value = true
     document.documentElement.classList.add('dark')
   }
 }
 
+function initAnimations() {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (reduceMotion || !heroSection.value) return
+
+  animationContext = gsap.context(() => {
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out', duration: 0.8 } })
+    tl.from('.hero-kicker', { y: 18, autoAlpha: 0 })
+      .from('.hero-title', { y: 34, autoAlpha: 0, duration: 1 }, '<0.08')
+      .from('.hero-subtitle, .hero-copy', { y: 24, autoAlpha: 0, stagger: 0.1 }, '<0.2')
+      .from('.hero-actions > *', { y: 18, autoAlpha: 0, stagger: 0.08 }, '<0.2')
+      .from('.metric-item', { y: 14, autoAlpha: 0, stagger: 0.08 }, '<0.1')
+      .from('.desk-shell', { x: 42, y: 24, rotation: 1.2, autoAlpha: 0, duration: 1 }, 0.18)
+      .from('.floating-card, .skill-node', { y: 20, autoAlpha: 0, stagger: 0.07 }, '<0.35')
+
+    gsap.to('.floating-card', {
+      y: (index) => (index % 2 === 0 ? -8 : 7),
+      duration: 3.6,
+      ease: 'sine.inOut',
+      repeat: -1,
+      yoyo: true,
+      stagger: 0.2,
+    })
+
+    gsap.to('.skill-node', {
+      scale: 1.035,
+      duration: 2.5,
+      ease: 'sine.inOut',
+      repeat: -1,
+      yoyo: true,
+      stagger: 0.18,
+    })
+
+    gsap.from('.reveal-card', {
+      y: 28,
+      autoAlpha: 0,
+      duration: 0.75,
+      ease: 'power2.out',
+      stagger: 0.08,
+    })
+  }, heroSection.value)
+}
+
+function initParallax() {
+  if (!deskScene.value || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const xTo = gsap.quickTo(deskScene.value, 'x', { duration: 0.5, ease: 'power3.out' })
+  const yTo = gsap.quickTo(deskScene.value, 'y', { duration: 0.5, ease: 'power3.out' })
+  const onMove = (event: MouseEvent) => {
+    const rect = deskScene.value?.getBoundingClientRect()
+    if (!rect) return
+    xTo(((event.clientX - rect.left) / rect.width - 0.5) * 12)
+    yTo(((event.clientY - rect.top) / rect.height - 0.5) * 10)
+  }
+  deskScene.value.addEventListener('mousemove', onMove)
+  removeParallaxListener = () => deskScene.value?.removeEventListener('mousemove', onMove)
+}
+
 onMounted(() => {
   initTheme()
-
-  // Check auth state
   authStore.checkAuth()
-
-  // Ensure public settings are loaded (will use cache if already loaded from injected config)
   if (!appStore.publicSettingsLoaded) {
-    appStore.fetchPublicSettings()
+    void appStore.fetchPublicSettings()
   }
+  initAnimations()
+  initParallax()
+})
+
+onBeforeUnmount(() => {
+  removeParallaxListener?.()
+  animationContext?.revert()
 })
 </script>
 
 <style scoped>
-/* Terminal Container */
-.terminal-container {
-  position: relative;
-  display: inline-block;
+.lingxi-home {
+  font-family: "Noto Serif SC", "Songti SC", "Microsoft YaHei", serif;
 }
 
-/* Terminal Window */
-.terminal-window {
-  width: 420px;
-  background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
-  border-radius: 14px;
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-  transform: perspective(1000px) rotateX(2deg) rotateY(-2deg);
-  transition: transform 0.3s ease;
+.paper-grid {
+  background:
+    linear-gradient(rgba(31, 28, 20, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 28, 20, 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 88%);
 }
 
-.terminal-window:hover {
-  transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(-4px);
+.dark .paper-grid {
+  background:
+    linear-gradient(rgba(246, 240, 228, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(246, 240, 228, 0.035) 1px, transparent 1px);
 }
 
-/* Terminal Header */
-.terminal-header {
-  display: flex;
+.brand-seal {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(13, 118, 111, 0.34);
+  background: #0d766f;
+  color: #fff9ec;
+  font-weight: 900;
+  box-shadow: 6px 6px 0 rgba(13, 118, 111, 0.12);
+}
+
+.nav-primary,
+.cta-main,
+.cta-secondary {
+  display: inline-flex;
+  min-height: 42px;
   align-items: center;
-  padding: 12px 16px;
-  background: rgba(30, 41, 59, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  padding: 10px 16px;
+  font-weight: 800;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
 
-.terminal-buttons {
+.nav-primary,
+.cta-main {
+  background: #0d766f;
+  color: #fffaf0;
+  box-shadow: 6px 6px 0 rgba(13, 118, 111, 0.16);
+}
+
+.nav-primary:hover,
+.cta-main:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 9px 9px 0 rgba(13, 118, 111, 0.18);
+}
+
+.cta-secondary {
+  border-color: rgba(42, 36, 24, 0.14);
+  background: rgba(255, 255, 255, 0.6);
+  color: #2b281f;
+}
+
+.dark .cta-secondary {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f6f0e4;
+}
+
+.cta-secondary:hover {
+  border-color: rgba(13, 118, 111, 0.36);
+  color: #0d766f;
+}
+
+.hero-title {
+  font-family: "STKaiti", "KaiTi", "Noto Serif SC", serif;
+  text-shadow: 0 12px 30px rgba(52, 45, 31, 0.08);
+}
+
+.metric-item {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.terminal-buttons span {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
+.metric-item strong {
+  font-size: clamp(1.2rem, 3vw, 1.7rem);
+  line-height: 1;
 }
 
-.btn-close {
-  background: #ef4444;
-}
-.btn-minimize {
-  background: #eab308;
-}
-.btn-maximize {
-  background: #22c55e;
-}
-
-.terminal-title {
-  flex: 1;
-  text-align: center;
+.metric-item span {
   font-size: 12px;
-  font-family: ui-monospace, monospace;
-  color: #64748b;
-  margin-right: 52px;
+  color: #746c5c;
 }
 
-/* Terminal Body */
-.terminal-body {
-  padding: 20px 24px;
-  font-family: ui-monospace, 'Fira Code', monospace;
-  font-size: 14px;
-  line-height: 2;
+.dark .metric-item span {
+  color: #aaa18f;
 }
 
-.code-line {
+.creator-desk {
+  min-height: 520px;
+}
+
+.desk-shell {
+  overflow: hidden;
+  border: 1px solid rgba(42, 36, 24, 0.12);
+  background: rgba(255, 252, 244, 0.78);
+  box-shadow: 0 28px 70px rgba(52, 45, 31, 0.14), 12px 12px 0 rgba(13, 118, 111, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.dark .desk-shell {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(32, 34, 31, 0.78);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.36), 12px 12px 0 rgba(112, 224, 212, 0.08);
+}
+
+.desk-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  opacity: 0;
-  animation: line-appear 0.5s ease forwards;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(42, 36, 24, 0.1);
+  padding: 14px 16px;
+  color: #746c5c;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
 }
 
-.line-1 {
-  animation-delay: 0.3s;
-}
-.line-2 {
-  animation-delay: 1s;
-}
-.line-3 {
-  animation-delay: 1.8s;
-}
-.line-4 {
-  animation-delay: 2.5s;
+.dark .desk-toolbar {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  color: #aaa18f;
 }
 
-@keyframes line-appear {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.code-prompt {
-  color: #22c55e;
-  font-weight: bold;
-}
-.code-cmd {
-  color: #38bdf8;
-}
-.code-flag {
-  color: #a78bfa;
-}
-.code-url {
-  color: #14b8a6;
-}
-.code-comment {
-  color: #64748b;
-  font-style: italic;
-}
-.code-success {
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.15);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 600;
-}
-.code-response {
-  color: #fbbf24;
-}
-
-/* Blinking Cursor */
-.cursor {
-  display: inline-block;
+.desk-toolbar i {
+  display: block;
   width: 8px;
-  height: 16px;
-  background: #22c55e;
-  animation: blink 1s step-end infinite;
+  height: 8px;
+  background: #0d766f;
 }
 
-@keyframes blink {
-  0%,
-  50% {
-    opacity: 1;
-  }
-  51%,
-  100% {
-    opacity: 0;
+.desk-layout {
+  display: grid;
+  min-height: 470px;
+  grid-template-columns: 138px 1fr;
+}
+
+.desk-sidebar {
+  border-right: 1px solid rgba(42, 36, 24, 0.1);
+  padding: 18px 14px;
+}
+
+.dark .desk-sidebar {
+  border-right-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-title {
+  margin-bottom: 14px;
+  color: #0d766f;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.sidebar-pill {
+  margin-bottom: 10px;
+  width: 100%;
+  border: 1px solid rgba(42, 36, 24, 0.08);
+  background: rgba(255, 255, 255, 0.54);
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 13px;
+  color: #5d5548;
+}
+
+.dark .sidebar-pill {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: #d8cebd;
+}
+
+.desk-main {
+  position: relative;
+  min-height: 470px;
+  padding: 20px;
+}
+
+.chapter-card,
+.desk-card {
+  position: absolute;
+  border: 1px solid rgba(42, 36, 24, 0.12);
+  background: #fffaf0;
+  box-shadow: 0 18px 40px rgba(52, 45, 31, 0.12);
+}
+
+.dark .chapter-card,
+.dark .desk-card {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #20221f;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.26);
+}
+
+.chapter-card {
+  left: 26px;
+  top: 24px;
+  width: min(76%, 390px);
+  padding: 22px;
+}
+
+.card-eyebrow,
+.desk-card span {
+  color: #0d766f;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.chapter-card h3 {
+  margin-top: 10px;
+  max-width: 300px;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.24;
+}
+
+.chapter-card p,
+.desk-card p {
+  margin-top: 10px;
+  color: #746c5c;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.dark .chapter-card p,
+.dark .desk-card p {
+  color: #aaa18f;
+}
+
+.writing-lines {
+  margin-top: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.writing-lines span {
+  display: block;
+  height: 7px;
+  background: linear-gradient(90deg, rgba(13, 118, 111, 0.3), rgba(13, 118, 111, 0.05));
+}
+
+.writing-lines span:nth-child(2) {
+  width: 78%;
+}
+
+.writing-lines span:nth-child(3) {
+  width: 58%;
+}
+
+.desk-card {
+  width: 180px;
+  padding: 16px;
+}
+
+.desk-card strong {
+  margin-top: 8px;
+  display: block;
+  font-size: 18px;
+}
+
+.character-card {
+  right: 22px;
+  top: 170px;
+}
+
+.world-card {
+  left: 70px;
+  bottom: 28px;
+}
+
+.skill-node {
+  position: absolute;
+  z-index: 3;
+  border: 1px solid rgba(13, 118, 111, 0.32);
+  background: #e6f4ef;
+  padding: 8px 10px;
+  color: #0d766f;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 5px 5px 0 rgba(13, 118, 111, 0.08);
+}
+
+.dark .skill-node {
+  background: rgba(112, 224, 212, 0.1);
+  color: #70e0d4;
+}
+
+.node-a {
+  right: 40px;
+  top: 70px;
+}
+
+.node-b {
+  left: 22px;
+  top: 260px;
+}
+
+.node-c {
+  right: 30px;
+  bottom: 34px;
+}
+
+.skill-lines {
+  position: absolute;
+  inset: 60px 20px 20px;
+  width: calc(100% - 40px);
+  height: calc(100% - 80px);
+  pointer-events: none;
+}
+
+.flow-path {
+  fill: none;
+  stroke: rgba(13, 118, 111, 0.34);
+  stroke-width: 2;
+  stroke-dasharray: 8 10;
+  animation: flow 2.8s linear infinite;
+}
+
+.flow-path.delay {
+  animation-delay: 0.9s;
+  opacity: 0.6;
+}
+
+@keyframes flow {
+  to {
+    stroke-dashoffset: -36;
   }
 }
 
-/* Dark mode adjustments */
-:deep(.dark) .terminal-window {
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(20, 184, 166, 0.2),
-    0 0 40px rgba(20, 184, 166, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+.section-band {
+  border-bottom: 1px solid rgba(39, 32, 22, 0.1);
+  background: #fffaf0;
+}
+
+.section-band.alt {
+  background: #efe8da;
+}
+
+.dark .section-band {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  background: #191b18;
+}
+
+.dark .section-band.alt {
+  background: #111310;
+}
+
+.section-heading p {
+  color: #0d766f;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.22em;
+}
+
+.section-heading h2 {
+  margin-top: 12px;
+  max-width: 760px;
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 950;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+
+.workflow-card,
+.skill-card,
+.conversion-panel {
+  border: 1px solid rgba(42, 36, 24, 0.12);
+  background: rgba(255, 255, 255, 0.52);
+  box-shadow: 0 16px 36px rgba(52, 45, 31, 0.08);
+}
+
+.dark .workflow-card,
+.dark .skill-card,
+.dark .conversion-panel {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: none;
+}
+
+.workflow-card {
+  min-height: 220px;
+  padding: 22px;
+}
+
+.workflow-card span {
+  color: rgba(13, 118, 111, 0.44);
+  font-size: 34px;
+  font-weight: 950;
+}
+
+.workflow-card h3,
+.skill-card h3 {
+  margin-top: 22px;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.workflow-card p,
+.skill-card p {
+  margin-top: 12px;
+  color: #746c5c;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.dark .workflow-card p,
+.dark .skill-card p {
+  color: #aaa18f;
+}
+
+.sticky-copy {
+  align-self: start;
+}
+
+.skill-grid {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.skill-card {
+  min-height: 210px;
+  padding: 22px;
+}
+
+.skill-symbol {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  background: #0d766f;
+  color: white;
+  font-weight: 950;
+}
+
+.conversion-panel {
+  display: grid;
+  gap: 28px;
+  padding: clamp(24px, 5vw, 52px);
+}
+
+@media (min-width: 1024px) {
+  .conversion-panel {
+    grid-template-columns: 1fr 230px;
+    align-items: end;
+  }
+}
+
+@media (max-width: 760px) {
+  .desk-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .desk-sidebar {
+    display: none;
+  }
+
+  .creator-desk {
+    min-height: 480px;
+  }
+
+  .desk-main {
+    min-height: 430px;
+  }
+
+  .chapter-card {
+    left: 14px;
+    width: calc(100% - 28px);
+  }
+
+  .character-card {
+    right: 14px;
+    top: 230px;
+  }
+
+  .world-card {
+    left: 14px;
+    bottom: 24px;
+  }
+
+  .skill-node,
+  .skill-lines {
+    display: none;
+  }
+
+  .skill-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-path {
+    animation: none;
+  }
 }
 </style>

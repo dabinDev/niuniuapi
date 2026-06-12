@@ -1,0 +1,94 @@
+services:
+  niuniuapi:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: niuniuapi:lingxi
+    container_name: niuniuapi
+    restart: unless-stopped
+    ports:
+      - "18089:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - AUTO_SETUP=true
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+      - SERVER_MODE=release
+      - RUN_MODE=standard
+      - TZ=Asia/Shanghai
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_DBNAME=${POSTGRES_DB:-niuniuapi}
+      - DATABASE_USER=${POSTGRES_USER:-niuniuapi}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - DATABASE_SSLMODE=disable
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB:-niuniuapi}
+      - DB_USER=${POSTGRES_USER:-niuniuapi}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - DB_SSLMODE=disable
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=0
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-cage_ben@sina.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY:?TOTP_ENCRYPTION_KEY is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - niuniuapi-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: niuniuapi-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-niuniuapi}
+      - POSTGRES_USER=${POSTGRES_USER:-niuniuapi}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - TZ=Asia/Shanghai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-niuniuapi} -d ${POSTGRES_DB:-niuniuapi}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      niuniuapi-net:
+        aliases:
+          - postgres
+
+  redis:
+    image: redis:7-alpine
+    container_name: niuniuapi-redis
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - redis_data:/data
+    networks:
+      niuniuapi-net:
+        aliases:
+          - redis
+
+networks:
+  niuniuapi-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
