@@ -87,6 +87,17 @@ git pull --ff-only
 docker build -t niuniuapi:lingxi .
 ```
 
+如果本机 Docker 访问 Docker Hub 很慢或失败，可以使用镜像源构建。这个命令只在本机运行，不会碰线上服务器：
+
+```powershell
+docker build --progress=plain `
+  --build-arg NODE_IMAGE=docker.1ms.run/library/node:24-alpine `
+  --build-arg GOLANG_IMAGE=docker.1ms.run/library/golang:1.26.4-alpine `
+  --build-arg ALPINE_IMAGE=docker.1ms.run/library/alpine:3.21 `
+  --build-arg POSTGRES_IMAGE=docker.1ms.run/library/postgres:18-alpine `
+  -t niuniuapi:lingxi .
+```
+
 如果需要带版本标签，推荐同时打一个时间戳标签：
 
 ```powershell
@@ -97,7 +108,21 @@ docker build -t "niuniuapi:$tag" -t niuniuapi:lingxi .
 构建完成后本地验证镜像存在：
 
 ```powershell
-docker images niuniuapi
+docker images niuniuapi --format 'table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedSince}}\t{{.Size}}'
+```
+
+如果先构建了测试标签，例如 `niuniuapi:lingxi-local-test`，发布前再改成正式标签：
+
+```powershell
+docker tag niuniuapi:lingxi-local-test niuniuapi:lingxi
+```
+
+排障建议：
+
+```text
+1. 构建卡住时先加 --progress=plain，看具体卡在哪一步。
+2. 只检查本机 docker-buildx / Docker Desktop，不要登录服务器处理构建问题。
+3. 不要从生产服务器 docker save 或 docker pull 镜像回来，本地构建失败就继续修本地环境。
 ```
 
 ## 导出镜像包
@@ -280,3 +305,11 @@ docs/
 
 4. 当前 Dockerfile 使用 `npm install --no-package-lock`，是因为服务器 Docker 环境中 `pnpm` 曾出现 `EPERM: operation not permitted, write`。后续如果要恢复 pnpm，需要先在本机和服务器 Docker build 中完整验证。
 5. 服务器 compose 启动时使用 `--no-build`，这是防止再次触发线上构建的关键。
+6. 2026-06-13 本机 Docker 已验证通过一次镜像源构建，命令使用 `docker.1ms.run` 和 `--progress=plain`，生成镜像：
+
+```text
+REPOSITORY   TAG                 IMAGE ID       SIZE
+niuniuapi    lingxi-local-test   7851fa1c445d   144MB
+```
+
+这次没有发布、没有登录服务器、没有从服务器拉取或导出镜像。
