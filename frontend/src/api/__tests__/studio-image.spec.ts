@@ -1,7 +1,24 @@
-import { describe, expect, it } from 'vitest'
-import { buildNovelCoverPayload } from '@/api/studio'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const apiClientPost = vi.hoisted(() => vi.fn())
+const apiClientGet = vi.hoisted(() => vi.fn())
+
+vi.mock('@/api/client', () => ({
+  apiClient: {
+    get: apiClientGet,
+    post: apiClientPost,
+    put: vi.fn(),
+  },
+}))
+
+import { buildNovelCoverPayload, generateCover, getCoverJob, startCoverJob } from '@/api/studio'
 
 describe('buildNovelCoverPayload', () => {
+  beforeEach(() => {
+    apiClientGet.mockReset()
+    apiClientPost.mockReset()
+  })
+
   it('maps structured novel fields into a novel-mode cover request', () => {
     const p = buildNovelCoverPayload({
       title: '北境书塔',
@@ -32,5 +49,26 @@ describe('buildNovelCoverPayload', () => {
     expect(p.genre).toBeUndefined()
     expect(p.key_scene).toBeUndefined()
     expect(p.cover_title).toBeUndefined()
+  })
+
+  it('uses a long timeout for cover image generation jobs', async () => {
+    const payload = { mode: 'custom' as const, prompt: 'p', size: '1024x1024', count: 1 }
+    apiClientPost.mockResolvedValue({ data: { covers: [] } })
+
+    await generateCover(payload)
+
+    expect(apiClientPost).toHaveBeenCalledWith('/studio/cover', payload, expect.objectContaining({ timeout: 240000 }))
+  })
+
+  it('starts and polls cover generation jobs', async () => {
+    const payload = { mode: 'custom' as const, prompt: 'p', size: '1024x1024', count: 1 }
+    apiClientPost.mockResolvedValue({ data: { job_id: 'job-1', status: 'running', progress: 20 } })
+    apiClientGet.mockResolvedValue({ data: { job_id: 'job-1', status: 'succeeded', progress: 100, result: { covers: [] } } })
+
+    await expect(startCoverJob(payload)).resolves.toMatchObject({ job_id: 'job-1', status: 'running' })
+    await expect(getCoverJob('job-1')).resolves.toMatchObject({ status: 'succeeded' })
+
+    expect(apiClientPost).toHaveBeenCalledWith('/studio/cover/jobs', payload)
+    expect(apiClientGet).toHaveBeenCalledWith('/studio/cover/jobs/job-1')
   })
 })

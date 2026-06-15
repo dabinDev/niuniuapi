@@ -105,6 +105,19 @@ export interface CoverResult {
   covers: CoverImage[]
 }
 
+export type CoverJobStatus = 'running' | 'succeeded' | 'failed'
+
+export interface CoverJob {
+  job_id: string
+  status: CoverJobStatus
+  progress: number
+  message?: string
+  error?: string
+  result?: CoverResult
+  created_at?: string
+  updated_at?: string
+}
+
 /** 自定义模式：用户提示词 + 可选参考图 */
 export interface CoverCustomRequest {
   mode: 'custom'
@@ -129,10 +142,23 @@ export interface CoverNovelRequest {
 }
 
 export type CoverRequest = CoverCustomRequest | CoverNovelRequest
+const STUDIO_COVER_TIMEOUT_MS = 240_000
 
 /** 生成小说封面（多版候选）。 */
 export async function generateCover(payload: CoverRequest): Promise<CoverResult> {
-  const { data } = await apiClient.post<CoverResult>('/studio/cover', payload)
+  const { data } = await apiClient.post<CoverResult>('/studio/cover', payload, {
+    timeout: STUDIO_COVER_TIMEOUT_MS,
+  })
+  return data
+}
+
+export async function startCoverJob(payload: CoverRequest): Promise<CoverJob> {
+  const { data } = await apiClient.post<CoverJob>('/studio/cover/jobs', payload)
+  return data
+}
+
+export async function getCoverJob(jobId: string): Promise<CoverJob> {
+  const { data } = await apiClient.get<CoverJob>(`/studio/cover/jobs/${encodeURIComponent(jobId)}`)
   return data
 }
 
@@ -289,6 +315,8 @@ export const studioAPI = {
   getModelConfig,
   saveModelConfig,
   generateCover,
+  startCoverJob,
+  getCoverJob,
   generateScript,
 }
 

@@ -58,7 +58,15 @@
             <!-- 封面 -->
             <div v-if="selected.type === 'cover'" class="grid grid-cols-2 gap-3">
               <figure v-for="(c, i) in coverList" :key="i" class="overflow-hidden rounded-lg border border-gray-200 dark:border-dark-800" style="aspect-ratio: 3 / 4">
-                <img :src="c.url" alt="cover" class="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  class="work-cover-thumb"
+                  :data-test="`work-cover-thumb-${i}`"
+                  :aria-label="`查看作品封面 ${i + 1}`"
+                  @click="openCoverViewer(i)"
+                >
+                  <img :src="c.url" alt="cover" class="h-full w-full object-cover" />
+                </button>
               </figure>
             </div>
 
@@ -89,14 +97,24 @@
           </template>
         </section>
       </div>
+
+      <CoverImageViewer
+        v-if="viewerOpen && coverList.length"
+        :images="coverList"
+        :initial-index="viewerIndex"
+        :title="selected?.title || 'cover'"
+        :download-base-name="selected?.title || 'cover'"
+        @close="closeCoverViewer"
+      />
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { getWork, listWorks, type WorkDetail, type WorkItem } from '@/api/studio'
+import CoverImageViewer from '@/components/studio/CoverImageViewer.vue'
+import { getWork, listWorks, type CoverImage, type WorkDetail, type WorkItem } from '@/api/studio'
 
 const tabs = [
   { value: 'all', label: '全部' },
@@ -109,6 +127,8 @@ const works = ref<WorkItem[]>([])
 const loading = ref(false)
 const selected = ref<WorkDetail | null>(null)
 const detailLoading = ref(false)
+const viewerOpen = ref(false)
+const viewerIndex = ref(0)
 
 const typeLabelMap: Record<string, string> = { cover: '封面', teardown: '拆书', script: '剧本' }
 function typeLabel(t: string) {
@@ -124,7 +144,10 @@ function fmtTime(s: string) {
 }
 
 const out = computed<Record<string, unknown>>(() => (selected.value?.output as Record<string, unknown>) || {})
-const coverList = computed(() => (out.value.covers as { url: string }[]) || [])
+const coverList = computed<CoverImage[]>(() => {
+  const raw = (out.value.covers as CoverImage[]) || []
+  return raw.filter((cover) => cover && typeof cover.url === 'string' && cover.url.length > 0)
+})
 const report = computed(() => out.value as {
   overall_score?: number
   verdict?: string
@@ -148,6 +171,7 @@ async function load() {
 async function select(w: WorkItem) {
   detailLoading.value = true
   selected.value = null
+  closeCoverViewer()
   try {
     selected.value = await getWork(w.id)
   } catch {
@@ -157,12 +181,24 @@ async function select(w: WorkItem) {
   }
 }
 
+function openCoverViewer(index: number) {
+  if (!coverList.value.length) return
+  viewerIndex.value = Math.min(Math.max(index, 0), coverList.value.length - 1)
+  viewerOpen.value = true
+}
+
+function closeCoverViewer() {
+  viewerOpen.value = false
+}
+
 watch(activeType, () => {
   selected.value = null
+  closeCoverViewer()
   void load()
 })
 
 onMounted(load)
+onBeforeUnmount(closeCoverViewer)
 </script>
 
 <style scoped>
@@ -213,5 +249,36 @@ onMounted(load)
 .badge-script {
   background: #e0ecff;
   color: #1e51b8;
+}
+
+.work-cover-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: rgb(17 24 39);
+  cursor: zoom-in;
+}
+
+.work-cover-thumb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0);
+  background: linear-gradient(180deg, transparent 58%, rgba(0, 0, 0, 0.42));
+  opacity: 0;
+  transition: opacity 0.18s ease, border-color 0.18s ease;
+}
+
+.work-cover-thumb:hover::after,
+.work-cover-thumb:focus-visible::after {
+  border-color: rgba(255, 255, 255, 0.42);
+  opacity: 1;
+}
+
+.work-cover-thumb:focus-visible {
+  outline: 3px solid rgba(220, 56, 31, 0.5);
+  outline-offset: -3px;
 }
 </style>

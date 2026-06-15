@@ -55,6 +55,38 @@ describe('WorksView', () => {
     expect(wrapper.text()).toContain('签到无代价')
   })
 
+  it('opens cover works in the shared image viewer with multi-image navigation', async () => {
+    listWorks.mockResolvedValue([
+      { id: 2, type: 'cover', title: 'Cover Set', model: 'gpt-image-2', created_at: '2026-06-15T01:00:00Z' },
+    ])
+    getWork.mockResolvedValue({
+      id: 2,
+      type: 'cover',
+      title: 'Cover Set',
+      model: 'gpt-image-2',
+      created_at: '2026-06-15T01:00:00Z',
+      output: {
+        covers: [
+          { id: 'cover-a', url: 'cover-a.png' },
+          { id: 'cover-b', url: 'cover-b.png' },
+        ],
+      },
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('.work-card').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="work-cover-thumb-0"]').trigger('click')
+
+    expect(wrapper.find('[data-test="cover-viewer"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="cover-viewer-counter"]').text()).toContain('1 / 2')
+    expect(wrapper.find('[data-test="cover-viewer-image"]').attributes('src')).toBe('cover-a.png')
+
+    await wrapper.find('[data-test="cover-next"]').trigger('click')
+    expect(wrapper.find('[data-test="cover-viewer-image"]').attributes('src')).toBe('cover-b.png')
+  })
+
   it('shows empty state when there are no works', async () => {
     listWorks.mockResolvedValue([])
     const wrapper = mountView()

@@ -3,16 +3,22 @@ package handler
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -308,13 +314,177 @@ type coverRequest struct {
 	Count       int    `json:"count"`
 }
 
+const studioCoverJobTimeout = 15 * time.Minute
+
+type studioCoverJobStatus string
+
+const (
+	studioCoverJobRunning   studioCoverJobStatus = "running"
+	studioCoverJobSucceeded studioCoverJobStatus = "succeeded"
+	studioCoverJobFailed    studioCoverJobStatus = "failed"
+)
+
+type studioCoverJob struct {
+	ID        string
+	UserID    int64
+	Status    studioCoverJobStatus
+	Progress  int
+	Message   string
+	Error     string
+	Result    any
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type studioCoverJobResponse struct {
+	JobID     string               `json:"job_id"`
+	Status    studioCoverJobStatus `json:"status"`
+	Progress  int                  `json:"progress"`
+	Message   string               `json:"message,omitempty"`
+	Error     string               `json:"error,omitempty"`
+	Result    any                  `json:"result,omitempty"`
+	CreatedAt time.Time            `json:"created_at"`
+	UpdatedAt time.Time            `json:"updated_at"`
+}
+
+var studioCoverJobs = struct {
+	sync.RWMutex
+	jobs map[string]*studioCoverJob
+}{jobs: map[string]*studioCoverJob{}}
+
+type studioCoverGenerationPlan struct {
+	Request coverRequest
+	Model   string
+	APIKey  string
+	Prompt  string
+	Size    string
+	Count   int
+}
+
+type studioCoverHTTPError struct {
+	StatusCode int
+	Message    string
+	Body       []byte
+}
+
+func (e *studioCoverHTTPError) Error() string {
+	if e.Message != "" {
+		return e.Message
+	}
+	if len(e.Body) > 0 {
+		return string(e.Body)
+	}
+	return http.StatusText(e.StatusCode)
+}
+
+func newStudioCoverBadRequest(message string) error {
+	return &studioCoverHTTPError{StatusCode: http.StatusBadRequest, Message: message}
+}
+
+func newStudioCoverJobID() string {
+	var b [12]byte
+	if _, err := rand.Read(b[:]); err == nil {
+		return "cover_" + hex.EncodeToString(b[:])
+	}
+	return fmt.Sprintf("cover_%d", time.Now().UnixNano())
+}
+
+func snapshotStudioCoverJob(job *studioCoverJob) studioCoverJobResponse {
+	return studioCoverJobResponse{
+		JobID:     job.ID,
+		Status:    job.Status,
+		Progress:  job.Progress,
+		Message:   job.Message,
+		Error:     job.Error,
+		Result:    job.Result,
+		CreatedAt: job.CreatedAt,
+		UpdatedAt: job.UpdatedAt,
+	}
+}
+
+func storeStudioCoverJob(job *studioCoverJob) studioCoverJobResponse {
+	studioCoverJobs.Lock()
+	defer studioCoverJobs.Unlock()
+	studioCoverJobs.jobs[job.ID] = job
+	return snapshotStudioCoverJob(job)
+}
+
+func updateStudioCoverJob(id string, update func(*studioCoverJob)) (studioCoverJobResponse, bool) {
+	studioCoverJobs.Lock()
+	defer studioCoverJobs.Unlock()
+	job, ok := studioCoverJobs.jobs[id]
+	if !ok {
+		return studioCoverJobResponse{}, false
+	}
+	update(job)
+	job.UpdatedAt = time.Now()
+	return snapshotStudioCoverJob(job), true
+}
+
+func getStudioCoverJobSnapshot(id string) (studioCoverJobResponse, int64, bool) {
+	studioCoverJobs.RLock()
+	defer studioCoverJobs.RUnlock()
+	job, ok := studioCoverJobs.jobs[id]
+	if !ok {
+		return studioCoverJobResponse{}, 0, false
+	}
+	return snapshotStudioCoverJob(job), job.UserID, true
+}
+
+func studioCoverErrorMessage(err error) string {
+	var httpErr *studioCoverHTTPError
+	if errors.As(err, &httpErr) {
+		if httpErr.Message != "" {
+			return httpErr.Message
+		}
+		var parsed struct {
+			Message string `json:"message"`
+			Detail  string `json:"detail"`
+			Error   any    `json:"error"`
+		}
+		if len(httpErr.Body) > 0 && json.Unmarshal(httpErr.Body, &parsed) == nil {
+			if parsed.Message != "" {
+				return parsed.Message
+			}
+			if parsed.Detail != "" {
+				return parsed.Detail
+			}
+			switch v := parsed.Error.(type) {
+			case string:
+				return v
+			case map[string]any:
+				if msg, _ := v["message"].(string); msg != "" {
+					return msg
+				}
+			}
+		}
+	}
+	if err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+func writeStudioCoverGenerationError(c *gin.Context, err error) {
+	var httpErr *studioCoverHTTPError
+	if errors.As(err, &httpErr) {
+		statusCode := httpErr.StatusCode
+		if statusCode == 0 {
+			statusCode = http.StatusInternalServerError
+		}
+		if len(httpErr.Body) > 0 && httpErr.Message == "" {
+			c.Data(statusCode, "application/json; charset=utf-8", httpErr.Body)
+			return
+		}
+		response.Error(c, statusCode, studioCoverErrorMessage(err))
+		return
+	}
+	response.ErrorFrom(c, err)
+}
+
 func buildCoverPrompt(req coverRequest) string {
 	if req.Mode == "custom" {
-		p := strings.TrimSpace(req.Prompt)
-		if req.RefImage != "" {
-			p += "\n参考图：" + req.RefImage
-		}
-		return p
+		return strings.TrimSpace(req.Prompt)
 	}
 	var b strings.Builder
 	b.WriteString("为一本小说设计一张精美的竖版书籍封面插画。")
@@ -335,6 +505,327 @@ func buildCoverPrompt(req coverRequest) string {
 	}
 	b.WriteString("竖版书封构图，画面精致、细节丰富、有氛围感，画面中不要出现任何文字。")
 	return b.String()
+}
+
+const studioCoverMaxReferenceImageBytes = 20 << 20
+
+func isStudioGPTImageModel(model string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "gpt-image")
+}
+
+func normalizeStudioCoverCount(count int) int {
+	if count < 1 {
+		return 1
+	}
+	if count > 4 {
+		return 4
+	}
+	return count
+}
+
+func buildStudioCoverGatewayPayload(model, prompt, size string, count int, refImage string) (string, []byte, string, error) {
+	refImage = strings.TrimSpace(refImage)
+	if refImage == "" {
+		payload, err := json.Marshal(map[string]any{
+			"model":  model,
+			"prompt": prompt,
+			"n":      count,
+			"size":   size,
+		})
+		return "/v1/images/generations", payload, "application/json", err
+	}
+
+	imageBytes, mimeType, fileName, err := decodeStudioCoverReferenceImage(refImage)
+	if err != nil {
+		return "", nil, "", err
+	}
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	_ = writer.WriteField("model", model)
+	_ = writer.WriteField("prompt", prompt)
+	_ = writer.WriteField("n", strconv.Itoa(count))
+	_ = writer.WriteField("size", size)
+
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", `form-data; name="image"; filename="`+fileName+`"`)
+	header.Set("Content-Type", mimeType)
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		_ = writer.Close()
+		return "", nil, "", err
+	}
+	if _, err := part.Write(imageBytes); err != nil {
+		_ = writer.Close()
+		return "", nil, "", err
+	}
+	if err := writer.Close(); err != nil {
+		return "", nil, "", err
+	}
+	return "/v1/images/edits", buf.Bytes(), writer.FormDataContentType(), nil
+}
+
+func decodeStudioCoverReferenceImage(raw string) ([]byte, string, string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, "", "", fmt.Errorf("参考图为空")
+	}
+	if !strings.HasPrefix(strings.ToLower(raw), "data:") {
+		return nil, "", "", fmt.Errorf("参考图必须是上传后的图片数据")
+	}
+	header, encoded, ok := strings.Cut(raw, ",")
+	if !ok || strings.TrimSpace(encoded) == "" {
+		return nil, "", "", fmt.Errorf("参考图格式无效")
+	}
+	if !strings.Contains(strings.ToLower(header), ";base64") {
+		return nil, "", "", fmt.Errorf("参考图必须使用 base64 数据")
+	}
+
+	mimeType := "image/png"
+	mediaType := strings.TrimPrefix(header, "data:")
+	if idx := strings.Index(mediaType, ";"); idx >= 0 {
+		mediaType = mediaType[:idx]
+	}
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+	if strings.HasPrefix(mediaType, "image/") {
+		mimeType = mediaType
+	}
+	if !strings.HasPrefix(mimeType, "image/") {
+		return nil, "", "", fmt.Errorf("参考图必须是图片文件")
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("参考图解析失败")
+	}
+	if len(decoded) == 0 {
+		return nil, "", "", fmt.Errorf("参考图为空")
+	}
+	if len(decoded) > studioCoverMaxReferenceImageBytes {
+		return nil, "", "", fmt.Errorf("参考图不能超过 20MB")
+	}
+
+	fileName := "reference.png"
+	switch mimeType {
+	case "image/jpeg", "image/jpg":
+		fileName = "reference.jpg"
+	case "image/webp":
+		fileName = "reference.webp"
+	case "image/png":
+		fileName = "reference.png"
+	}
+	return decoded, mimeType, fileName, nil
+}
+
+func (h *StudioHandler) prepareStudioCoverGeneration(ctx context.Context, userID int64, req coverRequest) (*studioCoverGenerationPlan, error) {
+	row, err := h.client.StudioModelConfig.Query().
+		Where(studiomodelconfig.UserID(userID)).
+		Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, newStudioCoverBadRequest("请先在「API 密钥」页配置生图模型")
+		}
+		return nil, err
+	}
+	var cfg studioModelConfigDTO
+	if row.Config != "" {
+		_ = json.Unmarshal([]byte(row.Config), &cfg)
+	}
+	if cfg.Image == nil || cfg.Image.Model == "" {
+		return nil, newStudioCoverBadRequest("请先在「API 密钥」页配置生图模型")
+	}
+
+	ak, err := h.client.APIKey.Get(ctx, cfg.Image.APIKeyID)
+	if err != nil || ak.UserID != userID {
+		return nil, newStudioCoverBadRequest("生图密钥不可用，请到「API 密钥」页重新配置")
+	}
+
+	prompt := buildCoverPrompt(req)
+	if prompt == "" {
+		return nil, newStudioCoverBadRequest("请填写提示词或小说信息")
+	}
+	if strings.TrimSpace(req.RefImage) != "" {
+		if _, _, _, err := decodeStudioCoverReferenceImage(req.RefImage); err != nil {
+			return nil, newStudioCoverBadRequest(err.Error())
+		}
+	}
+
+	count := normalizeStudioCoverCount(req.Count)
+	size := req.Size
+	if size == "" {
+		size = "1024x1536"
+	}
+
+	return &studioCoverGenerationPlan{
+		Request: req,
+		Model:   cfg.Image.Model,
+		APIKey:  ak.Key,
+		Prompt:  prompt,
+		Size:    size,
+		Count:   count,
+	}, nil
+}
+
+func (h *StudioHandler) generateStudioCoverResult(ctx context.Context, userID int64, plan *studioCoverGenerationPlan, progress func(int, string)) (gin.H, error) {
+	port := os.Getenv("SERVER_PORT")
+	if port == "" {
+		port = "8080"
+	}
+	gatewayBaseURL := "http://127.0.0.1:" + port
+	httpClient := &http.Client{Timeout: studioCoverJobTimeout}
+
+	jobCount := 1
+	jobImageCount := plan.Count
+	if isStudioGPTImageModel(plan.Model) && plan.Count > 1 {
+		jobCount = plan.Count
+		jobImageCount = 1
+	}
+
+	covers := make([]gin.H, 0, plan.Count)
+	for jobIndex := 0; jobIndex < jobCount; jobIndex++ {
+		if progress != nil {
+			progress(10+(jobIndex*80)/jobCount, "正在等待上游生成图片")
+		}
+		endpoint, payload, contentType, err := buildStudioCoverGatewayPayload(plan.Model, plan.Prompt, plan.Size, jobImageCount, plan.Request.RefImage)
+		if err != nil {
+			return nil, newStudioCoverBadRequest(err.Error())
+		}
+		hreq, err := http.NewRequestWithContext(ctx, http.MethodPost, gatewayBaseURL+endpoint, bytes.NewReader(payload))
+		if err != nil {
+			return nil, err
+		}
+		hreq.Header.Set("Content-Type", contentType)
+		hreq.Header.Set("Authorization", "Bearer "+plan.APIKey)
+
+		hresp, err := httpClient.Do(hreq)
+		if err != nil {
+			return nil, err
+		}
+		body, _ := io.ReadAll(hresp.Body)
+		_ = hresp.Body.Close()
+		if hresp.StatusCode != http.StatusOK {
+			return nil, &studioCoverHTTPError{StatusCode: hresp.StatusCode, Body: body}
+		}
+
+		var gres struct {
+			Data []struct {
+				URL string `json:"url"`
+				B64 string `json:"b64_json"`
+			} `json:"data"`
+		}
+		_ = json.Unmarshal(body, &gres)
+		for _, d := range gres.Data {
+			u := d.URL
+			if u == "" && d.B64 != "" {
+				u = "data:image/png;base64," + d.B64
+			}
+			if u == "" {
+				continue
+			}
+			covers = append(covers, gin.H{"id": fmt.Sprintf("cover-%d", len(covers)), "url": u})
+		}
+		if progress != nil {
+			progress(10+((jobIndex+1)*80)/jobCount, "正在整理生成结果")
+		}
+	}
+	result := gin.H{"covers": covers}
+	ctitle := plan.Request.CoverTitle
+	if ctitle == "" {
+		ctitle = plan.Request.Title
+	}
+	h.recordCreation(ctx, userID, "cover", titleOr(ctitle, "封面"), plan.Request, result, plan.Model)
+	return result, nil
+}
+
+func (h *StudioHandler) runStudioCoverJob(jobID string, userID int64, plan *studioCoverGenerationPlan) {
+	ctx, cancel := context.WithTimeout(context.Background(), studioCoverJobTimeout)
+	defer cancel()
+
+	_, _ = updateStudioCoverJob(jobID, func(job *studioCoverJob) {
+		job.Status = studioCoverJobRunning
+		job.Progress = 10
+		job.Message = "正在提交生图任务"
+	})
+
+	result, err := h.generateStudioCoverResult(ctx, userID, plan, func(progress int, message string) {
+		_, _ = updateStudioCoverJob(jobID, func(job *studioCoverJob) {
+			job.Status = studioCoverJobRunning
+			job.Progress = progress
+			job.Message = message
+		})
+	})
+	if err != nil {
+		_, _ = updateStudioCoverJob(jobID, func(job *studioCoverJob) {
+			job.Status = studioCoverJobFailed
+			job.Progress = 100
+			job.Message = "生成失败"
+			job.Error = studioCoverErrorMessage(err)
+		})
+		return
+	}
+
+	_, _ = updateStudioCoverJob(jobID, func(job *studioCoverJob) {
+		job.Status = studioCoverJobSucceeded
+		job.Progress = 100
+		job.Message = "生成完成"
+		job.Result = result
+	})
+}
+
+func (h *StudioHandler) StartCoverJob(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req coverRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	plan, err := h.prepareStudioCoverGeneration(c.Request.Context(), subject.UserID, req)
+	if err != nil {
+		writeStudioCoverGenerationError(c, err)
+		return
+	}
+
+	now := time.Now()
+	job := &studioCoverJob{
+		ID:        newStudioCoverJobID(),
+		UserID:    subject.UserID,
+		Status:    studioCoverJobRunning,
+		Progress:  5,
+		Message:   "任务已提交，正在排队生成",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	snapshot := storeStudioCoverJob(job)
+	go h.runStudioCoverJob(job.ID, subject.UserID, plan)
+
+	response.Accepted(c, snapshot)
+}
+
+func (h *StudioHandler) GetCoverJob(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	jobID := strings.TrimSpace(c.Param("id"))
+	if jobID == "" {
+		response.BadRequest(c, "invalid job id")
+		return
+	}
+	snapshot, userID, ok := getStudioCoverJobSnapshot(jobID)
+	if !ok {
+		response.NotFound(c, "任务不存在")
+		return
+	}
+	if userID != subject.UserID {
+		response.Forbidden(c, "无权访问该任务")
+		return
+	}
+	response.Success(c, snapshot)
 }
 
 // GenerateCover 用已保存的生图模型 + 对应密钥，经网关生成封面候选图。
@@ -381,24 +872,11 @@ func (h *StudioHandler) GenerateCover(c *gin.Context) {
 		response.BadRequest(c, "请填写提示词或小说信息")
 		return
 	}
-	count := req.Count
-	if count < 1 {
-		count = 1
-	}
-	if count > 4 {
-		count = 4
-	}
+	count := normalizeStudioCoverCount(req.Count)
 	size := req.Size
 	if size == "" {
 		size = "1024x1536"
 	}
-
-	payload, _ := json.Marshal(map[string]any{
-		"model":  cfg.Image.Model,
-		"prompt": prompt,
-		"n":      count,
-		"size":   size,
-	})
 
 	// 自调网关需指向容器内部监听端口（SERVER_PORT，默认 8080），
 	// 不能用 c.Request.Host（那是外部映射端口，容器内不可达）。
@@ -406,46 +884,61 @@ func (h *StudioHandler) GenerateCover(c *gin.Context) {
 	if port == "" {
 		port = "8080"
 	}
-	gwURL := "http://127.0.0.1:" + port + "/v1/images/generations"
-	hreq, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, gwURL, bytes.NewReader(payload))
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	hreq.Header.Set("Content-Type", "application/json")
-	hreq.Header.Set("Authorization", "Bearer "+ak.Key)
-
+	gatewayBaseURL := "http://127.0.0.1:" + port
 	httpClient := &http.Client{Timeout: 180 * time.Second}
-	hresp, err := httpClient.Do(hreq)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	defer hresp.Body.Close()
-	body, _ := io.ReadAll(hresp.Body)
-	if hresp.StatusCode != http.StatusOK {
-		// 透传上游错误（含状态码），让前端按错误提示
-		c.Data(hresp.StatusCode, "application/json; charset=utf-8", body)
-		return
+
+	jobCount := 1
+	jobImageCount := count
+	if isStudioGPTImageModel(cfg.Image.Model) && count > 1 {
+		jobCount = count
+		jobImageCount = 1
 	}
 
-	var gres struct {
-		Data []struct {
-			URL string `json:"url"`
-			B64 string `json:"b64_json"`
-		} `json:"data"`
-	}
-	_ = json.Unmarshal(body, &gres)
-	covers := make([]gin.H, 0, len(gres.Data))
-	for i, d := range gres.Data {
-		u := d.URL
-		if u == "" && d.B64 != "" {
-			u = "data:image/png;base64," + d.B64
+	covers := make([]gin.H, 0, count)
+	for jobIndex := 0; jobIndex < jobCount; jobIndex++ {
+		endpoint, payload, contentType, err := buildStudioCoverGatewayPayload(cfg.Image.Model, prompt, size, jobImageCount, req.RefImage)
+		if err != nil {
+			response.BadRequest(c, err.Error())
+			return
 		}
-		if u == "" {
-			continue
+		hreq, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, gatewayBaseURL+endpoint, bytes.NewReader(payload))
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
 		}
-		covers = append(covers, gin.H{"id": fmt.Sprintf("cover-%d", i), "url": u})
+		hreq.Header.Set("Content-Type", contentType)
+		hreq.Header.Set("Authorization", "Bearer "+ak.Key)
+
+		hresp, err := httpClient.Do(hreq)
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		body, _ := io.ReadAll(hresp.Body)
+		_ = hresp.Body.Close()
+		if hresp.StatusCode != http.StatusOK {
+			// 透传上游错误（含状态码），让前端按错误提示
+			c.Data(hresp.StatusCode, "application/json; charset=utf-8", body)
+			return
+		}
+
+		var gres struct {
+			Data []struct {
+				URL string `json:"url"`
+				B64 string `json:"b64_json"`
+			} `json:"data"`
+		}
+		_ = json.Unmarshal(body, &gres)
+		for _, d := range gres.Data {
+			u := d.URL
+			if u == "" && d.B64 != "" {
+				u = "data:image/png;base64," + d.B64
+			}
+			if u == "" {
+				continue
+			}
+			covers = append(covers, gin.H{"id": fmt.Sprintf("cover-%d", len(covers)), "url": u})
+		}
 	}
 	result := gin.H{"covers": covers}
 	ctitle := req.CoverTitle
