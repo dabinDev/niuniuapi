@@ -373,6 +373,67 @@ const routes: RouteRecordRaw[] = [
     }
   },
 
+  // ==================== Studio (创作台) Routes ====================
+  {
+    path: '/studio',
+    redirect: '/studio/teardown'
+  },
+  {
+    path: '/studio/cover',
+    name: 'StudioCover',
+    component: () => import('@/views/studio/CoverView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Cover Generator',
+      titleKey: 'nav.studioCover'
+    }
+  },
+  {
+    path: '/studio/teardown',
+    name: 'StudioTeardown',
+    component: () => import('@/views/studio/TeardownView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Teardown & Hit Analysis',
+      titleKey: 'nav.studioTeardown'
+    }
+  },
+  {
+    path: '/studio/script',
+    name: 'StudioScript',
+    component: () => import('@/views/studio/ScriptView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Script Generator',
+      titleKey: 'nav.studioScript'
+    }
+  },
+  {
+    path: '/studio/downloader',
+    name: 'StudioDownloader',
+    component: () => import('@/views/studio/DownloaderView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Fanqie Downloader',
+      titleKey: 'nav.studioDownloader'
+    }
+  },
+  {
+    path: '/studio/works',
+    name: 'StudioWorks',
+    component: () => import('@/views/studio/WorksView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'My Works',
+      titleKey: 'nav.studioWorks'
+    }
+  },
+
   // ==================== Admin Routes ====================
   {
     path: '/admin',
@@ -740,7 +801,7 @@ router.beforeEach(async (to, _from, next) => {
     const menuItem = publicItems.find((item) => item.id === id)
       ?? (authStore.isAdmin ? adminSettingsStore.customMenuItems.find((item) => item.id === id) : undefined)
     if (menuItem?.label) {
-      const siteName = appStore.siteName || 'Sub2API'
+      const siteName = appStore.siteName || '烂番茄'
       document.title = `${menuItem.label} - ${siteName}`
     } else {
       document.title = resolveDocumentTitle(to.meta.title, appStore.siteName, to.meta.titleKey as string)

@@ -78,3 +78,8 @@ deploy/redis_data/
 .claude/
 issues/
 CLAUDE.md
+
+# Local agent/tooling artifacts
+.omx/
+.superpowers/
+.playwright-cli/

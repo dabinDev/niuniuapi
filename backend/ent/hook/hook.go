@@ -141,6 +141,18 @@ func (f ChannelMonitorRequestTemplateFunc) Mutate(ctx context.Context, m ent.Mut
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChannelMonitorRequestTemplateMutation", m)
 }
 
+// The CreationTaskFunc type is an adapter to allow the use of ordinary
+// function as CreationTask mutator.
+type CreationTaskFunc func(context.Context, *ent.CreationTaskMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CreationTaskFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CreationTaskMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CreationTaskMutation", m)
+}
+
 // The ErrorPassthroughRuleFunc type is an adapter to allow the use of ordinary
 // function as ErrorPassthroughRule mutator.
 type ErrorPassthroughRuleFunc func(context.Context, *ent.ErrorPassthroughRuleMutation) (ent.Value, error)
@@ -307,6 +319,18 @@ func (f SettingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SettingMutation", m)
+}
+
+// The StudioModelConfigFunc type is an adapter to allow the use of ordinary
+// function as StudioModelConfig mutator.
+type StudioModelConfigFunc func(context.Context, *ent.StudioModelConfigMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f StudioModelConfigFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.StudioModelConfigMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.StudioModelConfigMutation", m)
 }
 
 // The SubscriptionPlanFunc type is an adapter to allow the use of ordinary

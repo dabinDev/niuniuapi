@@ -10,7 +10,7 @@
     <div class="sidebar-header" :class="{ 'sidebar-header-collapsed': sidebarCollapsed }">
       <!-- Custom Logo or Default Logo -->
       <div class="sidebar-logo flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl shadow-glow">
-        <img v-if="settingsLoaded" :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
+        <img v-if="settingsLoaded" :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
       </div>
       <div class="sidebar-brand" :class="{ 'sidebar-brand-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
         <span class="sidebar-brand-title text-lg font-bold text-gray-900 dark:text-white">
@@ -23,10 +23,36 @@
 
     <!-- Navigation -->
     <nav class="sidebar-nav scrollbar-hide">
+      <!-- Studio (创作台): visible to all authenticated users -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+          <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
+            {{ t('nav.studio') }}
+          </span>
+        </div>
+        <router-link
+          v-for="item in studioNavItems"
+          :key="item.path"
+          :to="item.path"
+          class="sidebar-link mb-1"
+          :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
+          :title="sidebarCollapsed ? item.label : undefined"
+          @click="handleMenuItemClick(item.path)"
+        >
+          <component :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+          <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+        </router-link>
+      </div>
+
       <!-- Admin View: Admin menu first, then personal menu -->
       <template v-if="isAdmin">
-        <!-- Admin Section -->
+        <!-- Admin Section (系统管理) — admin-only -->
         <div class="sidebar-section">
+          <div class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+            <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
+              {{ t('nav.systemManage') }}
+            </span>
+          </div>
           <template v-for="item in adminNavItems" :key="item.path">
             <!-- Collapsible group (has children) -->
             <template v-if="item.children?.length">
@@ -97,7 +123,7 @@
         <div v-if="!authStore.isSimpleMode" class="sidebar-section">
           <div class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
             <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
-              {{ t('nav.myAccount') }}
+              {{ t('nav.tokenClub') }}
             </span>
           </div>
 
@@ -121,6 +147,11 @@
       <!-- Regular User View -->
       <template v-else-if="!appStore.backendModeEnabled">
         <div class="sidebar-section">
+          <div class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+            <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
+              {{ t('nav.tokenClub') }}
+            </span>
+          </div>
           <router-link
             v-for="item in userNavItems"
             :key="item.path"
@@ -643,6 +674,16 @@ const ChevronDownIcon = {
     )
 }
 
+// Emoji-based icons for the Studio (创作台) section — on-brand, no SVG needed.
+const makeEmojiIcon = (emoji: string) => ({
+  render: () => h('span', { class: 'inline-flex h-5 w-5 items-center justify-center text-[1.05rem] leading-none' }, emoji)
+})
+const StudioCoverIcon = makeEmojiIcon('🎨')
+const StudioTeardownIcon = makeEmojiIcon('🔍')
+const StudioScriptIcon = makeEmojiIcon('🎬')
+const StudioDownloaderIcon = makeEmojiIcon('📥')
+const StudioWorksIcon = makeEmojiIcon('🗂️')
+
 // Public-settings flags go through the registry in utils/featureFlags.ts,
 // which handles the opt-in vs opt-out fallback when settings haven't loaded
 // yet. Admin-only flags (not in public settings) stay inline below.
@@ -690,6 +731,15 @@ function finalizeNav(items: NavItem[]): NavItem[] {
   const visible = applyFeatureFlags(items)
   return authStore.isSimpleMode ? visible.filter(item => !item.hideInSimpleMode) : visible
 }
+
+// Studio (创作台) navigation items — visible to all authenticated users.
+const studioNavItems = computed((): NavItem[] => [
+  { path: '/studio/cover', label: t('nav.studioCover'), icon: StudioCoverIcon },
+  { path: '/studio/teardown', label: t('nav.studioTeardown'), icon: StudioTeardownIcon },
+  { path: '/studio/script', label: t('nav.studioScript'), icon: StudioScriptIcon },
+  { path: '/studio/downloader', label: t('nav.studioDownloader'), icon: StudioDownloaderIcon },
+  { path: '/studio/works', label: t('nav.studioWorks'), icon: StudioWorksIcon },
+])
 
 // User navigation items (for regular users)
 const userNavItems = computed((): NavItem[] => finalizeNav(buildSelfNavItems(true)))

@@ -597,6 +597,35 @@ var (
 			},
 		},
 	}
+	// CreationTasksColumns holds the columns for the "creation_tasks" table.
+	CreationTasksColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "type", Type: field.TypeString, Size: 32},
+		{Name: "title", Type: field.TypeString, Size: 200, Default: ""},
+		{Name: "input", Type: field.TypeString, Nullable: true, Size: 2147483647, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "output", Type: field.TypeString, Nullable: true, Size: 2147483647, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "model", Type: field.TypeString, Size: 128, Default: ""},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// CreationTasksTable holds the schema information for the "creation_tasks" table.
+	CreationTasksTable = &schema.Table{
+		Name:       "creation_tasks",
+		Columns:    CreationTasksColumns,
+		PrimaryKey: []*schema.Column{CreationTasksColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "creationtask_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{CreationTasksColumns[1], CreationTasksColumns[7]},
+			},
+			{
+				Name:    "creationtask_user_id_type",
+				Unique:  false,
+				Columns: []*schema.Column{CreationTasksColumns[1], CreationTasksColumns[2]},
+			},
+		},
+	}
 	// ErrorPassthroughRulesColumns holds the columns for the "error_passthrough_rules" table.
 	ErrorPassthroughRulesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1230,6 +1259,19 @@ var (
 		Columns:    SettingsColumns,
 		PrimaryKey: []*schema.Column{SettingsColumns[0]},
 	}
+	// StudioModelConfigsColumns holds the columns for the "studio_model_configs" table.
+	StudioModelConfigsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "user_id", Type: field.TypeInt64, Unique: true},
+		{Name: "config", Type: field.TypeString, Size: 2147483647, Default: "{}", SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// StudioModelConfigsTable holds the schema information for the "studio_model_configs" table.
+	StudioModelConfigsTable = &schema.Table{
+		Name:       "studio_model_configs",
+		Columns:    StudioModelConfigsColumns,
+		PrimaryKey: []*schema.Column{StudioModelConfigsColumns[0]},
+	}
 	// SubscriptionPlansColumns holds the columns for the "subscription_plans" table.
 	SubscriptionPlansColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1785,6 +1827,7 @@ var (
 		ChannelMonitorDailyRollupsTable,
 		ChannelMonitorHistoriesTable,
 		ChannelMonitorRequestTemplatesTable,
+		CreationTasksTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
 		IdempotencyRecordsTable,
@@ -1799,6 +1842,7 @@ var (
 		RedeemCodesTable,
 		SecuritySecretsTable,
 		SettingsTable,
+		StudioModelConfigsTable,
 		SubscriptionPlansTable,
 		TLSFingerprintProfilesTable,
 		UsageCleanupTasksTable,
@@ -1858,6 +1902,9 @@ func init() {
 	ChannelMonitorRequestTemplatesTable.Annotation = &entsql.Annotation{
 		Table: "channel_monitor_request_templates",
 	}
+	CreationTasksTable.Annotation = &entsql.Annotation{
+		Table: "creation_tasks",
+	}
 	ErrorPassthroughRulesTable.Annotation = &entsql.Annotation{
 		Table: "error_passthrough_rules",
 	}
@@ -1908,6 +1955,9 @@ func init() {
 	}
 	SettingsTable.Annotation = &entsql.Annotation{
 		Table: "settings",
+	}
+	StudioModelConfigsTable.Annotation = &entsql.Annotation{
+		Table: "studio_model_configs",
 	}
 	SubscriptionPlansTable.Annotation = &entsql.Annotation{
 		Table: "subscription_plans",

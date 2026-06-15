@@ -1,5 +1,6 @@
 <template>
   <AppLayout>
+    <KeyModelConfigPanel class="mb-4" />
     <TablePageLayout>
       <template #filters>
         <div class="flex flex-col gap-3">
@@ -1056,6 +1057,7 @@ const { t } = useI18n()
 import { keysAPI, authAPI, usageAPI, userGroupsAPI } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
+import KeyModelConfigPanel from '@/components/studio/KeyModelConfigPanel.vue'
 	import DataTable from '@/components/common/DataTable.vue'
 	import Pagination from '@/components/common/Pagination.vue'
 	import BaseDialog from '@/components/common/BaseDialog.vue'

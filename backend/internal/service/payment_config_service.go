@@ -14,27 +14,28 @@ import (
 )
 
 const (
-	SettingPaymentEnabled      = "payment_enabled"
-	SettingMinRechargeAmount   = "MIN_RECHARGE_AMOUNT"
-	SettingMaxRechargeAmount   = "MAX_RECHARGE_AMOUNT"
-	SettingDailyRechargeLimit  = "DAILY_RECHARGE_LIMIT"
-	SettingOrderTimeoutMinutes = "ORDER_TIMEOUT_MINUTES"
-	SettingMaxPendingOrders    = "MAX_PENDING_ORDERS"
-	SettingEnabledPaymentTypes = "ENABLED_PAYMENT_TYPES"
-	SettingLoadBalanceStrategy = "LOAD_BALANCE_STRATEGY"
-	SettingBalancePayDisabled  = "BALANCE_PAYMENT_DISABLED"
-	SettingBalanceRechargeMult = "BALANCE_RECHARGE_MULTIPLIER"
-	SettingRechargeFeeRate     = "RECHARGE_FEE_RATE"
-	SettingProductNamePrefix   = "PRODUCT_NAME_PREFIX"
-	SettingProductNameSuffix   = "PRODUCT_NAME_SUFFIX"
-	SettingHelpImageURL        = "PAYMENT_HELP_IMAGE_URL"
-	SettingHelpText            = "PAYMENT_HELP_TEXT"
-	SettingCancelRateLimitOn   = "CANCEL_RATE_LIMIT_ENABLED"
-	SettingCancelRateLimitMax  = "CANCEL_RATE_LIMIT_MAX"
-	SettingCancelWindowSize    = "CANCEL_RATE_LIMIT_WINDOW"
-	SettingCancelWindowUnit    = "CANCEL_RATE_LIMIT_UNIT"
-	SettingCancelWindowMode    = "CANCEL_RATE_LIMIT_WINDOW_MODE"
-	SettingAlipayForceQRCode   = "ALIPAY_FORCE_QRCODE"
+	SettingPaymentEnabled       = "payment_enabled"
+	SettingMinRechargeAmount    = "MIN_RECHARGE_AMOUNT"
+	SettingMaxRechargeAmount    = "MAX_RECHARGE_AMOUNT"
+	SettingDailyRechargeLimit   = "DAILY_RECHARGE_LIMIT"
+	SettingOrderTimeoutMinutes  = "ORDER_TIMEOUT_MINUTES"
+	SettingMaxPendingOrders     = "MAX_PENDING_ORDERS"
+	SettingEnabledPaymentTypes  = "ENABLED_PAYMENT_TYPES"
+	SettingLoadBalanceStrategy  = "LOAD_BALANCE_STRATEGY"
+	SettingBalancePayDisabled   = "BALANCE_PAYMENT_DISABLED"
+	SettingBalanceRechargeMult  = "BALANCE_RECHARGE_MULTIPLIER"
+	SettingBalanceRechargeTiers = "BALANCE_RECHARGE_TIERS"
+	SettingRechargeFeeRate      = "RECHARGE_FEE_RATE"
+	SettingProductNamePrefix    = "PRODUCT_NAME_PREFIX"
+	SettingProductNameSuffix    = "PRODUCT_NAME_SUFFIX"
+	SettingHelpImageURL         = "PAYMENT_HELP_IMAGE_URL"
+	SettingHelpText             = "PAYMENT_HELP_TEXT"
+	SettingCancelRateLimitOn    = "CANCEL_RATE_LIMIT_ENABLED"
+	SettingCancelRateLimitMax   = "CANCEL_RATE_LIMIT_MAX"
+	SettingCancelWindowSize     = "CANCEL_RATE_LIMIT_WINDOW"
+	SettingCancelWindowUnit     = "CANCEL_RATE_LIMIT_UNIT"
+	SettingCancelWindowMode     = "CANCEL_RATE_LIMIT_WINDOW_MODE"
+	SettingAlipayForceQRCode    = "ALIPAY_FORCE_QRCODE"
 )
 
 // Default values for payment configuration settings.
@@ -45,22 +46,23 @@ const (
 
 // PaymentConfig holds the payment system configuration.
 type PaymentConfig struct {
-	Enabled                   bool     `json:"enabled"`
-	MinAmount                 float64  `json:"min_amount"`
-	MaxAmount                 float64  `json:"max_amount"`
-	DailyLimit                float64  `json:"daily_limit"`
-	OrderTimeoutMin           int      `json:"order_timeout_minutes"`
-	MaxPendingOrders          int      `json:"max_pending_orders"`
-	EnabledTypes              []string `json:"enabled_payment_types"`
-	BalanceDisabled           bool     `json:"balance_disabled"`
-	BalanceRechargeMultiplier float64  `json:"balance_recharge_multiplier"`
-	RechargeFeeRate           float64  `json:"recharge_fee_rate"`
-	LoadBalanceStrategy       string   `json:"load_balance_strategy"`
-	ProductNamePrefix         string   `json:"product_name_prefix"`
-	ProductNameSuffix         string   `json:"product_name_suffix"`
-	HelpImageURL              string   `json:"help_image_url"`
-	HelpText                  string   `json:"help_text"`
-	StripePublishableKey      string   `json:"stripe_publishable_key,omitempty"`
+	Enabled                   bool                  `json:"enabled"`
+	MinAmount                 float64               `json:"min_amount"`
+	MaxAmount                 float64               `json:"max_amount"`
+	DailyLimit                float64               `json:"daily_limit"`
+	OrderTimeoutMin           int                   `json:"order_timeout_minutes"`
+	MaxPendingOrders          int                   `json:"max_pending_orders"`
+	EnabledTypes              []string              `json:"enabled_payment_types"`
+	BalanceDisabled           bool                  `json:"balance_disabled"`
+	BalanceRechargeMultiplier float64               `json:"balance_recharge_multiplier"`
+	BalanceRechargeTiers      []BalanceRechargeTier `json:"balance_recharge_tiers"`
+	RechargeFeeRate           float64               `json:"recharge_fee_rate"`
+	LoadBalanceStrategy       string                `json:"load_balance_strategy"`
+	ProductNamePrefix         string                `json:"product_name_prefix"`
+	ProductNameSuffix         string                `json:"product_name_suffix"`
+	HelpImageURL              string                `json:"help_image_url"`
+	HelpText                  string                `json:"help_text"`
+	StripePublishableKey      string                `json:"stripe_publishable_key,omitempty"`
 
 	// Cancel rate limit settings
 	CancelRateLimitEnabled bool   `json:"cancel_rate_limit_enabled"`
@@ -204,7 +206,7 @@ func (s *PaymentConfigService) GetPaymentConfig(ctx context.Context) (*PaymentCo
 	keys := []string{
 		SettingPaymentEnabled, SettingMinRechargeAmount, SettingMaxRechargeAmount,
 		SettingDailyRechargeLimit, SettingOrderTimeoutMinutes, SettingMaxPendingOrders,
-		SettingEnabledPaymentTypes, SettingBalancePayDisabled, SettingBalanceRechargeMult, SettingRechargeFeeRate, SettingLoadBalanceStrategy,
+		SettingEnabledPaymentTypes, SettingBalancePayDisabled, SettingBalanceRechargeMult, SettingBalanceRechargeTiers, SettingRechargeFeeRate, SettingLoadBalanceStrategy,
 		SettingProductNamePrefix, SettingProductNameSuffix,
 		SettingHelpImageURL, SettingHelpText,
 		SettingCancelRateLimitOn, SettingCancelRateLimitMax,
@@ -233,6 +235,7 @@ func (s *PaymentConfigService) parsePaymentConfig(vals map[string]string) *Payme
 		MaxPendingOrders:          pcParseInt(vals[SettingMaxPendingOrders], defaultMaxPendingOrders),
 		BalanceDisabled:           vals[SettingBalancePayDisabled] == "true",
 		BalanceRechargeMultiplier: normalizeBalanceRechargeMultiplier(pcParseFloat(vals[SettingBalanceRechargeMult], defaultBalanceRechargeMultiplier)),
+		BalanceRechargeTiers:      parseBalanceRechargeTiers(vals[SettingBalanceRechargeTiers]),
 		RechargeFeeRate:           pcParseFloat(vals[SettingRechargeFeeRate], 0),
 		LoadBalanceStrategy:       vals[SettingLoadBalanceStrategy],
 		ProductNamePrefix:         vals[SettingProductNamePrefix],

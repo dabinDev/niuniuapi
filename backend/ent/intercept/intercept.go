@@ -19,6 +19,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/creationtask"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -34,6 +35,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
+	"github.com/Wei-Shaw/sub2api/ent/studiomodelconfig"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
@@ -397,6 +399,33 @@ func (f TraverseChannelMonitorRequestTemplate) Traverse(ctx context.Context, q e
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.ChannelMonitorRequestTemplateQuery", q)
+}
+
+// The CreationTaskFunc type is an adapter to allow the use of ordinary function as a Querier.
+type CreationTaskFunc func(context.Context, *ent.CreationTaskQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f CreationTaskFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.CreationTaskQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.CreationTaskQuery", q)
+}
+
+// The TraverseCreationTask type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseCreationTask func(context.Context, *ent.CreationTaskQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseCreationTask) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseCreationTask) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.CreationTaskQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.CreationTaskQuery", q)
 }
 
 // The ErrorPassthroughRuleFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -777,6 +806,33 @@ func (f TraverseSetting) Traverse(ctx context.Context, q ent.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *ent.SettingQuery", q)
 }
 
+// The StudioModelConfigFunc type is an adapter to allow the use of ordinary function as a Querier.
+type StudioModelConfigFunc func(context.Context, *ent.StudioModelConfigQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f StudioModelConfigFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.StudioModelConfigQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.StudioModelConfigQuery", q)
+}
+
+// The TraverseStudioModelConfig type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseStudioModelConfig func(context.Context, *ent.StudioModelConfigQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseStudioModelConfig) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseStudioModelConfig) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.StudioModelConfigQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.StudioModelConfigQuery", q)
+}
+
 // The SubscriptionPlanFunc type is an adapter to allow the use of ordinary function as a Querier.
 type SubscriptionPlanFunc func(context.Context, *ent.SubscriptionPlanQuery) (ent.Value, error)
 
@@ -1072,6 +1128,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ChannelMonitorHistoryQuery, predicate.ChannelMonitorHistory, channelmonitorhistory.OrderOption]{typ: ent.TypeChannelMonitorHistory, tq: q}, nil
 	case *ent.ChannelMonitorRequestTemplateQuery:
 		return &query[*ent.ChannelMonitorRequestTemplateQuery, predicate.ChannelMonitorRequestTemplate, channelmonitorrequesttemplate.OrderOption]{typ: ent.TypeChannelMonitorRequestTemplate, tq: q}, nil
+	case *ent.CreationTaskQuery:
+		return &query[*ent.CreationTaskQuery, predicate.CreationTask, creationtask.OrderOption]{typ: ent.TypeCreationTask, tq: q}, nil
 	case *ent.ErrorPassthroughRuleQuery:
 		return &query[*ent.ErrorPassthroughRuleQuery, predicate.ErrorPassthroughRule, errorpassthroughrule.OrderOption]{typ: ent.TypeErrorPassthroughRule, tq: q}, nil
 	case *ent.GroupQuery:
@@ -1100,6 +1158,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.SecuritySecretQuery, predicate.SecuritySecret, securitysecret.OrderOption]{typ: ent.TypeSecuritySecret, tq: q}, nil
 	case *ent.SettingQuery:
 		return &query[*ent.SettingQuery, predicate.Setting, setting.OrderOption]{typ: ent.TypeSetting, tq: q}, nil
+	case *ent.StudioModelConfigQuery:
+		return &query[*ent.StudioModelConfigQuery, predicate.StudioModelConfig, studiomodelconfig.OrderOption]{typ: ent.TypeStudioModelConfig, tq: q}, nil
 	case *ent.SubscriptionPlanQuery:
 		return &query[*ent.SubscriptionPlanQuery, predicate.SubscriptionPlan, subscriptionplan.OrderOption]{typ: ent.TypeSubscriptionPlan, tq: q}, nil
 	case *ent.TLSFingerprintProfileQuery:

@@ -19,6 +19,18 @@ func RegisterUserRoutes(
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
 	authenticated.Use(middleware.BackendModeUserGuard(settingService))
 	{
+		// 创作台：模型配置（生图 / 文案模型）
+		studio := authenticated.Group("/studio")
+		{
+			studio.GET("/model-config", h.Studio.GetModelConfig)
+			studio.PUT("/model-config", h.Studio.SaveModelConfig)
+			studio.POST("/cover", h.Studio.GenerateCover)
+			studio.POST("/teardown", h.Studio.GenerateTeardown)
+			studio.POST("/script", h.Studio.GenerateScript)
+			studio.GET("/works", h.Studio.ListWorks)
+			studio.GET("/works/:id", h.Studio.GetWork)
+		}
+
 		// 用户接口
 		user := authenticated.Group("/user")
 		{

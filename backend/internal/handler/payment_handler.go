@@ -137,6 +137,7 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		Plans:                     planList,
 		BalanceDisabled:           cfg.BalanceDisabled,
 		BalanceRechargeMultiplier: cfg.BalanceRechargeMultiplier,
+		BalanceRechargeTiers:      cfg.BalanceRechargeTiers,
 		RechargeFeeRate:           cfg.RechargeFeeRate,
 		HelpText:                  cfg.HelpText,
 		HelpImageURL:              cfg.HelpImageURL,
@@ -152,6 +153,7 @@ type checkoutInfoResponse struct {
 	Plans                     []checkoutPlan                  `json:"plans"`
 	BalanceDisabled           bool                            `json:"balance_disabled"`
 	BalanceRechargeMultiplier float64                         `json:"balance_recharge_multiplier"`
+	BalanceRechargeTiers      []service.BalanceRechargeTier   `json:"balance_recharge_tiers"`
 	RechargeFeeRate           float64                         `json:"recharge_fee_rate"`
 	HelpText                  string                          `json:"help_text"`
 	HelpImageURL              string                          `json:"help_image_url"`

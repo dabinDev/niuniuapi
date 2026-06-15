@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import PaymentView from '../PaymentView.vue'
 import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
+import AmountInput from '@/components/payment/AmountInput.vue'
 
 const routeState = vi.hoisted(() => ({
   path: '/purchase',
@@ -414,5 +415,68 @@ describe('PaymentView WeChat JSAPI flow', () => {
     expect(showWarning).toHaveBeenCalledWith('payment.errors.mobilePaymentFallbackToQr')
     expect(showError).not.toHaveBeenCalled()
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toContain('weixin://wxpay/bizpayurl?pr=fallback-native')
+  })
+
+  it('uses configured balance recharge tiers for quick amounts and credited preview', async () => {
+    routeState.query = {}
+    getCheckoutInfo.mockResolvedValue({
+      data: {
+        ...checkoutInfoFixture().data,
+        balance_recharge_multiplier: 2.5,
+        balance_recharge_tiers: [
+          { amount: 10, credit: 20 },
+          { amount: 30, credit: 70 },
+          { amount: 300, credit: 850 },
+        ],
+      },
+    })
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Teleport: true,
+          Transition: false,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const amountInput = wrapper.findComponent({ name: 'AmountInput' })
+    expect(amountInput.props('amounts')).toEqual([10, 30, 300])
+
+    await amountInput.vm.$emit('update:modelValue', 30)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('$70.00')
+  })
+
+  it('puts subscription first and shows a subscription value hint on recharge', async () => {
+    routeState.query = {}
+    getCheckoutInfo.mockResolvedValue(checkoutInfoWithPlansFixture())
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Teleport: true,
+          Transition: false,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const tabTexts = wrapper.findAll('button').map(button => button.text())
+    expect(tabTexts.indexOf('payment.tabSubscribe')).toBeLessThan(tabTexts.indexOf('payment.tabTopUp'))
+    expect(wrapper.findComponent({ name: 'SubscriptionPlanCard' }).exists()).toBe(true)
+
+    const rechargeTab = wrapper.findAll('button').find(button => button.text() === 'payment.tabTopUp')
+    expect(rechargeTab).toBeTruthy()
+    await rechargeTab?.trigger('click')
+
+    expect(wrapper.text()).toContain('payment.rechargeSubscriptionHintTitle')
+    expect(wrapper.text()).toContain('payment.rechargeSubscriptionHintBody')
   })
 })

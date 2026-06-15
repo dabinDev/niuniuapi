@@ -23,6 +23,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/creationtask"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -37,6 +38,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
+	"github.com/Wei-Shaw/sub2api/ent/studiomodelconfig"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
@@ -118,6 +120,7 @@ func checkColumn(t, c string) error {
 			channelmonitordailyrollup.Table:     channelmonitordailyrollup.ValidColumn,
 			channelmonitorhistory.Table:         channelmonitorhistory.ValidColumn,
 			channelmonitorrequesttemplate.Table: channelmonitorrequesttemplate.ValidColumn,
+			creationtask.Table:                  creationtask.ValidColumn,
 			errorpassthroughrule.Table:          errorpassthroughrule.ValidColumn,
 			group.Table:                         group.ValidColumn,
 			idempotencyrecord.Table:             idempotencyrecord.ValidColumn,
@@ -132,6 +135,7 @@ func checkColumn(t, c string) error {
 			redeemcode.Table:                    redeemcode.ValidColumn,
 			securitysecret.Table:                securitysecret.ValidColumn,
 			setting.Table:                       setting.ValidColumn,
+			studiomodelconfig.Table:             studiomodelconfig.ValidColumn,
 			subscriptionplan.Table:              subscriptionplan.ValidColumn,
 			tlsfingerprintprofile.Table:         tlsfingerprintprofile.ValidColumn,
 			usagecleanuptask.Table:              usagecleanuptask.ValidColumn,

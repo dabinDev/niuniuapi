@@ -39,6 +39,9 @@ type ChannelMonitorHistory func(*sql.Selector)
 // ChannelMonitorRequestTemplate is the predicate function for channelmonitorrequesttemplate builders.
 type ChannelMonitorRequestTemplate func(*sql.Selector)
 
+// CreationTask is the predicate function for creationtask builders.
+type CreationTask func(*sql.Selector)
+
 // ErrorPassthroughRule is the predicate function for errorpassthroughrule builders.
 type ErrorPassthroughRule func(*sql.Selector)
 
@@ -80,6 +83,9 @@ type SecuritySecret func(*sql.Selector)
 
 // Setting is the predicate function for setting builders.
 type Setting func(*sql.Selector)
+
+// StudioModelConfig is the predicate function for studiomodelconfig builders.
+type StudioModelConfig func(*sql.Selector)
 
 // SubscriptionPlan is the predicate function for subscriptionplan builders.
 type SubscriptionPlan func(*sql.Selector)

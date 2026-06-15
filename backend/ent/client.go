@@ -26,6 +26,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/creationtask"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -40,6 +41,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
+	"github.com/Wei-Shaw/sub2api/ent/studiomodelconfig"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
@@ -81,6 +83,8 @@ type Client struct {
 	ChannelMonitorHistory *ChannelMonitorHistoryClient
 	// ChannelMonitorRequestTemplate is the client for interacting with the ChannelMonitorRequestTemplate builders.
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
+	// CreationTask is the client for interacting with the CreationTask builders.
+	CreationTask *CreationTaskClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
@@ -109,6 +113,8 @@ type Client struct {
 	SecuritySecret *SecuritySecretClient
 	// Setting is the client for interacting with the Setting builders.
 	Setting *SettingClient
+	// StudioModelConfig is the client for interacting with the StudioModelConfig builders.
+	StudioModelConfig *StudioModelConfigClient
 	// SubscriptionPlan is the client for interacting with the SubscriptionPlan builders.
 	SubscriptionPlan *SubscriptionPlanClient
 	// TLSFingerprintProfile is the client for interacting with the TLSFingerprintProfile builders.
@@ -151,6 +157,7 @@ func (c *Client) init() {
 	c.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(c.config)
 	c.ChannelMonitorHistory = NewChannelMonitorHistoryClient(c.config)
 	c.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(c.config)
+	c.CreationTask = NewCreationTaskClient(c.config)
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
 	c.Group = NewGroupClient(c.config)
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
@@ -165,6 +172,7 @@ func (c *Client) init() {
 	c.RedeemCode = NewRedeemCodeClient(c.config)
 	c.SecuritySecret = NewSecuritySecretClient(c.config)
 	c.Setting = NewSettingClient(c.config)
+	c.StudioModelConfig = NewStudioModelConfigClient(c.config)
 	c.SubscriptionPlan = NewSubscriptionPlanClient(c.config)
 	c.TLSFingerprintProfile = NewTLSFingerprintProfileClient(c.config)
 	c.UsageCleanupTask = NewUsageCleanupTaskClient(c.config)
@@ -278,6 +286,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
+		CreationTask:                  NewCreationTaskClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
@@ -292,6 +301,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		RedeemCode:                    NewRedeemCodeClient(cfg),
 		SecuritySecret:                NewSecuritySecretClient(cfg),
 		Setting:                       NewSettingClient(cfg),
+		StudioModelConfig:             NewStudioModelConfigClient(cfg),
 		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
 		TLSFingerprintProfile:         NewTLSFingerprintProfileClient(cfg),
 		UsageCleanupTask:              NewUsageCleanupTaskClient(cfg),
@@ -332,6 +342,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
+		CreationTask:                  NewCreationTaskClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
@@ -346,6 +357,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		RedeemCode:                    NewRedeemCodeClient(cfg),
 		SecuritySecret:                NewSecuritySecretClient(cfg),
 		Setting:                       NewSettingClient(cfg),
+		StudioModelConfig:             NewStudioModelConfigClient(cfg),
 		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
 		TLSFingerprintProfile:         NewTLSFingerprintProfileClient(cfg),
 		UsageCleanupTask:              NewUsageCleanupTaskClient(cfg),
@@ -388,13 +400,14 @@ func (c *Client) Use(hooks ...Hook) {
 		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
 		c.AuthIdentity, c.AuthIdentityChannel, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
-		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
-		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.ChannelMonitorRequestTemplate, c.CreationTask, c.ErrorPassthroughRule,
+		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
 		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.StudioModelConfig, c.SubscriptionPlan, c.TLSFingerprintProfile,
+		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
+		c.UserAttributeDefinition, c.UserAttributeValue, c.UserPlatformQuota,
+		c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -407,13 +420,14 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
 		c.AuthIdentity, c.AuthIdentityChannel, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
-		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
-		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.ChannelMonitorRequestTemplate, c.CreationTask, c.ErrorPassthroughRule,
+		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
 		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.StudioModelConfig, c.SubscriptionPlan, c.TLSFingerprintProfile,
+		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
+		c.UserAttributeDefinition, c.UserAttributeValue, c.UserPlatformQuota,
+		c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -444,6 +458,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChannelMonitorHistory.mutate(ctx, m)
 	case *ChannelMonitorRequestTemplateMutation:
 		return c.ChannelMonitorRequestTemplate.mutate(ctx, m)
+	case *CreationTaskMutation:
+		return c.CreationTask.mutate(ctx, m)
 	case *ErrorPassthroughRuleMutation:
 		return c.ErrorPassthroughRule.mutate(ctx, m)
 	case *GroupMutation:
@@ -472,6 +488,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.SecuritySecret.mutate(ctx, m)
 	case *SettingMutation:
 		return c.Setting.mutate(ctx, m)
+	case *StudioModelConfigMutation:
+		return c.StudioModelConfig.mutate(ctx, m)
 	case *SubscriptionPlanMutation:
 		return c.SubscriptionPlan.mutate(ctx, m)
 	case *TLSFingerprintProfileMutation:
@@ -2264,6 +2282,139 @@ func (c *ChannelMonitorRequestTemplateClient) mutate(ctx context.Context, m *Cha
 		return (&ChannelMonitorRequestTemplateDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ChannelMonitorRequestTemplate mutation op: %q", m.Op())
+	}
+}
+
+// CreationTaskClient is a client for the CreationTask schema.
+type CreationTaskClient struct {
+	config
+}
+
+// NewCreationTaskClient returns a client for the CreationTask from the given config.
+func NewCreationTaskClient(c config) *CreationTaskClient {
+	return &CreationTaskClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `creationtask.Hooks(f(g(h())))`.
+func (c *CreationTaskClient) Use(hooks ...Hook) {
+	c.hooks.CreationTask = append(c.hooks.CreationTask, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `creationtask.Intercept(f(g(h())))`.
+func (c *CreationTaskClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CreationTask = append(c.inters.CreationTask, interceptors...)
+}
+
+// Create returns a builder for creating a CreationTask entity.
+func (c *CreationTaskClient) Create() *CreationTaskCreate {
+	mutation := newCreationTaskMutation(c.config, OpCreate)
+	return &CreationTaskCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CreationTask entities.
+func (c *CreationTaskClient) CreateBulk(builders ...*CreationTaskCreate) *CreationTaskCreateBulk {
+	return &CreationTaskCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CreationTaskClient) MapCreateBulk(slice any, setFunc func(*CreationTaskCreate, int)) *CreationTaskCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CreationTaskCreateBulk{err: fmt.Errorf("calling to CreationTaskClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CreationTaskCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CreationTaskCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CreationTask.
+func (c *CreationTaskClient) Update() *CreationTaskUpdate {
+	mutation := newCreationTaskMutation(c.config, OpUpdate)
+	return &CreationTaskUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CreationTaskClient) UpdateOne(_m *CreationTask) *CreationTaskUpdateOne {
+	mutation := newCreationTaskMutation(c.config, OpUpdateOne, withCreationTask(_m))
+	return &CreationTaskUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CreationTaskClient) UpdateOneID(id int64) *CreationTaskUpdateOne {
+	mutation := newCreationTaskMutation(c.config, OpUpdateOne, withCreationTaskID(id))
+	return &CreationTaskUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CreationTask.
+func (c *CreationTaskClient) Delete() *CreationTaskDelete {
+	mutation := newCreationTaskMutation(c.config, OpDelete)
+	return &CreationTaskDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CreationTaskClient) DeleteOne(_m *CreationTask) *CreationTaskDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CreationTaskClient) DeleteOneID(id int64) *CreationTaskDeleteOne {
+	builder := c.Delete().Where(creationtask.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CreationTaskDeleteOne{builder}
+}
+
+// Query returns a query builder for CreationTask.
+func (c *CreationTaskClient) Query() *CreationTaskQuery {
+	return &CreationTaskQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCreationTask},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CreationTask entity by its id.
+func (c *CreationTaskClient) Get(ctx context.Context, id int64) (*CreationTask, error) {
+	return c.Query().Where(creationtask.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CreationTaskClient) GetX(ctx context.Context, id int64) *CreationTask {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *CreationTaskClient) Hooks() []Hook {
+	return c.hooks.CreationTask
+}
+
+// Interceptors returns the client interceptors.
+func (c *CreationTaskClient) Interceptors() []Interceptor {
+	return c.inters.CreationTask
+}
+
+func (c *CreationTaskClient) mutate(ctx context.Context, m *CreationTaskMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CreationTaskCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CreationTaskUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CreationTaskUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CreationTaskDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CreationTask mutation op: %q", m.Op())
 	}
 }
 
@@ -4453,6 +4604,139 @@ func (c *SettingClient) mutate(ctx context.Context, m *SettingMutation) (Value, 
 	}
 }
 
+// StudioModelConfigClient is a client for the StudioModelConfig schema.
+type StudioModelConfigClient struct {
+	config
+}
+
+// NewStudioModelConfigClient returns a client for the StudioModelConfig from the given config.
+func NewStudioModelConfigClient(c config) *StudioModelConfigClient {
+	return &StudioModelConfigClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `studiomodelconfig.Hooks(f(g(h())))`.
+func (c *StudioModelConfigClient) Use(hooks ...Hook) {
+	c.hooks.StudioModelConfig = append(c.hooks.StudioModelConfig, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `studiomodelconfig.Intercept(f(g(h())))`.
+func (c *StudioModelConfigClient) Intercept(interceptors ...Interceptor) {
+	c.inters.StudioModelConfig = append(c.inters.StudioModelConfig, interceptors...)
+}
+
+// Create returns a builder for creating a StudioModelConfig entity.
+func (c *StudioModelConfigClient) Create() *StudioModelConfigCreate {
+	mutation := newStudioModelConfigMutation(c.config, OpCreate)
+	return &StudioModelConfigCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of StudioModelConfig entities.
+func (c *StudioModelConfigClient) CreateBulk(builders ...*StudioModelConfigCreate) *StudioModelConfigCreateBulk {
+	return &StudioModelConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *StudioModelConfigClient) MapCreateBulk(slice any, setFunc func(*StudioModelConfigCreate, int)) *StudioModelConfigCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &StudioModelConfigCreateBulk{err: fmt.Errorf("calling to StudioModelConfigClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*StudioModelConfigCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &StudioModelConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for StudioModelConfig.
+func (c *StudioModelConfigClient) Update() *StudioModelConfigUpdate {
+	mutation := newStudioModelConfigMutation(c.config, OpUpdate)
+	return &StudioModelConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *StudioModelConfigClient) UpdateOne(_m *StudioModelConfig) *StudioModelConfigUpdateOne {
+	mutation := newStudioModelConfigMutation(c.config, OpUpdateOne, withStudioModelConfig(_m))
+	return &StudioModelConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *StudioModelConfigClient) UpdateOneID(id int64) *StudioModelConfigUpdateOne {
+	mutation := newStudioModelConfigMutation(c.config, OpUpdateOne, withStudioModelConfigID(id))
+	return &StudioModelConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for StudioModelConfig.
+func (c *StudioModelConfigClient) Delete() *StudioModelConfigDelete {
+	mutation := newStudioModelConfigMutation(c.config, OpDelete)
+	return &StudioModelConfigDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *StudioModelConfigClient) DeleteOne(_m *StudioModelConfig) *StudioModelConfigDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *StudioModelConfigClient) DeleteOneID(id int64) *StudioModelConfigDeleteOne {
+	builder := c.Delete().Where(studiomodelconfig.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &StudioModelConfigDeleteOne{builder}
+}
+
+// Query returns a query builder for StudioModelConfig.
+func (c *StudioModelConfigClient) Query() *StudioModelConfigQuery {
+	return &StudioModelConfigQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeStudioModelConfig},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a StudioModelConfig entity by its id.
+func (c *StudioModelConfigClient) Get(ctx context.Context, id int64) (*StudioModelConfig, error) {
+	return c.Query().Where(studiomodelconfig.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *StudioModelConfigClient) GetX(ctx context.Context, id int64) *StudioModelConfig {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *StudioModelConfigClient) Hooks() []Hook {
+	return c.hooks.StudioModelConfig
+}
+
+// Interceptors returns the client interceptors.
+func (c *StudioModelConfigClient) Interceptors() []Interceptor {
+	return c.inters.StudioModelConfig
+}
+
+func (c *StudioModelConfigClient) mutate(ctx context.Context, m *StudioModelConfigMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&StudioModelConfigCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&StudioModelConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&StudioModelConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&StudioModelConfigDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown StudioModelConfig mutation op: %q", m.Op())
+	}
+}
+
 // SubscriptionPlanClient is a client for the SubscriptionPlan schema.
 type SubscriptionPlanClient struct {
 	config
@@ -6211,24 +6495,24 @@ type (
 	hooks struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
-		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
-		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
-		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
-		PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Hook
+		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CreationTask,
+		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
+		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+		StudioModelConfig, SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask,
+		UsageLog, User, UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
-		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
-		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
-		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
-		PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Interceptor
+		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CreationTask,
+		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
+		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+		StudioModelConfig, SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask,
+		UsageLog, User, UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

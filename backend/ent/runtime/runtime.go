@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/creationtask"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -31,6 +32,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/schema"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
+	"github.com/Wei-Shaw/sub2api/ent/studiomodelconfig"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
@@ -690,6 +692,28 @@ func init() {
 	channelmonitorrequesttemplate.DefaultBodyOverrideMode = channelmonitorrequesttemplateDescBodyOverrideMode.Default.(string)
 	// channelmonitorrequesttemplate.BodyOverrideModeValidator is a validator for the "body_override_mode" field. It is called by the builders before save.
 	channelmonitorrequesttemplate.BodyOverrideModeValidator = channelmonitorrequesttemplateDescBodyOverrideMode.Validators[0].(func(string) error)
+	creationtaskFields := schema.CreationTask{}.Fields()
+	_ = creationtaskFields
+	// creationtaskDescType is the schema descriptor for type field.
+	creationtaskDescType := creationtaskFields[1].Descriptor()
+	// creationtask.TypeValidator is a validator for the "type" field. It is called by the builders before save.
+	creationtask.TypeValidator = creationtaskDescType.Validators[0].(func(string) error)
+	// creationtaskDescTitle is the schema descriptor for title field.
+	creationtaskDescTitle := creationtaskFields[2].Descriptor()
+	// creationtask.DefaultTitle holds the default value on creation for the title field.
+	creationtask.DefaultTitle = creationtaskDescTitle.Default.(string)
+	// creationtask.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	creationtask.TitleValidator = creationtaskDescTitle.Validators[0].(func(string) error)
+	// creationtaskDescModel is the schema descriptor for model field.
+	creationtaskDescModel := creationtaskFields[5].Descriptor()
+	// creationtask.DefaultModel holds the default value on creation for the model field.
+	creationtask.DefaultModel = creationtaskDescModel.Default.(string)
+	// creationtask.ModelValidator is a validator for the "model" field. It is called by the builders before save.
+	creationtask.ModelValidator = creationtaskDescModel.Validators[0].(func(string) error)
+	// creationtaskDescCreatedAt is the schema descriptor for created_at field.
+	creationtaskDescCreatedAt := creationtaskFields[6].Descriptor()
+	// creationtask.DefaultCreatedAt holds the default value on creation for the created_at field.
+	creationtask.DefaultCreatedAt = creationtaskDescCreatedAt.Default.(func() time.Time)
 	errorpassthroughruleMixin := schema.ErrorPassthroughRule{}.Mixin()
 	errorpassthroughruleMixinFields0 := errorpassthroughruleMixin[0].Fields()
 	_ = errorpassthroughruleMixinFields0
@@ -1479,6 +1503,18 @@ func init() {
 	setting.DefaultUpdatedAt = settingDescUpdatedAt.Default.(func() time.Time)
 	// setting.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	setting.UpdateDefaultUpdatedAt = settingDescUpdatedAt.UpdateDefault.(func() time.Time)
+	studiomodelconfigFields := schema.StudioModelConfig{}.Fields()
+	_ = studiomodelconfigFields
+	// studiomodelconfigDescConfig is the schema descriptor for config field.
+	studiomodelconfigDescConfig := studiomodelconfigFields[1].Descriptor()
+	// studiomodelconfig.DefaultConfig holds the default value on creation for the config field.
+	studiomodelconfig.DefaultConfig = studiomodelconfigDescConfig.Default.(string)
+	// studiomodelconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	studiomodelconfigDescUpdatedAt := studiomodelconfigFields[2].Descriptor()
+	// studiomodelconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	studiomodelconfig.DefaultUpdatedAt = studiomodelconfigDescUpdatedAt.Default.(func() time.Time)
+	// studiomodelconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	studiomodelconfig.UpdateDefaultUpdatedAt = studiomodelconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
 	subscriptionplanFields := schema.SubscriptionPlan{}.Fields()
 	_ = subscriptionplanFields
 	// subscriptionplanDescName is the schema descriptor for name field.

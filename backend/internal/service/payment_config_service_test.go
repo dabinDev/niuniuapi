@@ -197,6 +197,28 @@ func TestParsePaymentConfig(t *testing.T) {
 			t.Fatalf("expected empty EnabledTypes for empty string, got %v", cfg.EnabledTypes)
 		}
 	})
+
+	t.Run("balance recharge tiers are parsed and sorted", func(t *testing.T) {
+		t.Parallel()
+		vals := map[string]string{
+			SettingBalanceRechargeTiers: `[{"amount":300,"credit":850},{"amount":10,"credit":20},{"amount":0,"credit":99},{"amount":30,"credit":70}]`,
+		}
+		cfg := svc.parsePaymentConfig(vals)
+
+		if len(cfg.BalanceRechargeTiers) != 3 {
+			t.Fatalf("BalanceRechargeTiers len = %d, want 3 (%v)", len(cfg.BalanceRechargeTiers), cfg.BalanceRechargeTiers)
+		}
+		want := []BalanceRechargeTier{
+			{Amount: 10, Credit: 20},
+			{Amount: 30, Credit: 70},
+			{Amount: 300, Credit: 850},
+		}
+		for i := range want {
+			if cfg.BalanceRechargeTiers[i] != want[i] {
+				t.Fatalf("BalanceRechargeTiers[%d] = %+v, want %+v", i, cfg.BalanceRechargeTiers[i], want[i])
+			}
+		}
+	})
 }
 
 func TestGetBasePaymentType(t *testing.T) {

@@ -135,6 +135,9 @@ docs/*
 !docs/legal/*.md
 .serena/
 .codex/
+.omx/
+.superpowers/
+.playwright-cli/
 frontend/coverage/
 aicodex
 output/

@@ -1,32 +1,27 @@
 <template>
-  <div class="lingxi-home min-h-screen overflow-hidden bg-[#f7f3ea] text-[#211f1a] dark:bg-[#151715] dark:text-[#f6f0e4]">
-    <header class="relative z-30 border-b border-[#272016]/10 bg-[#f7f3ea]/86 backdrop-blur-xl dark:border-white/10 dark:bg-[#151715]/86">
-      <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-7 lg:px-10">
-        <router-link to="/home" class="brand-mark group flex items-center gap-3" aria-label="灵犀文创首页">
-          <span class="brand-seal">犀</span>
-          <span>
-            <span class="block text-base font-semibold tracking-[0.18em] text-[#211f1a] dark:text-[#f6f0e4]">灵犀文创</span>
-            <span class="block text-[11px] tracking-[0.24em] text-[#716957] dark:text-[#b7ad9a]">LINGXI CREATIVE</span>
+  <div class="lanfanqie-home">
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <nav class="nav-inner">
+        <router-link to="/home" class="brand" aria-label="烂番茄首页">
+          <span class="brand-seal">🍅</span>
+          <span class="brand-text">
+            <span class="brand-name">烂番茄</span>
+            <span class="brand-sub">LANFANQIE · 毒舌创作质检台</span>
           </span>
         </router-link>
 
-        <div class="flex items-center gap-2 sm:gap-3">
-          <router-link to="/purchase" class="hidden px-3 py-2 text-sm font-medium text-[#554d3f] transition hover:text-[#0d766f] dark:text-[#d7cdbb] dark:hover:text-[#70e0d4] sm:inline-flex">
-            套餐
-          </router-link>
+        <div class="nav-actions">
+          <a href="#report" class="nav-link">烂度报告</a>
+          <a href="#features" class="nav-link">创作台</a>
+          <router-link to="/purchase" class="nav-link">Token 套餐</router-link>
           <LocaleSwitcher class="hidden sm:block" />
-          <button
-            class="grid h-9 w-9 place-items-center border border-[#2a2418]/12 bg-white/55 text-[#5c5546] transition hover:border-[#0d766f]/40 hover:text-[#0d766f] dark:border-white/12 dark:bg-white/6 dark:text-[#d8cebd] dark:hover:text-[#70e0d4]"
-            :title="isDark ? '切换到浅色' : '切换到深色'"
-            @click="toggleTheme"
-          >
+          <button class="icon-btn" :title="isDark ? '浅色' : '深色'" @click="toggleTheme">
             <Icon v-if="isDark" name="sun" size="sm" />
             <Icon v-else name="moon" size="sm" />
           </button>
-          <router-link
-            :to="isAuthenticated ? dashboardPath : '/login'"
-            class="nav-primary"
-          >
+          <router-link :to="isAuthenticated ? dashboardPath : '/login'" class="btn-login">
             {{ isAuthenticated ? '进入控制台' : '登录' }}
           </router-link>
         </div>
@@ -34,151 +29,158 @@
     </header>
 
     <main>
-      <section ref="heroSection" class="relative border-b border-[#272016]/10 dark:border-white/10">
-        <div class="paper-grid absolute inset-0"></div>
-        <div class="mx-auto grid min-h-[calc(100vh-73px)] max-w-7xl items-center gap-10 px-5 py-12 sm:px-7 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-16">
-          <div class="relative z-10 max-w-2xl">
-            <div class="hero-kicker mb-5 inline-flex items-center gap-2 border border-[#0d766f]/20 bg-white/55 px-3 py-2 text-xs font-semibold tracking-[0.18em] text-[#0d766f] shadow-sm dark:border-[#70e0d4]/25 dark:bg-white/6 dark:text-[#70e0d4]">
-              AI 写作 · AIGC 视频 · 创作 Skill
-            </div>
-            <h1 class="hero-title text-balance text-[clamp(3rem,8vw,7.6rem)] font-black leading-[0.88] tracking-[-0.02em]">
-              灵犀文创
+      <!-- HERO -->
+      <section class="hero">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="hero-inner">
+          <div class="hero-copy fade-up">
+            <p class="kicker">专治三烂 · 烂梗 / 烂节奏 / 烂套路</p>
+            <h1 class="hero-title">
+              你的稿子<span class="hl">烂</span>在哪，<br />
+              烂番茄一眼挑出来。
             </h1>
-            <p class="hero-subtitle mt-6 max-w-xl text-balance text-xl font-medium leading-8 text-[#4f493c] dark:text-[#d9cfbc] sm:text-2xl sm:leading-9">
-              为小说作者与内容创作者打造的 AI 创作平台。
+            <p class="hero-sub">
+              别等读者划走才发现。把章节丢进来，先做一次毒舌烂度体检——套路、注水、纸片人、假反转全给你标红，再告诉你怎么改成能卖的。
             </p>
-            <p class="hero-copy mt-5 max-w-2xl text-base leading-8 text-[#746c5c] dark:text-[#aaa18f]">
-              从灵感、角色、世界观到章节续写和视频分镜，把零散想法整理成可以持续生长的作品宇宙。
-            </p>
-
-            <div class="hero-actions mt-8 flex flex-col gap-3 sm:flex-row">
-              <router-link :to="isAuthenticated ? dashboardPath : '/register'" class="cta-main">
-                {{ isAuthenticated ? '进入创作台' : '开始创作' }}
-                <span aria-hidden="true">→</span>
-              </router-link>
-              <router-link to="/purchase" class="cta-secondary">
-                查看创作套餐
-              </router-link>
+            <div class="hero-actions">
+              <router-link :to="studioPath" class="cta">开始拆书质检 <span aria-hidden="true">→</span></router-link>
+              <router-link to="/studio/cover" class="cta-ghost">生成小说封面</router-link>
             </div>
-
-            <div class="hero-metrics mt-10 grid max-w-xl grid-cols-3 border-y border-[#2a2418]/10 py-4 dark:border-white/10">
-              <div v-for="metric in metrics" :key="metric.label" class="metric-item">
-                <strong>{{ metric.value }}</strong>
-                <span>{{ metric.label }}</span>
-              </div>
-            </div>
+            <ul class="rot-tags">
+              <li>🩸 烂梗雷达</li>
+              <li>🦠 节奏尸检</li>
+              <li>🔥 爆款复盘</li>
+            </ul>
           </div>
 
-          <div ref="deskScene" class="creator-desk relative z-10">
-            <div class="desk-shell">
-              <div class="desk-toolbar">
-                <span>长篇项目</span>
-                <div class="flex gap-1.5">
-                  <i></i><i></i><i></i>
-                </div>
+          <!-- 烂番茄主视觉 -->
+          <div class="rot-stage fade-up delay-1">
+            <div class="rot-orbit orbit-a" aria-hidden="true"></div>
+            <div class="rot-orbit orbit-b" aria-hidden="true"></div>
+            <div class="rot-splat" aria-hidden="true"></div>
+            <div class="tomato floaty">
+              <span class="t-leaf" aria-hidden="true"></span>
+              <span class="t-shine" aria-hidden="true"></span>
+              <span class="t-spot s1" aria-hidden="true"></span>
+              <span class="t-spot s2" aria-hidden="true"></span>
+              <span class="t-spot s3" aria-hidden="true"></span>
+              <span class="t-mold" aria-hidden="true"></span>
+              <span class="t-crack" aria-hidden="true"></span>
+              <span class="t-drip" aria-hidden="true"></span>
+            </div>
+            <div class="rot-stamp">烂<small>ROTTEN</small></div>
+            <span class="rot-fly f1" aria-hidden="true">🪰</span>
+            <span class="rot-fly f2" aria-hidden="true">🪰</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 烂度报告 showcase -->
+      <section id="report" class="report-band">
+        <div class="band-inner report-grid">
+          <div class="report-copy fade-up">
+            <p class="eyebrow">烂度报告 · ROTTEN REPORT</p>
+            <h2 class="band-title">不哄你写得好，<br />专挑你写得烂。</h2>
+            <p class="band-desc">每次拆书都吐一份毒舌诊断：综合分、维度评分、烂点清单和能直接动刀的改写建议。烂得明明白白，改得清清楚楚。</p>
+            <router-link :to="studioPath" class="cta small">丢一章试试 <span aria-hidden="true">→</span></router-link>
+          </div>
+
+          <div class="report-card fade-up delay-1">
+            <div class="rc-head">
+              <div>
+                <span class="rc-eyebrow">爆款潜力分</span>
+                <strong class="rc-score">{{ rottenReport.score }}<small>/100</small></strong>
               </div>
-              <div class="desk-layout">
-                <aside class="desk-sidebar">
-                  <div class="sidebar-title">灵感库</div>
-                  <button v-for="item in sidebarItems" :key="item" class="sidebar-pill">{{ item }}</button>
-                </aside>
-                <div class="desk-main">
-                  <div class="chapter-card floating-card">
-                    <div class="card-eyebrow">Chapter 07</div>
-                    <h3>雨夜，主角第一次听见城市的心跳</h3>
-                    <p>系统正在根据角色动机、上一章情绪曲线与伏笔清单生成下一段转折...</p>
-                    <div class="writing-lines">
-                      <span></span><span></span><span></span>
-                    </div>
-                  </div>
-                  <div class="desk-card character-card floating-card">
-                    <span>角色卡</span>
-                    <strong>林见微</strong>
-                    <p>外冷内热，记忆缺口，擅长解构梦境。</p>
-                  </div>
-                  <div class="desk-card world-card floating-card">
-                    <span>世界观</span>
-                    <strong>北境书塔</strong>
-                    <p>每本书都会生成一座可进入的城市。</p>
-                  </div>
-                  <div class="skill-node node-a">爽点增强</div>
-                  <div class="skill-node node-b">伏笔检查</div>
-                  <div class="skill-node node-c">视频分镜</div>
-                  <svg class="skill-lines" viewBox="0 0 420 280" aria-hidden="true">
-                    <path class="flow-path" d="M70 214 C130 142 180 120 250 154 S338 150 374 82" />
-                    <path class="flow-path delay" d="M92 74 C150 112 190 168 250 154 S320 182 366 220" />
-                  </svg>
-                </div>
+              <span class="rc-stamp">烂</span>
+            </div>
+            <p class="rc-verdict">“{{ rottenReport.verdict }}”</p>
+            <div class="rc-bars">
+              <div v-for="b in rottenReport.bars" :key="b.label" class="rc-bar">
+                <span class="rc-bar-label">{{ b.label }}</span>
+                <span class="rc-bar-track"><span class="rc-bar-fill" :style="{ width: b.value + '%' }"></span></span>
+                <span class="rc-bar-val">{{ b.value }}</span>
               </div>
+            </div>
+            <div class="rc-rotten">
+              <span class="rc-rotten-title">🍅 烂点</span>
+              <ul><li v-for="(r, i) in rottenReport.rotten" :key="i">{{ r }}</li></ul>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="section-band">
-        <div class="mx-auto max-w-7xl px-5 py-16 sm:px-7 lg:px-10">
-          <div class="section-heading">
-            <p>创作流程</p>
-            <h2>让故事从一句灵感，走到完整作品。</h2>
+      <!-- 创作台入口 -->
+      <section id="features" class="section">
+        <div class="band-inner">
+          <div class="section-head fade-up">
+            <p class="eyebrow">创作台入口</p>
+            <h2 class="band-title">不是陪你温柔写稿，<br />是把能卖的部分挑出来。</h2>
           </div>
-          <div class="mt-10 grid gap-4 md:grid-cols-4">
-            <article v-for="(step, index) in workflow" :key="step.title" class="workflow-card reveal-card">
-              <span>{{ String(index + 1).padStart(2, '0') }}</span>
-              <h3>{{ step.title }}</h3>
-              <p>{{ step.desc }}</p>
+          <div class="feature-grid">
+            <router-link
+              v-for="(f, i) in features"
+              :key="f.title"
+              :to="f.to"
+              class="feature-card fade-up"
+              :style="{ animationDelay: 0.05 * i + 's' }"
+            >
+              <span class="f-index">{{ f.index }}</span>
+              <span class="f-tag">{{ f.tag }}</span>
+              <h3>{{ f.title }}</h3>
+              <p>{{ f.desc }}</p>
+              <span class="f-go" aria-hidden="true">→</span>
+            </router-link>
+          </div>
+        </div>
+      </section>
+
+      <!-- 流程 -->
+      <section class="section alt">
+        <div class="band-inner flow-grid">
+          <div class="section-head sticky fade-up">
+            <p class="eyebrow">烂稿化验流程</p>
+            <h2 class="band-title">丢进去的是草稿，<br />吐出来的是可执行清单。</h2>
+          </div>
+          <div class="flow-stack">
+            <article v-for="(s, i) in workflow" :key="s.title" class="flow-card fade-up" :style="{ animationDelay: 0.06 * i + 's' }">
+              <span class="flow-step">{{ s.step }}</span>
+              <div>
+                <h3>{{ s.title }}</h3>
+                <p>{{ s.desc }}</p>
+              </div>
             </article>
           </div>
         </div>
       </section>
 
-      <section class="section-band alt">
-        <div class="mx-auto grid max-w-7xl gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[0.8fr_1.2fr] lg:px-10">
-          <div class="section-heading sticky-copy">
-            <p>Skill 平台</p>
-            <h2>把作者的经验，沉淀成可复用的创作技能。</h2>
-            <router-link to="/purchase" class="mt-6 inline-flex w-fit border border-[#0d766f]/30 px-4 py-2 text-sm font-semibold text-[#0d766f] transition hover:bg-[#0d766f] hover:text-white dark:text-[#70e0d4] dark:hover:text-[#151715]">
-              解锁更多 Skill
-            </router-link>
-          </div>
-          <div class="skill-grid">
-            <article v-for="skill in skills" :key="skill.title" class="skill-card reveal-card">
-              <div class="skill-symbol">{{ skill.symbol }}</div>
-              <h3>{{ skill.title }}</h3>
-              <p>{{ skill.desc }}</p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="mx-auto max-w-7xl px-5 py-16 sm:px-7 lg:px-10">
-        <div class="conversion-panel reveal-card">
-          <div>
-            <p class="text-sm font-semibold tracking-[0.2em] text-[#0d766f] dark:text-[#70e0d4]">创作额度</p>
-            <h2 class="mt-3 max-w-2xl text-3xl font-black leading-tight sm:text-5xl">
-              购买创作额度，开启更长的故事线。
-            </h2>
-            <p class="mt-4 max-w-2xl text-base leading-8 text-[#746c5c] dark:text-[#b5ac9b]">
-              套餐用于 AI 写作、角色设定、章节生成、AIGC 视频脚本与后续插件调用。支付和额度仍由底层系统稳定管理。
-            </p>
-          </div>
-          <div class="flex flex-col gap-3 sm:flex-row lg:flex-col">
-            <router-link to="/purchase" class="cta-main">查看套餐 <span aria-hidden="true">→</span></router-link>
-            <router-link :to="isAuthenticated ? dashboardPath : '/login'" class="cta-secondary">
-              {{ isAuthenticated ? '进入控制台' : '登录账户' }}
-            </router-link>
+      <!-- Token -->
+      <section class="section">
+        <div class="band-inner">
+          <div class="conversion fade-up">
+            <div>
+              <p class="eyebrow">Token 套餐</p>
+              <h2 class="band-title">拆书、封面、剧本、质检，<br />一套额度跑完整条生产线。</h2>
+              <p class="band-desc">底层支付和额度沿用现有系统，前台只把它包装成作者能理解的创作燃料。</p>
+            </div>
+            <div class="conversion-actions">
+              <router-link to="/purchase" class="cta">查看 Token 套餐 <span aria-hidden="true">→</span></router-link>
+              <router-link :to="isAuthenticated ? studioPath : '/register'" class="cta-ghost">
+                {{ isAuthenticated ? '进入创作台' : '免费注册' }}
+              </router-link>
+            </div>
           </div>
         </div>
       </section>
     </main>
 
-    <footer class="border-t border-[#272016]/10 bg-[#eee7d9] px-5 py-8 dark:border-white/10 dark:bg-[#101210] sm:px-7 lg:px-10">
-      <div class="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-[#746c5c] dark:text-[#aaa18f] md:flex-row md:items-center md:justify-between">
-        <p>© {{ currentYear }} 灵犀文创 · AI 写作与内容创作平台</p>
-        <div class="flex flex-wrap gap-4">
-          <router-link to="/home" class="hover:text-[#0d766f] dark:hover:text-[#70e0d4]">首页</router-link>
-          <router-link to="/purchase" class="hover:text-[#0d766f] dark:hover:text-[#70e0d4]">套餐</router-link>
-          <router-link :to="dashboardPath" class="hover:text-[#0d766f] dark:hover:text-[#70e0d4]">控制台</router-link>
-          <a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer" class="hover:text-[#0d766f] dark:hover:text-[#70e0d4]">文档</a>
+    <footer class="site-footer">
+      <div class="band-inner footer-inner">
+        <p>© {{ currentYear }} 烂番茄 · 毒舌 AI 创作质检台</p>
+        <div class="footer-links">
+          <router-link to="/studio/teardown">拆书质检</router-link>
+          <router-link to="/studio/cover">封面生成</router-link>
+          <router-link to="/purchase">Token 套餐</router-link>
+          <a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer">文档</a>
         </div>
       </div>
     </footer>
@@ -186,8 +188,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { gsap } from 'gsap'
+import { computed, ref } from 'vue'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -195,40 +196,40 @@ import Icon from '@/components/icons/Icon.vue'
 const authStore = useAuthStore()
 const appStore = useAppStore()
 
-const heroSection = ref<HTMLElement | null>(null)
-const deskScene = ref<HTMLElement | null>(null)
 const isDark = ref(document.documentElement.classList.contains('dark'))
-let animationContext: gsap.Context | null = null
-let removeParallaxListener: (() => void) | null = null
 
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const isAdmin = computed(() => authStore.isAdmin)
 const dashboardPath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
+const studioPath = computed(() => (isAuthenticated.value ? '/studio/teardown' : '/login?redirect=/studio/teardown'))
 const currentYear = computed(() => new Date().getFullYear())
 
-const metrics = [
-  { value: '6+', label: '创作 Skill' },
-  { value: '24h', label: '灵感归档' },
-  { value: 'AI', label: '持续协作' },
-]
+const rottenReport = {
+  score: 18,
+  verdict: '套路堆叠的签到流，爽点像 PPT，配角全是纸片人。',
+  bars: [
+    { label: '套路新鲜度', value: 6 },
+    { label: '人物', value: 9 },
+    { label: '节奏', value: 22 },
+    { label: '爽点密度', value: 41 },
+  ],
+  rotten: ['签到系统毫无代价，张力直接归零', '配角是工具纸片人，没有动机', '中段大量注水，三段重复同一桥段', '关键反转靠巧合，读者不买账'],
+}
 
-const sidebarItems = ['故事种子', '角色关系', '世界观', '章节草稿']
+const features = [
+  { index: '01', tag: 'COVER', title: '小说封面生成', desc: '按书名、题材和卖点生成封面方向，第一眼先替你抢点击。', to: '/studio/cover' },
+  { index: '02', tag: 'TEARDOWN', title: '拆书 & 爆款分析', desc: '拆人物、爽点、伏笔和章节结构，把一坨稿子切成可复用模块。', to: '/studio/teardown' },
+  { index: '03', tag: 'BACKUP', title: '番茄小说下载器', desc: '面向个人作品备份与素材整理，下载后可继续喂给拆书与剧本。', to: '/studio/downloader' },
+  { index: '04', tag: 'WORKS', title: '我的作品', desc: '封面、报告、剧本一处归档，每次生成都能随时回看。', to: '/studio/works' },
+  { index: '05', tag: 'SCRIPT', title: '剧本生成', desc: '把小说片段转成短剧脚本、分镜和口播素材，一稿多吃。', to: '/studio/script' },
+  { index: '06', tag: 'TOKEN', title: 'Token 套餐', desc: '把底层额度包装成作者的创作燃料，按需购买、按量消耗。', to: '/purchase' },
+]
 
 const workflow = [
-  { title: '捕捉灵感', desc: '把一句想法、一个画面或一段设定保存成可扩展的故事种子。' },
-  { title: '构建设定', desc: '沉淀角色、地点、组织、时间线，让作品世界保持一致。' },
-  { title: '生成章节', desc: '按大纲、文风和伏笔续写章节，减少卡文时的空白感。' },
-  { title: '扩展内容', desc: '把小说内容延展为短视频脚本、分镜和宣发素材。' },
-]
-
-const skills = [
-  { symbol: '人', title: '角色小传', desc: '生成动机、弱点、口癖、人物弧光与关系冲突。' },
-  { symbol: '纲', title: '章节大纲', desc: '把灵感拆成起承转合，保留节奏和悬念。' },
-  { symbol: '燃', title: '爽点增强', desc: '检查情绪峰值、反转力度和读者期待兑现。' },
-  { symbol: '伏', title: '伏笔检查', desc: '追踪线索、暗示和回收点，减少剧情断裂。' },
-  { symbol: '润', title: '文风润色', desc: '统一叙述口吻，让章节更贴近目标风格。' },
-  { symbol: '映', title: '视频分镜', desc: '把章节场景转成镜头、旁白和画面提示。' },
+  { step: 'A', title: '丢稿', desc: '输入章节、书名、简介或榜单样本，先不急着美化。' },
+  { step: 'B', title: '验烂', desc: '烂梗、拖沓、反转疲劳、设定断裂会被直接标红。' },
+  { step: 'C', title: '改爆', desc: '输出封面方向、开篇钩子、爽点补强和短剧化建议。' },
 ]
 
 function toggleTheme() {
@@ -236,589 +237,895 @@ function toggleTheme() {
   document.documentElement.classList.toggle('dark', isDark.value)
   localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
 }
-
-function initTheme() {
-  const savedTheme = localStorage.getItem('theme')
-  if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-    isDark.value = true
-    document.documentElement.classList.add('dark')
-  }
-}
-
-function initAnimations() {
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reduceMotion || !heroSection.value) return
-
-  animationContext = gsap.context(() => {
-    const tl = gsap.timeline({ defaults: { ease: 'power3.out', duration: 0.8 } })
-    tl.from('.hero-kicker', { y: 18, autoAlpha: 0 })
-      .from('.hero-title', { y: 34, autoAlpha: 0, duration: 1 }, '<0.08')
-      .from('.hero-subtitle, .hero-copy', { y: 24, autoAlpha: 0, stagger: 0.1 }, '<0.2')
-      .from('.hero-actions > *', { y: 18, autoAlpha: 0, stagger: 0.08 }, '<0.2')
-      .from('.metric-item', { y: 14, autoAlpha: 0, stagger: 0.08 }, '<0.1')
-      .from('.desk-shell', { x: 42, y: 24, rotation: 1.2, autoAlpha: 0, duration: 1 }, 0.18)
-      .from('.floating-card, .skill-node', { y: 20, autoAlpha: 0, stagger: 0.07 }, '<0.35')
-
-    gsap.to('.floating-card', {
-      y: (index) => (index % 2 === 0 ? -8 : 7),
-      duration: 3.6,
-      ease: 'sine.inOut',
-      repeat: -1,
-      yoyo: true,
-      stagger: 0.2,
-    })
-
-    gsap.to('.skill-node', {
-      scale: 1.035,
-      duration: 2.5,
-      ease: 'sine.inOut',
-      repeat: -1,
-      yoyo: true,
-      stagger: 0.18,
-    })
-
-    gsap.from('.reveal-card', {
-      y: 28,
-      autoAlpha: 0,
-      duration: 0.75,
-      ease: 'power2.out',
-      stagger: 0.08,
-    })
-  }, heroSection.value)
-}
-
-function initParallax() {
-  if (!deskScene.value || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-  const xTo = gsap.quickTo(deskScene.value, 'x', { duration: 0.5, ease: 'power3.out' })
-  const yTo = gsap.quickTo(deskScene.value, 'y', { duration: 0.5, ease: 'power3.out' })
-  const onMove = (event: MouseEvent) => {
-    const rect = deskScene.value?.getBoundingClientRect()
-    if (!rect) return
-    xTo(((event.clientX - rect.left) / rect.width - 0.5) * 12)
-    yTo(((event.clientY - rect.top) / rect.height - 0.5) * 10)
-  }
-  deskScene.value.addEventListener('mousemove', onMove)
-  removeParallaxListener = () => deskScene.value?.removeEventListener('mousemove', onMove)
-}
-
-onMounted(() => {
-  initTheme()
-  authStore.checkAuth()
-  if (!appStore.publicSettingsLoaded) {
-    void appStore.fetchPublicSettings()
-  }
-  initAnimations()
-  initParallax()
-})
-
-onBeforeUnmount(() => {
-  removeParallaxListener?.()
-  animationContext?.revert()
-})
 </script>
 
 <style scoped>
-.lingxi-home {
-  font-family: "Noto Serif SC", "Songti SC", "Microsoft YaHei", serif;
+.lanfanqie-home {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(900px 500px at 78% -8%, rgba(232, 65, 46, 0.22), transparent 60%),
+    radial-gradient(700px 500px at 0% 20%, rgba(90, 107, 52, 0.12), transparent 55%),
+    #140f0d;
+  color: #fff5e8;
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
 }
 
-.paper-grid {
-  background:
-    linear-gradient(rgba(31, 28, 20, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(31, 28, 20, 0.04) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: linear-gradient(to bottom, black 0%, transparent 88%);
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1.4px);
+  background-size: 4px 4px;
 }
 
-.dark .paper-grid {
-  background:
-    linear-gradient(rgba(246, 240, 228, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(246, 240, 228, 0.035) 1px, transparent 1px);
+.band-inner {
+  margin: 0 auto;
+  max-width: 1180px;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+/* ---------- header ---------- */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid rgba(255, 245, 232, 0.08);
+  background: rgba(20, 15, 13, 0.78);
+  backdrop-filter: blur(14px);
+}
+
+.nav-inner {
+  margin: 0 auto;
+  max-width: 1180px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
 }
 
 .brand-seal {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   place-items: center;
-  border: 1px solid rgba(13, 118, 111, 0.34);
-  background: #0d766f;
-  color: #fff9ec;
-  font-weight: 900;
-  box-shadow: 6px 6px 0 rgba(13, 118, 111, 0.12);
-}
-
-.nav-primary,
-.cta-main,
-.cta-secondary {
-  display: inline-flex;
-  min-height: 42px;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  border: 1px solid transparent;
-  padding: 10px 16px;
-  font-weight: 800;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
-}
-
-.nav-primary,
-.cta-main {
-  background: #0d766f;
-  color: #fffaf0;
-  box-shadow: 6px 6px 0 rgba(13, 118, 111, 0.16);
-}
-
-.nav-primary:hover,
-.cta-main:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 9px 9px 0 rgba(13, 118, 111, 0.18);
-}
-
-.cta-secondary {
-  border-color: rgba(42, 36, 24, 0.14);
-  background: rgba(255, 255, 255, 0.6);
-  color: #2b281f;
-}
-
-.dark .cta-secondary {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.06);
-  color: #f6f0e4;
-}
-
-.cta-secondary:hover {
-  border-color: rgba(13, 118, 111, 0.36);
-  color: #0d766f;
-}
-
-.hero-title {
-  font-family: "STKaiti", "KaiTi", "Noto Serif SC", serif;
-  text-shadow: 0 12px 30px rgba(52, 45, 31, 0.08);
-}
-
-.metric-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.metric-item strong {
-  font-size: clamp(1.2rem, 3vw, 1.7rem);
-  line-height: 1;
-}
-
-.metric-item span {
-  font-size: 12px;
-  color: #746c5c;
-}
-
-.dark .metric-item span {
-  color: #aaa18f;
-}
-
-.creator-desk {
-  min-height: 520px;
-}
-
-.desk-shell {
-  overflow: hidden;
-  border: 1px solid rgba(42, 36, 24, 0.12);
-  background: rgba(255, 252, 244, 0.78);
-  box-shadow: 0 28px 70px rgba(52, 45, 31, 0.14), 12px 12px 0 rgba(13, 118, 111, 0.08);
-  backdrop-filter: blur(18px);
-}
-
-.dark .desk-shell {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(32, 34, 31, 0.78);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.36), 12px 12px 0 rgba(112, 224, 212, 0.08);
-}
-
-.desk-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(42, 36, 24, 0.1);
-  padding: 14px 16px;
-  color: #746c5c;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-}
-
-.dark .desk-toolbar {
-  border-bottom-color: rgba(255, 255, 255, 0.1);
-  color: #aaa18f;
-}
-
-.desk-toolbar i {
-  display: block;
-  width: 8px;
-  height: 8px;
-  background: #0d766f;
-}
-
-.desk-layout {
-  display: grid;
-  min-height: 470px;
-  grid-template-columns: 138px 1fr;
-}
-
-.desk-sidebar {
-  border-right: 1px solid rgba(42, 36, 24, 0.1);
-  padding: 18px 14px;
-}
-
-.dark .desk-sidebar {
-  border-right-color: rgba(255, 255, 255, 0.1);
-}
-
-.sidebar-title {
-  margin-bottom: 14px;
-  color: #0d766f;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.18em;
-}
-
-.sidebar-pill {
-  margin-bottom: 10px;
-  width: 100%;
-  border: 1px solid rgba(42, 36, 24, 0.08);
-  background: rgba(255, 255, 255, 0.54);
-  padding: 9px 10px;
-  text-align: left;
-  font-size: 13px;
-  color: #5d5548;
-}
-
-.dark .sidebar-pill {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.06);
-  color: #d8cebd;
-}
-
-.desk-main {
-  position: relative;
-  min-height: 470px;
-  padding: 20px;
-}
-
-.chapter-card,
-.desk-card {
-  position: absolute;
-  border: 1px solid rgba(42, 36, 24, 0.12);
-  background: #fffaf0;
-  box-shadow: 0 18px 40px rgba(52, 45, 31, 0.12);
-}
-
-.dark .chapter-card,
-.dark .desk-card {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: #20221f;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.26);
-}
-
-.chapter-card {
-  left: 26px;
-  top: 24px;
-  width: min(76%, 390px);
-  padding: 22px;
-}
-
-.card-eyebrow,
-.desk-card span {
-  color: #0d766f;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.18em;
-}
-
-.chapter-card h3 {
-  margin-top: 10px;
-  max-width: 300px;
   font-size: 22px;
+  border-radius: 12px;
+  background: rgba(232, 65, 46, 0.18);
+  border: 1px solid rgba(232, 65, 46, 0.4);
+  box-shadow: 4px 4px 0 rgba(232, 65, 46, 0.16);
+}
+
+.brand-name {
+  display: block;
+  font-size: 17px;
   font-weight: 900;
-  line-height: 1.24;
+  letter-spacing: 0.04em;
 }
 
-.chapter-card p,
-.desk-card p {
-  margin-top: 10px;
-  color: #746c5c;
-  font-size: 13px;
-  line-height: 1.8;
+.brand-sub {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: #cf9f86;
 }
 
-.dark .chapter-card p,
-.dark .desk-card p {
-  color: #aaa18f;
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.writing-lines {
-  margin-top: 18px;
+.nav-link {
+  display: none;
+  padding: 0.5rem 0.7rem;
+  font-size: 14px;
+  font-weight: 600;
+  color: #d8b7a2;
+  transition: color 0.15s ease;
+}
+
+.nav-link:hover {
+  color: #ff7a5e;
+}
+
+@media (min-width: 860px) {
+  .nav-link {
+    display: inline-flex;
+  }
+}
+
+.icon-btn {
   display: grid;
-  gap: 8px;
+  height: 38px;
+  width: 38px;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 245, 232, 0.12);
+  background: rgba(255, 245, 232, 0.04);
+  color: #e9c9b6;
+  transition: all 0.15s ease;
 }
 
-.writing-lines span {
-  display: block;
-  height: 7px;
-  background: linear-gradient(90deg, rgba(13, 118, 111, 0.3), rgba(13, 118, 111, 0.05));
+.icon-btn:hover {
+  border-color: rgba(232, 65, 46, 0.45);
+  color: #ff7a5e;
 }
 
-.writing-lines span:nth-child(2) {
-  width: 78%;
+.btn-login {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 10px;
+  background: #e8412e;
+  padding: 0.55rem 1rem;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff6f1;
+  box-shadow: 4px 4px 0 rgba(232, 65, 46, 0.22);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.writing-lines span:nth-child(3) {
-  width: 58%;
+.btn-login:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 rgba(232, 65, 46, 0.26);
 }
 
-.desk-card {
-  width: 180px;
-  padding: 16px;
+/* ---------- hero ---------- */
+.hero {
+  position: relative;
+  z-index: 1;
 }
 
-.desk-card strong {
-  margin-top: 8px;
-  display: block;
-  font-size: 18px;
-}
-
-.character-card {
-  right: 22px;
-  top: 170px;
-}
-
-.world-card {
-  left: 70px;
-  bottom: 28px;
-}
-
-.skill-node {
+.hero-glow {
   position: absolute;
-  z-index: 3;
-  border: 1px solid rgba(13, 118, 111, 0.32);
-  background: #e6f4ef;
-  padding: 8px 10px;
-  color: #0d766f;
-  font-size: 12px;
-  font-weight: 900;
-  box-shadow: 5px 5px 0 rgba(13, 118, 111, 0.08);
-}
-
-.dark .skill-node {
-  background: rgba(112, 224, 212, 0.1);
-  color: #70e0d4;
-}
-
-.node-a {
-  right: 40px;
-  top: 70px;
-}
-
-.node-b {
-  left: 22px;
-  top: 260px;
-}
-
-.node-c {
-  right: 30px;
-  bottom: 34px;
-}
-
-.skill-lines {
-  position: absolute;
-  inset: 60px 20px 20px;
-  width: calc(100% - 40px);
-  height: calc(100% - 80px);
+  top: -120px;
+  right: -80px;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232, 65, 46, 0.4), transparent 65%);
+  filter: blur(20px);
   pointer-events: none;
 }
 
-.flow-path {
-  fill: none;
-  stroke: rgba(13, 118, 111, 0.34);
-  stroke-width: 2;
-  stroke-dasharray: 8 10;
-  animation: flow 2.8s linear infinite;
+.hero-inner {
+  position: relative;
+  z-index: 1;
+  margin: 0 auto;
+  max-width: 1180px;
+  display: grid;
+  gap: 2.5rem;
+  align-items: center;
+  padding: 3.5rem 1.25rem 4rem;
 }
 
-.flow-path.delay {
-  animation-delay: 0.9s;
-  opacity: 0.6;
-}
-
-@keyframes flow {
-  to {
-    stroke-dashoffset: -36;
+@media (min-width: 980px) {
+  .hero-inner {
+    grid-template-columns: 1.05fr 0.95fr;
+    padding: 5rem 1.25rem 5.5rem;
   }
 }
 
-.section-band {
-  border-bottom: 1px solid rgba(39, 32, 22, 0.1);
-  background: #fffaf0;
+.kicker {
+  display: inline-flex;
+  border: 1px solid rgba(232, 65, 46, 0.4);
+  border-radius: 999px;
+  background: rgba(232, 65, 46, 0.12);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #ff9d8c;
 }
 
-.section-band.alt {
-  background: #efe8da;
-}
-
-.dark .section-band {
-  border-bottom-color: rgba(255, 255, 255, 0.1);
-  background: #191b18;
-}
-
-.dark .section-band.alt {
-  background: #111310;
-}
-
-.section-heading p {
-  color: #0d766f;
-  font-size: 13px;
-  font-weight: 900;
-  letter-spacing: 0.22em;
-}
-
-.section-heading h2 {
-  margin-top: 12px;
-  max-width: 760px;
-  font-size: clamp(2rem, 5vw, 4rem);
+.hero-title {
+  margin-top: 1.2rem;
+  font-size: clamp(2.4rem, 6vw, 4.4rem);
   font-weight: 950;
-  line-height: 1.05;
+  line-height: 1.02;
   letter-spacing: -0.01em;
 }
 
-.workflow-card,
-.skill-card,
-.conversion-panel {
-  border: 1px solid rgba(42, 36, 24, 0.12);
-  background: rgba(255, 255, 255, 0.52);
-  box-shadow: 0 16px 36px rgba(52, 45, 31, 0.08);
+.hero-title .hl {
+  position: relative;
+  color: #ff5436;
+  text-shadow: 0 4px 24px rgba(232, 65, 46, 0.4);
 }
 
-.dark .workflow-card,
-.dark .skill-card,
-.dark .conversion-panel {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.055);
-  box-shadow: none;
+.hero-title .hl::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  bottom: 6px;
+  height: 8px;
+  background: rgba(232, 65, 46, 0.35);
+  border-radius: 2px;
+  transform: rotate(-1.5deg);
 }
 
-.workflow-card {
-  min-height: 220px;
-  padding: 22px;
+.hero-sub {
+  margin-top: 1.3rem;
+  max-width: 32rem;
+  font-size: 15.5px;
+  line-height: 1.85;
+  color: #d8b7a2;
 }
 
-.workflow-card span {
-  color: rgba(13, 118, 111, 0.44);
-  font-size: 34px;
-  font-weight: 950;
+.hero-actions {
+  margin-top: 1.8rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
-.workflow-card h3,
-.skill-card h3 {
-  margin-top: 22px;
-  font-size: 20px;
-  font-weight: 900;
+.cta,
+.cta-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 12px;
+  padding: 0.85rem 1.4rem;
+  font-size: 15px;
+  font-weight: 800;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-.workflow-card p,
-.skill-card p {
-  margin-top: 12px;
-  color: #746c5c;
+.cta {
+  background: #e8412e;
+  color: #fff6f1;
+  box-shadow: 5px 5px 0 rgba(232, 65, 46, 0.22);
+}
+
+.cta:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 rgba(232, 65, 46, 0.28);
+}
+
+.cta.small {
+  padding: 0.65rem 1.1rem;
   font-size: 14px;
-  line-height: 1.8;
 }
 
-.dark .workflow-card p,
-.dark .skill-card p {
-  color: #aaa18f;
+.cta-ghost {
+  border: 1px solid rgba(255, 245, 232, 0.18);
+  color: #f3dccd;
 }
 
-.sticky-copy {
+.cta-ghost:hover {
+  border-color: rgba(232, 65, 46, 0.5);
+  color: #ff7a5e;
+}
+
+.rot-tags {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.4rem;
+  font-size: 13px;
+  font-weight: 700;
+  color: #c6a48f;
+}
+
+/* ---------- rotten tomato ---------- */
+.rot-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 380px;
+}
+
+.rot-orbit {
+  position: absolute;
+  border: 1px dashed rgba(232, 65, 46, 0.3);
+  border-radius: 50%;
+  animation: spin 30s linear infinite;
+}
+
+.orbit-a {
+  width: 430px;
+  height: 430px;
+}
+
+.orbit-b {
+  width: 320px;
+  height: 320px;
+  border-color: rgba(138, 154, 82, 0.28);
+  animation-direction: reverse;
+  animation-duration: 22s;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.rot-splat {
+  position: absolute;
+  bottom: 4%;
+  left: 50%;
+  width: 260px;
+  height: 54px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(110, 28, 14, 0.7), rgba(110, 28, 14, 0.2) 60%, transparent 76%);
+  filter: blur(2px);
+}
+
+.tomato {
+  position: relative;
+  z-index: 2;
+  width: 250px;
+  height: 230px;
+  border-radius: 52% 48% 45% 55% / 57% 55% 45% 43%;
+  background:
+    radial-gradient(circle at 70% 64%, rgba(96, 104, 46, 0.5), transparent 32%),
+    radial-gradient(circle at 28% 70%, rgba(56, 38, 14, 0.7), transparent 40%),
+    radial-gradient(circle at 36% 28%, #c2502f 0%, #93301c 44%, #5a1a0e 100%);
+  box-shadow:
+    inset -26px -32px 56px rgba(28, 6, 2, 0.72),
+    inset 16px 18px 30px rgba(214, 150, 120, 0.18),
+    inset 0 0 46px rgba(22, 6, 3, 0.5),
+    0 30px 60px rgba(40, 10, 6, 0.55);
+}
+
+.floaty {
+  animation: floaty 4.5s ease-in-out infinite;
+}
+
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+.t-leaf {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  width: 70px;
+  height: 48px;
+  transform: translateX(-50%) rotate(8deg);
+  background: linear-gradient(160deg, #5b6b34, #2f3c1b);
+  clip-path: polygon(50% 0, 64% 34%, 100% 38%, 72% 56%, 84% 100%, 50% 70%, 16% 100%, 28% 56%, 0 38%, 36% 34%);
+  filter: saturate(0.75);
+}
+
+.t-shine {
+  position: absolute;
+  top: 16%;
+  left: 22%;
+  width: 64px;
+  height: 38px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 224, 206, 0.4), transparent 70%);
+  transform: rotate(-18deg);
+}
+
+.t-spot {
+  position: absolute;
+  border-radius: 48% 52% 50% 50% / 52% 48% 52% 48%;
+  background: radial-gradient(circle at 42% 40%, rgba(12, 4, 1, 0.92), rgba(46, 18, 8, 0.5) 54%, transparent 76%);
+  box-shadow: inset 3px 4px 7px rgba(0, 0, 0, 0.6);
+}
+
+.s1 { width: 84px; height: 70px; top: 44%; left: 14%; }
+.s2 { width: 56px; height: 50px; top: 20%; right: 16%; transform: rotate(18deg); }
+.s3 { width: 50px; height: 44px; top: 62%; right: 28%; transform: rotate(-12deg); }
+
+.t-mold {
+  position: absolute;
+  bottom: 24%;
+  right: 20%;
+  width: 60px;
+  height: 54px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(176, 186, 138, 0.92), transparent 56%),
+    radial-gradient(circle at 66% 62%, rgba(132, 148, 100, 0.85), transparent 60%),
+    radial-gradient(circle, rgba(96, 108, 70, 0.7), transparent 72%);
+}
+
+.t-mold::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-image: radial-gradient(rgba(40, 50, 26, 0.7) 1.2px, transparent 1.6px);
+  background-size: 7px 7px;
+  opacity: 0.6;
+}
+
+.t-crack {
+  position: absolute;
+  top: 28%;
+  left: 52%;
+  width: 4px;
+  height: 90px;
+  transform: rotate(15deg);
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(36, 10, 4, 0) 0%, rgba(36, 10, 4, 0.85) 32%, rgba(36, 10, 4, 0.5) 100%);
+  box-shadow: -3px 12px 0 -1px rgba(36, 10, 4, 0.4);
+}
+
+.t-drip {
+  position: absolute;
+  bottom: -10px;
+  left: 39%;
+  width: 16px;
+  height: 30px;
+  background: #7a1f12;
+  border-radius: 0 0 50% 50%;
+}
+
+.t-drip::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #7a1f12;
+}
+
+.rot-stamp {
+  position: absolute;
+  top: 8%;
+  left: 4%;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 84, 54, 0.85);
+  color: #ff5436;
+  font-size: 38px;
+  font-weight: 950;
+  transform: rotate(-14deg);
+  background: rgba(20, 15, 13, 0.6);
+  box-shadow: 0 0 24px rgba(232, 65, 46, 0.3);
+}
+
+.rot-stamp small {
+  position: absolute;
+  bottom: 8px;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+
+.rot-fly {
+  position: absolute;
+  z-index: 4;
+  font-size: 18px;
+}
+
+.f1 {
+  top: 22%;
+  right: 18%;
+  animation: buzz 6s ease-in-out infinite;
+}
+
+.f2 {
+  bottom: 28%;
+  left: 16%;
+  font-size: 14px;
+  animation: buzz2 7s ease-in-out infinite;
+}
+
+@keyframes buzz {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  30% { transform: translate(-26px, -16px) rotate(12deg); }
+  60% { transform: translate(14px, -30px) rotate(-8deg); }
+}
+
+@keyframes buzz2 {
+  0%, 100% { transform: translate(0, 0); }
+  40% { transform: translate(22px, -14px) rotate(-10deg); }
+  70% { transform: translate(-14px, 12px) rotate(8deg); }
+}
+
+/* ---------- bands ---------- */
+.section {
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid rgba(255, 245, 232, 0.07);
+  padding: 4.5rem 0;
+}
+
+.section.alt {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.report-band {
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid rgba(255, 245, 232, 0.07);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 4.5rem 0;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  color: #ff7a5e;
+}
+
+.band-title {
+  margin-top: 0.7rem;
+  font-size: clamp(1.7rem, 4vw, 3rem);
+  font-weight: 950;
+  line-height: 1.1;
+}
+
+.band-desc {
+  margin-top: 1rem;
+  max-width: 34rem;
+  font-size: 15px;
+  line-height: 1.85;
+  color: #c6a48f;
+}
+
+.report-grid,
+.flow-grid {
+  display: grid;
+  gap: 2.5rem;
+}
+
+@media (min-width: 980px) {
+  .report-grid {
+    grid-template-columns: 0.9fr 1.1fr;
+    align-items: center;
+  }
+  .flow-grid {
+    grid-template-columns: 0.85fr 1.15fr;
+  }
+}
+
+.report-copy .cta {
+  margin-top: 1.6rem;
+}
+
+/* report card */
+.report-card {
+  border: 1px solid rgba(255, 245, 232, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(34, 22, 18, 0.9), rgba(20, 15, 13, 0.9));
+  padding: 1.5rem;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4);
+}
+
+.rc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.rc-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: #c6a48f;
+}
+
+.rc-score {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 56px;
+  font-weight: 950;
+  line-height: 1;
+  color: #ff5436;
+}
+
+.rc-score small {
+  font-size: 18px;
+  color: #8a6b5f;
+}
+
+.rc-stamp {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 84, 54, 0.8);
+  color: #ff5436;
+  font-size: 24px;
+  font-weight: 950;
+  transform: rotate(-12deg);
+}
+
+.rc-verdict {
+  margin-top: 0.9rem;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f3dccd;
+}
+
+.rc-bars {
+  margin-top: 1.1rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.rc-bar {
+  display: grid;
+  grid-template-columns: 76px 1fr 28px;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 13px;
+  color: #c6a48f;
+}
+
+.rc-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 245, 232, 0.08);
+  overflow: hidden;
+}
+
+.rc-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e8412e, #ff7a5e);
+}
+
+.rc-bar-val {
+  text-align: right;
+  font-weight: 800;
+  color: #f3dccd;
+}
+
+.rc-rotten {
+  margin-top: 1.2rem;
+  border-top: 1px solid rgba(255, 245, 232, 0.08);
+  padding-top: 0.9rem;
+}
+
+.rc-rotten-title {
+  font-size: 13px;
+  font-weight: 900;
+  color: #ff9d8c;
+}
+
+.rc-rotten ul {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.35rem;
+  padding-left: 1.1rem;
+  list-style: disc;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #d8b7a2;
+}
+
+/* features */
+.section-head.sticky {
   align-self: start;
 }
 
-.skill-grid {
+.feature-grid {
+  margin-top: 2.2rem;
   display: grid;
-  gap: 4px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  grid-template-columns: 1fr;
 }
 
-.skill-card {
-  min-height: 210px;
-  padding: 22px;
+@media (min-width: 680px) {
+  .feature-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-.skill-symbol {
+@media (min-width: 980px) {
+  .feature-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.feature-card {
+  position: relative;
+  display: block;
+  border: 1px solid rgba(255, 245, 232, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 245, 232, 0.03);
+  padding: 1.4rem;
+  min-height: 184px;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(232, 65, 46, 0.5);
+  background: rgba(232, 65, 46, 0.07);
+}
+
+.f-index {
+  font-size: 13px;
+  font-weight: 900;
+  color: rgba(232, 65, 46, 0.6);
+}
+
+.f-tag {
+  position: absolute;
+  top: 1.4rem;
+  right: 1.4rem;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  color: #8a6b5f;
+}
+
+.feature-card h3 {
+  margin-top: 1rem;
+  font-size: 19px;
+  font-weight: 900;
+  color: #fff5e8;
+}
+
+.feature-card p {
+  margin-top: 0.6rem;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: #c6a48f;
+}
+
+.f-go {
+  position: absolute;
+  bottom: 1.2rem;
+  right: 1.4rem;
+  font-size: 18px;
+  color: #ff7a5e;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: all 0.18s ease;
+}
+
+.feature-card:hover .f-go {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* flow */
+.flow-stack {
   display: grid;
-  width: 42px;
-  height: 42px;
+  gap: 0.85rem;
+}
+
+.flow-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  border: 1px solid rgba(255, 245, 232, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 245, 232, 0.03);
+  padding: 1.3rem;
+}
+
+.flow-step {
+  display: grid;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
   place-items: center;
-  background: #0d766f;
-  color: white;
+  border-radius: 12px;
+  background: #e8412e;
+  color: #fff6f1;
   font-weight: 950;
 }
 
-.conversion-panel {
+.flow-card h3 {
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.flow-card p {
+  margin-top: 0.35rem;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: #c6a48f;
+}
+
+/* conversion */
+.conversion {
   display: grid;
-  gap: 28px;
-  padding: clamp(24px, 5vw, 52px);
+  gap: 1.6rem;
+  border: 1px solid rgba(232, 65, 46, 0.3);
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(232, 65, 46, 0.14), rgba(20, 15, 13, 0.5));
+  padding: clamp(1.6rem, 4vw, 3rem);
 }
 
-@media (min-width: 1024px) {
-  .conversion-panel {
-    grid-template-columns: 1fr 230px;
-    align-items: end;
+@media (min-width: 980px) {
+  .conversion {
+    grid-template-columns: 1.4fr 0.6fr;
+    align-items: center;
   }
 }
 
-@media (max-width: 760px) {
-  .desk-layout {
-    grid-template-columns: 1fr;
-  }
+.conversion-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
 
-  .desk-sidebar {
-    display: none;
-  }
+/* footer */
+.site-footer {
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid rgba(255, 245, 232, 0.08);
+  padding: 2.2rem 0;
+}
 
-  .creator-desk {
-    min-height: 480px;
-  }
+.footer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  font-size: 13.5px;
+  color: #a98b78;
+}
 
-  .desk-main {
-    min-height: 430px;
+@media (min-width: 680px) {
+  .footer-inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
   }
+}
 
-  .chapter-card {
-    left: 14px;
-    width: calc(100% - 28px);
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+}
+
+.footer-links a {
+  color: #c6a48f;
+  transition: color 0.15s ease;
+}
+
+.footer-links a:hover {
+  color: #ff7a5e;
+}
+
+/* ---------- entrance ---------- */
+.fade-up {
+  animation: fadeUp 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.fade-up.delay-1 {
+  animation-delay: 0.12s;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
   }
-
-  .character-card {
-    right: 14px;
-    top: 230px;
-  }
-
-  .world-card {
-    left: 14px;
-    bottom: 24px;
-  }
-
-  .skill-node,
-  .skill-lines {
-    display: none;
-  }
-
-  .skill-grid {
-    grid-template-columns: 1fr;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .flow-path {
+  .fade-up,
+  .floaty,
+  .rot-orbit,
+  .rot-fly {
     animation: none;
   }
 }

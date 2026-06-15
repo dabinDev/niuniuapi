@@ -23,6 +23,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/creationtask"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -38,6 +39,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
+	"github.com/Wei-Shaw/sub2api/ent/studiomodelconfig"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
@@ -71,6 +73,7 @@ const (
 	TypeChannelMonitorDailyRollup     = "ChannelMonitorDailyRollup"
 	TypeChannelMonitorHistory         = "ChannelMonitorHistory"
 	TypeChannelMonitorRequestTemplate = "ChannelMonitorRequestTemplate"
+	TypeCreationTask                  = "CreationTask"
 	TypeErrorPassthroughRule          = "ErrorPassthroughRule"
 	TypeGroup                         = "Group"
 	TypeIdempotencyRecord             = "IdempotencyRecord"
@@ -85,6 +88,7 @@ const (
 	TypeRedeemCode                    = "RedeemCode"
 	TypeSecuritySecret                = "SecuritySecret"
 	TypeSetting                       = "Setting"
+	TypeStudioModelConfig             = "StudioModelConfig"
 	TypeSubscriptionPlan              = "SubscriptionPlan"
 	TypeTLSFingerprintProfile         = "TLSFingerprintProfile"
 	TypeUsageCleanupTask              = "UsageCleanupTask"
@@ -13634,6 +13638,733 @@ func (m *ChannelMonitorRequestTemplateMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown ChannelMonitorRequestTemplate edge %s", name)
+}
+
+// CreationTaskMutation represents an operation that mutates the CreationTask nodes in the graph.
+type CreationTaskMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int64
+	user_id       *int64
+	adduser_id    *int64
+	_type         *string
+	title         *string
+	input         *string
+	output        *string
+	model         *string
+	created_at    *time.Time
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*CreationTask, error)
+	predicates    []predicate.CreationTask
+}
+
+var _ ent.Mutation = (*CreationTaskMutation)(nil)
+
+// creationtaskOption allows management of the mutation configuration using functional options.
+type creationtaskOption func(*CreationTaskMutation)
+
+// newCreationTaskMutation creates new mutation for the CreationTask entity.
+func newCreationTaskMutation(c config, op Op, opts ...creationtaskOption) *CreationTaskMutation {
+	m := &CreationTaskMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCreationTask,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCreationTaskID sets the ID field of the mutation.
+func withCreationTaskID(id int64) creationtaskOption {
+	return func(m *CreationTaskMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CreationTask
+		)
+		m.oldValue = func(ctx context.Context) (*CreationTask, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CreationTask.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCreationTask sets the old CreationTask of the mutation.
+func withCreationTask(node *CreationTask) creationtaskOption {
+	return func(m *CreationTaskMutation) {
+		m.oldValue = func(context.Context) (*CreationTask, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CreationTaskMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CreationTaskMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CreationTaskMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CreationTaskMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CreationTask.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetUserID sets the "user_id" field.
+func (m *CreationTaskMutation) SetUserID(i int64) {
+	m.user_id = &i
+	m.adduser_id = nil
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *CreationTaskMutation) UserID() (r int64, exists bool) {
+	v := m.user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the CreationTask entity.
+// If the CreationTask object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CreationTaskMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// AddUserID adds i to the "user_id" field.
+func (m *CreationTaskMutation) AddUserID(i int64) {
+	if m.adduser_id != nil {
+		*m.adduser_id += i
+	} else {
+		m.adduser_id = &i
+	}
+}
+
+// AddedUserID returns the value that was added to the "user_id" field in this mutation.
+func (m *CreationTaskMutation) AddedUserID() (r int64, exists bool) {
+	v := m.adduser_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *CreationTaskMutation) ResetUserID() {
+	m.user_id = nil
+	m.adduser_id = nil
+}
+
+// SetType sets the "type" field.
+func (m *CreationTaskMutation) SetType(s string) {
+	m._type = &s
+}
+
+// GetType returns the value of the "type" field in the mutation.
+func (m *CreationTaskMutation) GetType() (r string, exists bool) {
+	v := m._type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldType returns the old "type" field's value of the CreationTask entity.
+// If the CreationTask object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CreationTaskMutation) OldType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldType: %w", err)
+	}
+	return oldValue.Type, nil
+}
+
+// ResetType resets all changes to the "type" field.
+func (m *CreationTaskMutation) ResetType() {
+	m._type = nil
+}
+
+// SetTitle sets the "title" field.
+func (m *CreationTaskMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *CreationTaskMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the CreationTask entity.
+// If the CreationTask object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CreationTaskMutation) OldTitle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *CreationTaskMutation) ResetTitle() {
+	m.title = nil
+}
+
+// SetInput sets the "input" field.
+func (m *CreationTaskMutation) SetInput(s string) {
+	m.input = &s
+}
+
+// Input returns the value of the "input" field in the mutation.
+func (m *CreationTaskMutation) Input() (r string, exists bool) {
+	v := m.input
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInput returns the old "input" field's value of the CreationTask entity.
+// If the CreationTask object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CreationTaskMutation) OldInput(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInput is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInput requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInput: %w", err)
+	}
+	return oldValue.Input, nil
+}
+
+// ClearInput clears the value of the "input" field.
+func (m *CreationTaskMutation) ClearInput() {
+	m.input = nil
+	m.clearedFields[creationtask.FieldInput] = struct{}{}
+}
+
+// InputCleared returns if the "input" field was cleared in this mutation.
+func (m *CreationTaskMutation) InputCleared() bool {
+	_, ok := m.clearedFields[creationtask.FieldInput]
+	return ok
+}
+
+// ResetInput resets all changes to the "input" field.
+func (m *CreationTaskMutation) ResetInput() {
+	m.input = nil
+	delete(m.clearedFields, creationtask.FieldInput)
+}
+
+// SetOutput sets the "output" field.
+func (m *CreationTaskMutation) SetOutput(s string) {
+	m.output = &s
+}
+
+// Output returns the value of the "output" field in the mutation.
+func (m *CreationTaskMutation) Output() (r string, exists bool) {
+	v := m.output
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutput returns the old "output" field's value of the CreationTask entity.
+// If the CreationTask object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CreationTaskMutation) OldOutput(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutput is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutput requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutput: %w", err)
+	}
+	return oldValue.Output, nil
+}
+
+// ClearOutput clears the value of the "output" field.
+func (m *CreationTaskMutation) ClearOutput() {
+	m.output = nil
+	m.clearedFields[creationtask.FieldOutput] = struct{}{}
+}
+
+// OutputCleared returns if the "output" field was cleared in this mutation.
+func (m *CreationTaskMutation) OutputCleared() bool {
+	_, ok := m.clearedFields[creationtask.FieldOutput]
+	return ok
+}
+
+// ResetOutput resets all changes to the "output" field.
+func (m *CreationTaskMutation) ResetOutput() {
+	m.output = nil
+	delete(m.clearedFields, creationtask.FieldOutput)
+}
+
+// SetModel sets the "model" field.
+func (m *CreationTaskMutation) SetModel(s string) {
+	m.model = &s
+}
+
+// Model returns the value of the "model" field in the mutation.
+func (m *CreationTaskMutation) Model() (r string, exists bool) {
+	v := m.model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModel returns the old "model" field's value of the CreationTask entity.
+// If the CreationTask object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CreationTaskMutation) OldModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModel: %w", err)
+	}
+	return oldValue.Model, nil
+}
+
+// ResetModel resets all changes to the "model" field.
+func (m *CreationTaskMutation) ResetModel() {
+	m.model = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *CreationTaskMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *CreationTaskMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the CreationTask entity.
+// If the CreationTask object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CreationTaskMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *CreationTaskMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the CreationTaskMutation builder.
+func (m *CreationTaskMutation) Where(ps ...predicate.CreationTask) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CreationTaskMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CreationTaskMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CreationTask, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CreationTaskMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CreationTaskMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CreationTask).
+func (m *CreationTaskMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CreationTaskMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.user_id != nil {
+		fields = append(fields, creationtask.FieldUserID)
+	}
+	if m._type != nil {
+		fields = append(fields, creationtask.FieldType)
+	}
+	if m.title != nil {
+		fields = append(fields, creationtask.FieldTitle)
+	}
+	if m.input != nil {
+		fields = append(fields, creationtask.FieldInput)
+	}
+	if m.output != nil {
+		fields = append(fields, creationtask.FieldOutput)
+	}
+	if m.model != nil {
+		fields = append(fields, creationtask.FieldModel)
+	}
+	if m.created_at != nil {
+		fields = append(fields, creationtask.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CreationTaskMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case creationtask.FieldUserID:
+		return m.UserID()
+	case creationtask.FieldType:
+		return m.GetType()
+	case creationtask.FieldTitle:
+		return m.Title()
+	case creationtask.FieldInput:
+		return m.Input()
+	case creationtask.FieldOutput:
+		return m.Output()
+	case creationtask.FieldModel:
+		return m.Model()
+	case creationtask.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CreationTaskMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case creationtask.FieldUserID:
+		return m.OldUserID(ctx)
+	case creationtask.FieldType:
+		return m.OldType(ctx)
+	case creationtask.FieldTitle:
+		return m.OldTitle(ctx)
+	case creationtask.FieldInput:
+		return m.OldInput(ctx)
+	case creationtask.FieldOutput:
+		return m.OldOutput(ctx)
+	case creationtask.FieldModel:
+		return m.OldModel(ctx)
+	case creationtask.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown CreationTask field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CreationTaskMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case creationtask.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case creationtask.FieldType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetType(v)
+		return nil
+	case creationtask.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
+		return nil
+	case creationtask.FieldInput:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInput(v)
+		return nil
+	case creationtask.FieldOutput:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutput(v)
+		return nil
+	case creationtask.FieldModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModel(v)
+		return nil
+	case creationtask.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CreationTask field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CreationTaskMutation) AddedFields() []string {
+	var fields []string
+	if m.adduser_id != nil {
+		fields = append(fields, creationtask.FieldUserID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CreationTaskMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case creationtask.FieldUserID:
+		return m.AddedUserID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CreationTaskMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case creationtask.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUserID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CreationTask numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CreationTaskMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(creationtask.FieldInput) {
+		fields = append(fields, creationtask.FieldInput)
+	}
+	if m.FieldCleared(creationtask.FieldOutput) {
+		fields = append(fields, creationtask.FieldOutput)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CreationTaskMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CreationTaskMutation) ClearField(name string) error {
+	switch name {
+	case creationtask.FieldInput:
+		m.ClearInput()
+		return nil
+	case creationtask.FieldOutput:
+		m.ClearOutput()
+		return nil
+	}
+	return fmt.Errorf("unknown CreationTask nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CreationTaskMutation) ResetField(name string) error {
+	switch name {
+	case creationtask.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case creationtask.FieldType:
+		m.ResetType()
+		return nil
+	case creationtask.FieldTitle:
+		m.ResetTitle()
+		return nil
+	case creationtask.FieldInput:
+		m.ResetInput()
+		return nil
+	case creationtask.FieldOutput:
+		m.ResetOutput()
+		return nil
+	case creationtask.FieldModel:
+		m.ResetModel()
+		return nil
+	case creationtask.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CreationTask field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CreationTaskMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CreationTaskMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CreationTaskMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CreationTaskMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CreationTaskMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CreationTaskMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CreationTaskMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown CreationTask unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CreationTaskMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown CreationTask edge %s", name)
 }
 
 // ErrorPassthroughRuleMutation represents an operation that mutates the ErrorPassthroughRule nodes in the graph.
@@ -31258,6 +31989,476 @@ func (m *SettingMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *SettingMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown Setting edge %s", name)
+}
+
+// StudioModelConfigMutation represents an operation that mutates the StudioModelConfig nodes in the graph.
+type StudioModelConfigMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int64
+	user_id       *int64
+	adduser_id    *int64
+	_config       *string
+	updated_at    *time.Time
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*StudioModelConfig, error)
+	predicates    []predicate.StudioModelConfig
+}
+
+var _ ent.Mutation = (*StudioModelConfigMutation)(nil)
+
+// studiomodelconfigOption allows management of the mutation configuration using functional options.
+type studiomodelconfigOption func(*StudioModelConfigMutation)
+
+// newStudioModelConfigMutation creates new mutation for the StudioModelConfig entity.
+func newStudioModelConfigMutation(c config, op Op, opts ...studiomodelconfigOption) *StudioModelConfigMutation {
+	m := &StudioModelConfigMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeStudioModelConfig,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withStudioModelConfigID sets the ID field of the mutation.
+func withStudioModelConfigID(id int64) studiomodelconfigOption {
+	return func(m *StudioModelConfigMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *StudioModelConfig
+		)
+		m.oldValue = func(ctx context.Context) (*StudioModelConfig, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().StudioModelConfig.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withStudioModelConfig sets the old StudioModelConfig of the mutation.
+func withStudioModelConfig(node *StudioModelConfig) studiomodelconfigOption {
+	return func(m *StudioModelConfigMutation) {
+		m.oldValue = func(context.Context) (*StudioModelConfig, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m StudioModelConfigMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m StudioModelConfigMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *StudioModelConfigMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *StudioModelConfigMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().StudioModelConfig.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetUserID sets the "user_id" field.
+func (m *StudioModelConfigMutation) SetUserID(i int64) {
+	m.user_id = &i
+	m.adduser_id = nil
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *StudioModelConfigMutation) UserID() (r int64, exists bool) {
+	v := m.user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the StudioModelConfig entity.
+// If the StudioModelConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *StudioModelConfigMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// AddUserID adds i to the "user_id" field.
+func (m *StudioModelConfigMutation) AddUserID(i int64) {
+	if m.adduser_id != nil {
+		*m.adduser_id += i
+	} else {
+		m.adduser_id = &i
+	}
+}
+
+// AddedUserID returns the value that was added to the "user_id" field in this mutation.
+func (m *StudioModelConfigMutation) AddedUserID() (r int64, exists bool) {
+	v := m.adduser_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *StudioModelConfigMutation) ResetUserID() {
+	m.user_id = nil
+	m.adduser_id = nil
+}
+
+// SetConfig sets the "config" field.
+func (m *StudioModelConfigMutation) SetConfig(s string) {
+	m._config = &s
+}
+
+// Config returns the value of the "config" field in the mutation.
+func (m *StudioModelConfigMutation) Config() (r string, exists bool) {
+	v := m._config
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConfig returns the old "config" field's value of the StudioModelConfig entity.
+// If the StudioModelConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *StudioModelConfigMutation) OldConfig(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConfig is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConfig requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConfig: %w", err)
+	}
+	return oldValue.Config, nil
+}
+
+// ResetConfig resets all changes to the "config" field.
+func (m *StudioModelConfigMutation) ResetConfig() {
+	m._config = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *StudioModelConfigMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *StudioModelConfigMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the StudioModelConfig entity.
+// If the StudioModelConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *StudioModelConfigMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *StudioModelConfigMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// Where appends a list predicates to the StudioModelConfigMutation builder.
+func (m *StudioModelConfigMutation) Where(ps ...predicate.StudioModelConfig) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the StudioModelConfigMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *StudioModelConfigMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.StudioModelConfig, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *StudioModelConfigMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *StudioModelConfigMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (StudioModelConfig).
+func (m *StudioModelConfigMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *StudioModelConfigMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.user_id != nil {
+		fields = append(fields, studiomodelconfig.FieldUserID)
+	}
+	if m._config != nil {
+		fields = append(fields, studiomodelconfig.FieldConfig)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, studiomodelconfig.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *StudioModelConfigMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case studiomodelconfig.FieldUserID:
+		return m.UserID()
+	case studiomodelconfig.FieldConfig:
+		return m.Config()
+	case studiomodelconfig.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *StudioModelConfigMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case studiomodelconfig.FieldUserID:
+		return m.OldUserID(ctx)
+	case studiomodelconfig.FieldConfig:
+		return m.OldConfig(ctx)
+	case studiomodelconfig.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown StudioModelConfig field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *StudioModelConfigMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case studiomodelconfig.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case studiomodelconfig.FieldConfig:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConfig(v)
+		return nil
+	case studiomodelconfig.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown StudioModelConfig field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *StudioModelConfigMutation) AddedFields() []string {
+	var fields []string
+	if m.adduser_id != nil {
+		fields = append(fields, studiomodelconfig.FieldUserID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *StudioModelConfigMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case studiomodelconfig.FieldUserID:
+		return m.AddedUserID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *StudioModelConfigMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case studiomodelconfig.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUserID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown StudioModelConfig numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *StudioModelConfigMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *StudioModelConfigMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *StudioModelConfigMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown StudioModelConfig nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *StudioModelConfigMutation) ResetField(name string) error {
+	switch name {
+	case studiomodelconfig.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case studiomodelconfig.FieldConfig:
+		m.ResetConfig()
+		return nil
+	case studiomodelconfig.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown StudioModelConfig field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *StudioModelConfigMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *StudioModelConfigMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *StudioModelConfigMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *StudioModelConfigMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *StudioModelConfigMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *StudioModelConfigMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *StudioModelConfigMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown StudioModelConfig unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *StudioModelConfigMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown StudioModelConfig edge %s", name)
 }
 
 // SubscriptionPlanMutation represents an operation that mutates the SubscriptionPlan nodes in the graph.

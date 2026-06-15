@@ -36,6 +36,8 @@ type Tx struct {
 	ChannelMonitorHistory *ChannelMonitorHistoryClient
 	// ChannelMonitorRequestTemplate is the client for interacting with the ChannelMonitorRequestTemplate builders.
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
+	// CreationTask is the client for interacting with the CreationTask builders.
+	CreationTask *CreationTaskClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
@@ -64,6 +66,8 @@ type Tx struct {
 	SecuritySecret *SecuritySecretClient
 	// Setting is the client for interacting with the Setting builders.
 	Setting *SettingClient
+	// StudioModelConfig is the client for interacting with the StudioModelConfig builders.
+	StudioModelConfig *StudioModelConfigClient
 	// SubscriptionPlan is the client for interacting with the SubscriptionPlan builders.
 	SubscriptionPlan *SubscriptionPlanClient
 	// TLSFingerprintProfile is the client for interacting with the TLSFingerprintProfile builders.
@@ -226,6 +230,7 @@ func (tx *Tx) init() {
 	tx.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(tx.config)
 	tx.ChannelMonitorHistory = NewChannelMonitorHistoryClient(tx.config)
 	tx.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(tx.config)
+	tx.CreationTask = NewCreationTaskClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)
 	tx.IdempotencyRecord = NewIdempotencyRecordClient(tx.config)
@@ -240,6 +245,7 @@ func (tx *Tx) init() {
 	tx.RedeemCode = NewRedeemCodeClient(tx.config)
 	tx.SecuritySecret = NewSecuritySecretClient(tx.config)
 	tx.Setting = NewSettingClient(tx.config)
+	tx.StudioModelConfig = NewStudioModelConfigClient(tx.config)
 	tx.SubscriptionPlan = NewSubscriptionPlanClient(tx.config)
 	tx.TLSFingerprintProfile = NewTLSFingerprintProfileClient(tx.config)
 	tx.UsageCleanupTask = NewUsageCleanupTaskClient(tx.config)

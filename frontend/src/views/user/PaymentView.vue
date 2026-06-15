@@ -37,6 +37,10 @@
               <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">{{ user?.username || '' }}</p>
               <p class="mt-0.5 text-sm font-medium text-green-600 dark:text-green-400">{{ t('payment.currentBalance') }}: {{ user?.balance?.toFixed(2) || '0.00' }}</p>
             </div>
+            <div class="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 dark:border-primary-800/70 dark:bg-primary-900/20">
+              <p class="text-sm font-semibold text-primary-800 dark:text-primary-200">{{ t('payment.rechargeSubscriptionHintTitle') }}</p>
+              <p class="mt-1 text-xs leading-5 text-primary-700 dark:text-primary-300">{{ t('payment.rechargeSubscriptionHintBody') }}</p>
+            </div>
             <div v-if="enabledMethods.length === 0" class="card py-16 text-center">
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
             </div>
@@ -44,7 +48,8 @@
             <div class="card p-6">
               <AmountInput
                 v-model="amount"
-                :amounts="[10, 20, 50, 100, 200, 500, 1000, 2000, 5000]"
+                :amounts="rechargeQuickAmounts"
+                :tiers="balanceRechargeTiers"
                 :min="globalMinAmount"
                 :max="globalMaxAmount"
               />
@@ -75,7 +80,10 @@
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.creditedBalance') }}</span>
                   <span class="text-gray-900 dark:text-white">${{ creditedAmount.toFixed(2) }}</span>
                 </div>
-                <p v-if="balanceRechargeMultiplier !== 1" class="border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-dark-600 dark:text-gray-400">
+                <p v-if="selectedRechargeTier" class="border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-dark-600 dark:text-gray-400">
+                  {{ t('payment.rechargeTierPreview', { amount: selectedRechargeTier.amount.toFixed(2), credit: selectedRechargeTier.credit.toFixed(2) }) }}
+                </p>
+                <p v-else-if="balanceRechargeMultiplier !== 1" class="border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-dark-600 dark:text-gray-400">
                   {{ t('payment.rechargeRatePreview', { usd: balanceRechargeMultiplier.toFixed(2) }) }}
                 </p>
               </div>
@@ -301,7 +309,7 @@ const loading = ref(true)
 const submitting = ref(false)
 const errorMessage = ref('')
 const errorHintMessage = ref('')
-const activeTab = ref<'recharge' | 'subscription'>('recharge')
+const activeTab = ref<'recharge' | 'subscription'>('subscription')
 const amount = ref<number | null>(null)
 const selectedMethod = ref('')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
@@ -478,13 +486,13 @@ function onPaymentSettled() {
 // All checkout data from single API call
 const checkout = ref<CheckoutInfoResponse>({
   methods: {}, global_min: 0, global_max: 0,
-  plans: [], balance_disabled: false, balance_recharge_multiplier: 1, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
+  plans: [], balance_disabled: false, balance_recharge_multiplier: 1, balance_recharge_tiers: [], recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
 })
 
 const tabs = computed(() => {
   const result: { key: 'recharge' | 'subscription'; label: string }[] = []
-  if (!checkout.value.balance_disabled) result.push({ key: 'recharge', label: t('payment.tabTopUp') })
   result.push({ key: 'subscription', label: t('payment.tabSubscribe') })
+  if (!checkout.value.balance_disabled) result.push({ key: 'recharge', label: t('payment.tabTopUp') })
   return result
 })
 
@@ -495,7 +503,35 @@ const balanceRechargeMultiplier = computed(() => {
   const multiplier = checkout.value.balance_recharge_multiplier
   return multiplier > 0 ? multiplier : 1
 })
-const creditedAmount = computed(() => Math.round((validAmount.value * balanceRechargeMultiplier.value) * 100) / 100)
+const balanceRechargeTiers = computed(() => {
+  const tiers = checkout.value.balance_recharge_tiers ?? []
+  return tiers
+    .map(tier => ({
+      amount: roundPaymentAmount(Number(tier.amount)),
+      credit: roundPaymentAmount(Number(tier.credit)),
+    }))
+    .filter(tier => tier.amount > 0 && tier.credit > 0)
+    .sort((a, b) => a.amount - b.amount)
+})
+const defaultRechargeQuickAmounts = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000]
+const rechargeQuickAmounts = computed(() =>
+  balanceRechargeTiers.value.length > 0
+    ? balanceRechargeTiers.value.map(tier => tier.amount)
+    : defaultRechargeQuickAmounts
+)
+const selectedRechargeTier = computed(() => {
+  const selectedAmount = roundPaymentAmount(validAmount.value)
+  return balanceRechargeTiers.value.find(tier => tier.amount === selectedAmount) ?? null
+})
+const creditedAmount = computed(() => {
+  if (selectedRechargeTier.value) return selectedRechargeTier.value.credit
+  return roundPaymentAmount(validAmount.value * balanceRechargeMultiplier.value)
+})
+
+function roundPaymentAmount(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.round(value * 100) / 100
+}
 
 // Adaptive grid: center single card, 2-col for 2 plans, 3-col for 3+
 const planGridClass = computed(() => {
@@ -1055,6 +1091,9 @@ onMounted(async () => {
     if (checkout.value.balance_disabled) {
       activeTab.value = 'subscription'
     }
+    if (!checkout.value.balance_disabled && checkout.value.plans.length === 0 && route.query.tab !== 'subscription') {
+      activeTab.value = 'recharge'
+    }
     // Handle renewal navigation: ?tab=subscription&group=123
     if (route.query.tab === 'subscription') {
       activeTab.value = 'subscription'
@@ -1068,6 +1107,9 @@ onMounted(async () => {
           showRenewalModal.value = true
         }
       }
+    }
+    if (route.query.tab === 'recharge' && !checkout.value.balance_disabled) {
+      activeTab.value = 'recharge'
     }
   } catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
   finally { loading.value = false }
