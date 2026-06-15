@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +22,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/studiomodelconfig"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
 // recordCreation 把一次创作产出落库（失败不影响主流程）。
@@ -106,12 +110,23 @@ func (h *StudioHandler) GetWork(c *gin.Context) {
 
 // StudioHandler 处理创作台：模型配置（生图 / 文案模型）与封面生成。
 type StudioHandler struct {
-	client *dbent.Client
+	client             *dbent.Client
+	accountRepo        service.AccountRepository
+	accountTestService *service.AccountTestService
 }
 
 // NewStudioHandler 构造 StudioHandler。
 func NewStudioHandler(client *dbent.Client) *StudioHandler {
 	return &StudioHandler{client: client}
+}
+
+// NewStudioHandlerWithDeps constructs a StudioHandler with model discovery dependencies.
+func NewStudioHandlerWithDeps(client *dbent.Client, accountRepo service.AccountRepository, accountTestService *service.AccountTestService) *StudioHandler {
+	return &StudioHandler{
+		client:             client,
+		accountRepo:        accountRepo,
+		accountTestService: accountTestService,
+	}
 }
 
 type studioModelSlot struct {
@@ -176,6 +191,106 @@ func (h *StudioHandler) SaveModelConfig(c *gin.Context) {
 		return
 	}
 	response.Success(c, req)
+}
+
+// ListKeyModels reads live model IDs from the upstream account(s) behind a user API key.
+func (h *StudioHandler) ListKeyModels(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	keyID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || keyID <= 0 {
+		response.BadRequest(c, "Invalid key ID")
+		return
+	}
+	if h.accountRepo == nil || h.accountTestService == nil {
+		response.InternalError(c, "Studio model discovery is not configured")
+		return
+	}
+
+	ak, err := h.client.APIKey.Get(c.Request.Context(), keyID)
+	if err != nil || ak.UserID != subject.UserID {
+		response.NotFound(c, "API key not found")
+		return
+	}
+	if ak.GroupID == nil || *ak.GroupID <= 0 {
+		response.BadRequest(c, "API key is not bound to a model group")
+		return
+	}
+
+	g, err := h.client.Group.Get(c.Request.Context(), *ak.GroupID)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			response.BadRequest(c, "API key model group is not available")
+			return
+		}
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	accounts, err := h.accountRepo.ListSchedulableByGroupIDAndPlatform(c.Request.Context(), *ak.GroupID, g.Platform)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if len(accounts) == 0 {
+		response.BadRequest(c, "No schedulable upstream accounts are available for this API key")
+		return
+	}
+
+	modelSet := make(map[string]struct{})
+	var lastErr error
+	for i := range accounts {
+		models, err := h.accountTestService.FetchUpstreamSupportedModels(c.Request.Context(), &accounts[i])
+		if err != nil {
+			lastErr = err
+			var syncErr *service.UpstreamModelSyncError
+			if errors.As(err, &syncErr) {
+				slog.Warn("studio_key_models_fetch_failed", "account_id", accounts[i].ID, "kind", syncErr.Kind)
+			} else {
+				slog.Warn("studio_key_models_fetch_failed", "account_id", accounts[i].ID)
+			}
+			continue
+		}
+		for _, model := range models {
+			model = strings.TrimSpace(model)
+			if model != "" {
+				modelSet[model] = struct{}{}
+			}
+		}
+	}
+
+	if len(modelSet) == 0 {
+		writeStudioModelDiscoveryError(c, lastErr)
+		return
+	}
+
+	out := make([]string, 0, len(modelSet))
+	for model := range modelSet {
+		out = append(out, model)
+	}
+	sort.Strings(out)
+	response.Success(c, out)
+}
+
+func writeStudioModelDiscoveryError(c *gin.Context, err error) {
+	if err == nil {
+		response.BadRequest(c, "No upstream models are available for this API key")
+		return
+	}
+	var syncErr *service.UpstreamModelSyncError
+	if errors.As(err, &syncErr) {
+		switch syncErr.Kind {
+		case service.UpstreamModelSyncErrorConfiguration, service.UpstreamModelSyncErrorUnsupported:
+			response.BadRequest(c, syncErr.SafeMessage())
+		default:
+			response.Error(c, http.StatusBadGateway, syncErr.SafeMessage())
+		}
+		return
+	}
+	response.Error(c, http.StatusBadGateway, "Failed to fetch upstream models")
 }
 
 type coverRequest struct {

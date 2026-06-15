@@ -1951,17 +1951,15 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 		// Scheduler snapshots can be temporarily stale (bucket rebuild is throttled);
 		// re-check schedulability here so recently rate-limited/overloaded accounts
 		// are not selected again before the bucket is rebuilt.
-		if !isOpenAIAccountEligibleForRequest(ctx, acc, requestedModel, false, requiredCapability) {
+		fresh := s.resolveFreshSchedulableOpenAIAccount(ctx, acc, requestedModel, false, requiredCapability)
+		if fresh == nil {
 			continue
 		}
-		if s.isOpenAIAccountRuntimeBlocked(acc) {
-			continue
-		}
-		if needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, acc, requestedModel, requireCompact) {
+		if needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, fresh, requestedModel, requireCompact) {
 			continue
 		}
 		baseCandidateCount++
-		candidates = append(candidates, acc)
+		candidates = append(candidates, fresh)
 	}
 
 	if len(candidates) == 0 {
@@ -2182,7 +2180,18 @@ func (s *OpenAIGatewayService) resolveFreshSchedulableOpenAIAccount(ctx context.
 	}
 
 	if !isOpenAIAccountEligibleForRequest(ctx, fresh, requestedModel, requireCompact, requiredCapability) {
-		return nil
+		if s.schedulerSnapshot == nil || s.accountRepo == nil {
+			return nil
+		}
+		latest, err := s.accountRepo.GetByID(ctx, account.ID)
+		if err != nil || latest == nil {
+			return nil
+		}
+		if !isOpenAIAccountEligibleForRequest(ctx, latest, requestedModel, requireCompact, requiredCapability) {
+			return nil
+		}
+		_ = s.schedulerSnapshot.UpdateAccountInCache(ctx, latest)
+		fresh = latest
 	}
 	if s.isOpenAIAccountRuntimeBlocked(fresh) {
 		return nil

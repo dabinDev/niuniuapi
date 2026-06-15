@@ -156,7 +156,7 @@ var ProviderSet = wire.NewSet(
 	NewPaymentHandler,
 	NewPaymentWebhookHandler,
 	NewAvailableChannelHandler,
-	NewStudioHandler,
+	NewStudioHandlerWithDeps,
 
 	// Admin handlers
 	admin.NewDashboardHandler,

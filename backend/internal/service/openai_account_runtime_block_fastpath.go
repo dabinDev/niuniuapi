@@ -41,6 +41,12 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 		}
 		return false
 	}
+	if isOpenAIImageCapabilityDeniedError(statusCode, responseBody) {
+		if s != nil && s.rateLimitService != nil {
+			_ = s.rateLimitService.HandleOpenAIImageCapabilityDenied(stateCtx, account, statusCode, headers, responseBody)
+		}
+		return false
+	}
 
 	if statusCode == http.StatusTooManyRequests {
 		s.markOpenAIOAuth429RateLimited(stateCtx, account, headers, responseBody)

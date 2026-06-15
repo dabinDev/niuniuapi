@@ -31,6 +31,11 @@ func (c *snapshotHydrationCache) GetAccount(ctx context.Context, accountID int64
 }
 
 func (c *snapshotHydrationCache) SetAccount(ctx context.Context, account *Account) error {
+	if c.accounts == nil {
+		c.accounts = make(map[int64]*Account)
+	}
+	copied := *account
+	c.accounts[account.ID] = &copied
 	return nil
 }
 
@@ -113,6 +118,68 @@ func TestOpenAISelectAccountWithLoadAwareness_HydratesSelectedAccountFromSchedul
 	}
 	if got := selection.Account.GetOpenAIApiKey(); got != "sk-live" {
 		t.Fatalf("expected hydrated api key, got %q", got)
+	}
+}
+
+func TestOpenAISelectAccountWithLoadAwareness_RechecksDBWhenSnapshotModelMappingIsStale(t *testing.T) {
+	stale := &Account{
+		ID:          1,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Priority:    1,
+		Credentials: map[string]any{
+			"model_mapping": map[string]any{
+				"gpt-5-mini": "gpt-5-mini",
+			},
+		},
+	}
+	latest := Account{
+		ID:          1,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Priority:    1,
+		Credentials: map[string]any{
+			"api_key":       "sk-live",
+			"model_mapping": map[string]any{"gpt-5-mini": "gpt-5-mini"},
+		},
+		Extra: map[string]any{
+			"openai_passthrough": true,
+		},
+	}
+	cache := &snapshotHydrationCache{
+		snapshot: []*Account{stale},
+		accounts: map[int64]*Account{
+			1: stale,
+		},
+	}
+	repo := stubOpenAIAccountRepo{accounts: []Account{latest}}
+	schedulerSnapshot := NewSchedulerSnapshotService(cache, nil, repo, nil, nil)
+	groupID := int64(2)
+	svc := &OpenAIGatewayService{
+		accountRepo:        repo,
+		schedulerSnapshot:  schedulerSnapshot,
+		concurrencyService: NewConcurrencyService(stubConcurrencyCache{}),
+		cache:              &stubGatewayCache{},
+	}
+
+	selection, err := svc.SelectAccountWithLoadAwareness(context.Background(), &groupID, "", "gpt-5.4", nil)
+	if err != nil {
+		t.Fatalf("SelectAccountWithLoadAwareness error: %v", err)
+	}
+	if selection == nil || selection.Account == nil {
+		t.Fatalf("expected selected account")
+	}
+	if got := selection.Account.GetOpenAIApiKey(); got != "sk-live" {
+		t.Fatalf("expected latest db account, got api key %q", got)
+	}
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
 	}
 }
 

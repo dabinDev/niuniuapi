@@ -243,6 +243,12 @@ export async function saveModelConfig(cfg: StudioModelConfig): Promise<void> {
 
 // ==================== 我的作品 ====================
 
+/** Fetch live upstream model IDs available to a selected user API key. */
+export async function getKeyModels(apiKeyId: number): Promise<string[]> {
+  const { data } = await apiClient.get<string[]>(`/studio/keys/${apiKeyId}/models`)
+  return Array.isArray(data) ? data : []
+}
+
 export type WorkType = 'cover' | 'teardown' | 'script'
 
 export interface WorkItem {

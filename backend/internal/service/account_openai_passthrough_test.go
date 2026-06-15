@@ -49,6 +49,25 @@ func TestAccount_IsOpenAIPassthroughEnabled(t *testing.T) {
 	})
 }
 
+func TestAccount_IsModelSupportedOpenAIPassthroughIgnoresLocalMapping(t *testing.T) {
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"model_mapping": map[string]any{
+				"gpt-5-mini":  "gpt-5-mini",
+				"gpt-image-1": "gpt-image-1",
+			},
+		},
+		Extra: map[string]any{
+			"openai_passthrough": true,
+		},
+	}
+
+	require.True(t, account.IsModelSupported("gpt-5.4"))
+	require.True(t, account.IsModelSupported("gpt-image-2"))
+}
+
 func TestAccount_IsOpenAIOAuthPassthroughEnabled(t *testing.T) {
 	t.Run("仅OAuth类型允许返回开启", func(t *testing.T) {
 		oauthAccount := &Account{

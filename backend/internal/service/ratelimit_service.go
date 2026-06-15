@@ -70,6 +70,7 @@ const (
 const (
 	openAIImageRateLimitDefaultCooldown = time.Minute
 	openAIImageRateLimitReason          = "openai_image_rate_limited"
+	openAIImageCapabilityDeniedReason   = "openai_image_capability_denied"
 )
 
 var openAIImageTryAgainPattern = regexp.MustCompile(`(?i)try again in\s+([0-9]+(?:\.[0-9]+)?)\s*(ms|s|sec|secs|second|seconds|m|min|mins|minute|minutes)`)
@@ -1650,6 +1651,30 @@ func (s *RateLimitService) HandleOpenAIImageRateLimit(ctx context.Context, accou
 	return true
 }
 
+func (s *RateLimitService) HandleOpenAIImageCapabilityDenied(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte) bool {
+	if s == nil || account == nil || s.accountRepo == nil {
+		return false
+	}
+	if account.Platform != PlatformOpenAI {
+		return false
+	}
+	if !account.ShouldHandleErrorCode(statusCode) {
+		slog.Info("openai_image_capability_denied_skipped_by_error_code_policy", "account_id", account.ID, "status_code", statusCode)
+		return false
+	}
+	if !isOpenAIImageCapabilityDeniedError(statusCode, responseBody) {
+		return false
+	}
+
+	resetAt := openAIImageCapabilityDeniedResetAt(headers)
+	if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, openAIImageGenerationRateLimitKey, resetAt, openAIImageCapabilityDeniedReason); err != nil {
+		slog.Warn("openai_image_capability_denied_set_model_rate_limit_failed", "account_id", account.ID, "scope", openAIImageGenerationRateLimitKey, "error", err)
+		return true
+	}
+	slog.Info("openai_image_capability_denied", "account_id", account.ID, "scope", openAIImageGenerationRateLimitKey, "reset_at", resetAt, "reset_in", time.Until(resetAt).Truncate(time.Second))
+	return true
+}
+
 func isOpenAIImageRateLimitError(statusCode int, body []byte) bool {
 	if statusCode != http.StatusTooManyRequests || len(body) == 0 {
 		return false
@@ -1666,6 +1691,31 @@ func isOpenAIImageRateLimitError(statusCode int, body []byte) bool {
 		}
 	}
 	return false
+}
+
+func isOpenAIImageCapabilityDeniedError(statusCode int, body []byte) bool {
+	if statusCode != http.StatusForbidden || len(body) == 0 {
+		return false
+	}
+	lower := strings.ToLower(string(body))
+	for _, marker := range []string{
+		"image generation is not enabled",
+		"images generation is not enabled",
+		"image generation not enabled",
+	} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func openAIImageCapabilityDeniedResetAt(headers http.Header) time.Time {
+	now := time.Now()
+	if resetAt := parseRetryAfterResetTime(headers, now); resetAt != nil && resetAt.After(now) {
+		return *resetAt
+	}
+	return now.Add(time.Duration(openAI403CooldownMinutesDefault) * time.Minute)
 }
 
 func openAIImageRateLimitResetAt(headers http.Header, body []byte) time.Time {

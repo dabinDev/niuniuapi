@@ -6,6 +6,7 @@ const api = vi.hoisted(() => ({
   gwListModels: vi.fn(),
   gwTestImage: vi.fn(),
   gwTestChat: vi.fn(),
+  getKeyModels: vi.fn(),
   getModelConfig: vi.fn(),
   saveModelConfig: vi.fn(),
 }))
@@ -17,6 +18,7 @@ vi.mock('@/api/gateway', () => ({
   gwTestChat: api.gwTestChat,
 }))
 vi.mock('@/api/studio', () => ({
+  getKeyModels: api.getKeyModels,
   getModelConfig: api.getModelConfig,
   saveModelConfig: api.saveModelConfig,
 }))
@@ -31,7 +33,7 @@ describe('KeyModelConfigPanel', () => {
   })
 
   it('fetches the model list for the selected key', async () => {
-    api.gwListModels.mockResolvedValue(['gpt-image-1', 'gpt-5.4'])
+    api.getKeyModels.mockResolvedValue(['gpt-image-2', 'gpt-5.4'])
     const w = mount(KeyModelConfigPanel)
     await flushPromises()
 
@@ -39,12 +41,13 @@ describe('KeyModelConfigPanel', () => {
     await w.find('[data-test=fetch]').trigger('click')
     await flushPromises()
 
-    expect(api.gwListModels).toHaveBeenCalledWith('sk-x')
+    expect(api.getKeyModels).toHaveBeenCalledWith(1)
+    expect(api.gwListModels).not.toHaveBeenCalled()
     expect(w.findAll('[data-test=model] option')).toHaveLength(3) // placeholder + 2
   })
 
   it('assigns an image model, requires test before save, then persists', async () => {
-    api.gwListModels.mockResolvedValue(['gpt-image-1', 'gpt-5.4'])
+    api.getKeyModels.mockResolvedValue(['gpt-image-1', 'gpt-5.4'])
     api.gwTestImage.mockResolvedValue(undefined)
     api.saveModelConfig.mockResolvedValue(undefined)
     const w = mount(KeyModelConfigPanel)

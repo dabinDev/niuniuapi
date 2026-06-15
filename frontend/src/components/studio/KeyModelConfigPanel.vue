@@ -73,8 +73,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { list as listKeys } from '@/api/keys'
-import { gwListModels, gwTestChat, gwTestImage } from '@/api/gateway'
-import { getModelConfig, saveModelConfig, type ModelSlot, type StudioModelConfig } from '@/api/studio'
+import { gwTestChat, gwTestImage } from '@/api/gateway'
+import { getKeyModels, getModelConfig, saveModelConfig, type ModelSlot, type StudioModelConfig } from '@/api/studio'
 import type { ApiKey } from '@/types'
 
 type SlotType = 'image' | 'text'
@@ -106,7 +106,7 @@ async function loadModels() {
   models.value = []
   model.value = ''
   try {
-    models.value = await gwListModels(selectedKey.value.key)
+    models.value = await getKeyModels(selectedKey.value.id)
   } catch {
     error.value = '获取模型列表失败：该密钥不可用或无权限。'
   } finally {
