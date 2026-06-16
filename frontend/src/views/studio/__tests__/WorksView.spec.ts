@@ -35,6 +35,22 @@ describe('WorksView', () => {
     expect(wrapper.text()).toContain('拆书报告')
   })
 
+  it('frames the archive as a project-centered studio workbench', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="studio-workbench-shell"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('作品工作台')
+    expect(wrapper.text()).toContain('章节树')
+    expect(wrapper.text()).toContain('设定库')
+    expect(wrapper.text()).toContain('概览看板')
+    expect(wrapper.text()).toContain('最近产出归档')
+
+    for (const label of ['概览', '拆书', '爆款', '大纲', '正文', '剧本', '导入']) {
+      expect(wrapper.text()).toContain(label)
+    }
+  })
+
   it('loads and renders a teardown detail when selected', async () => {
     getWork.mockResolvedValue({
       id: 1,
@@ -53,6 +69,61 @@ describe('WorksView', () => {
     expect(getWork).toHaveBeenCalledWith(1)
     expect(wrapper.text()).toContain('套路堆叠')
     expect(wrapper.text()).toContain('签到无代价')
+  })
+
+  it('loads and renders hotspot detail cards', async () => {
+    listWorks.mockResolvedValue([
+      { id: 3, type: 'hotspot', title: '爆款对标', model: 'gpt-5.4', created_at: '2026-06-15T02:00:00Z' },
+    ])
+    getWork.mockResolvedValue({
+      id: 3,
+      type: 'hotspot',
+      title: '爆款对标',
+      model: 'gpt-5.4',
+      created_at: '2026-06-15T02:00:00Z',
+      output: {
+        market_score: 83,
+        verdict: '钩子够狠',
+        tropes: ['开局压迫'],
+        actions: ['补第 2 章兑现'],
+      },
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('.work-card').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('钩子够狠')
+    expect(wrapper.text()).toContain('补第 2 章兑现')
+  })
+
+  it('loads and renders imported chapter summaries', async () => {
+    listWorks.mockResolvedValue([
+      { id: 4, type: 'import', title: '北境书塔导入', model: 'local-importer', created_at: '2026-06-15T03:00:00Z' },
+    ])
+    getWork.mockResolvedValue({
+      id: 4,
+      type: 'import',
+      title: '北境书塔导入',
+      model: 'local-importer',
+      created_at: '2026-06-15T03:00:00Z',
+      output: {
+        chapters: [
+          { title: '第 1 章 雨夜入塔', word_count: 1200 },
+          { title: '第 2 章 旧约', word_count: 980 },
+        ],
+        next_actions: ['送去拆书诊断'],
+      },
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('.work-card').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('第 1 章 雨夜入塔')
+    expect(wrapper.text()).toContain('送去拆书诊断')
   })
 
   it('opens cover works in the shared image viewer with multi-image navigation', async () => {

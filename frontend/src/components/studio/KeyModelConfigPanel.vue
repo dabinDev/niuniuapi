@@ -73,9 +73,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { list as listKeys } from '@/api/keys'
-import { gwTestChat, gwTestImage } from '@/api/gateway'
-import { getKeyModels, getModelConfig, saveModelConfig, type ModelSlot, type StudioModelConfig } from '@/api/studio'
+import { getKeyModels, getModelConfig, saveModelConfig, testModelSlot, type ModelSlot, type StudioModelConfig } from '@/api/studio'
 import type { ApiKey } from '@/types'
+import { extractApiErrorMessage } from '@/utils/apiError'
 
 type SlotType = 'image' | 'text'
 
@@ -92,9 +92,6 @@ const error = ref('')
 const savedMsg = ref('')
 
 const selectedKey = computed(() => keys.value.find((k) => k.id === keyId.value))
-function keyValueOf(id: number) {
-  return keys.value.find((k) => k.id === id)?.key || ''
-}
 function keyNameOf(id: number) {
   return keys.value.find((k) => k.id === id)?.name || `#${id}`
 }
@@ -127,12 +124,14 @@ async function testSlot(type: SlotType) {
   testing.value[type] = true
   error.value = ''
   try {
-    if (type === 'image') await gwTestImage(keyValueOf(s.api_key_id), s.model)
-    else await gwTestChat(keyValueOf(s.api_key_id), s.model)
+    await testModelSlot(type, s.api_key_id, s.model)
     tested.value[type] = true
-  } catch {
+  } catch (err) {
     tested.value[type] = false
-    error.value = `${type === 'image' ? '生图' : '文案'}测试未通过。`
+    const detail = extractApiErrorMessage(err, '')
+    error.value = detail
+      ? `${type === 'image' ? '生图' : '文案'}测试未通过：${detail}`
+      : `${type === 'image' ? '生图' : '文案'}测试未通过。`
   } finally {
     testing.value[type] = false
   }

@@ -30,3 +30,13 @@ describe('AppSidebar header styles', () => {
     expect(sidebarBrandBlockMatch?.[0]).not.toContain('overflow: hidden;')
   })
 })
+
+describe('AppSidebar studio navigation', () => {
+  it('uses the new studio IA and keeps legacy script out of the visible menu', () => {
+    expect(componentSource).toContain("path: '/studio/hotspot'")
+    expect(componentSource).toContain("label: t('nav.studioHotspot')")
+    expect(componentSource).toContain("path: '/studio/generate'")
+    expect(componentSource).toContain("label: t('nav.studioGenerate')")
+    expect(componentSource).not.toContain("path: '/studio/script', label: t('nav.studioScript')")
+  })
+})

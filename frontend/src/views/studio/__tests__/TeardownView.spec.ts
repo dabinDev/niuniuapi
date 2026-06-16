@@ -49,6 +49,16 @@ describe('TeardownView', () => {
     expect(wrapper.find('.submit-btn').attributes('disabled')).toBeUndefined()
   })
 
+  it('frames teardown as a structured diagnosis workspace', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('拆书诊断')
+    expect(wrapper.text()).toContain('黄金三章')
+    expect(wrapper.text()).toContain('节奏热区')
+    expect(wrapper.text()).toContain('伏笔追踪')
+  })
+
   it('blocks teardown when no text model is configured', async () => {
     getModelConfig.mockResolvedValue({})
     const wrapper = mountView()

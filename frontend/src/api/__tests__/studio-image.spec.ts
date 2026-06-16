@@ -11,7 +11,7 @@ vi.mock('@/api/client', () => ({
   },
 }))
 
-import { buildNovelCoverPayload, generateCover, getCoverJob, startCoverJob } from '@/api/studio'
+import { buildNovelCoverPayload, generateCover, getCoverJob, startCoverJob, testModelSlot } from '@/api/studio'
 
 describe('buildNovelCoverPayload', () => {
   beforeEach(() => {
@@ -58,6 +58,18 @@ describe('buildNovelCoverPayload', () => {
     await generateCover(payload)
 
     expect(apiClientPost).toHaveBeenCalledWith('/studio/cover', payload, expect.objectContaining({ timeout: 240000 }))
+  })
+
+  it('uses a long timeout for image model slot tests', async () => {
+    apiClientPost.mockResolvedValue({ data: { ok: true } })
+
+    await testModelSlot('image', 1, 'gpt-image-2')
+
+    expect(apiClientPost).toHaveBeenCalledWith(
+      '/studio/model-test',
+      { type: 'image', api_key_id: 1, model: 'gpt-image-2' },
+      expect.objectContaining({ timeout: 240000 }),
+    )
   })
 
   it('starts and polls cover generation jobs', async () => {

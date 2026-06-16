@@ -27,7 +27,7 @@ export interface TeardownScore {
   value: number
 }
 
-/** 拆书 & 爆款分析报告 */
+/** 拆书诊断报告 */
 export interface TeardownReport {
   /** 综合评分 0-100 */
   overall_score: number
@@ -46,11 +46,41 @@ export interface TeardownReport {
 }
 
 /**
- * 提交拆书 & 爆款分析任务。
+ * 提交拆书诊断任务。
  * @returns 结构化拆书报告
  */
 export async function analyzeTeardown(payload: TeardownRequest): Promise<TeardownReport> {
   const { data } = await apiClient.post<TeardownReport>('/studio/teardown', payload)
+  return data
+}
+
+// ==================== 爆款对标 ====================
+
+export interface HotspotRequest {
+  content: string
+  benchmark?: string
+  title?: string
+  genre?: string
+  goal?: 'new-book' | 'rewrite' | 'short-video'
+}
+
+export interface HotspotSample {
+  title: string
+  lesson: string
+}
+
+export interface HotspotReport {
+  market_score: number
+  verdict: string
+  radar: TeardownScore[]
+  tropes: string[]
+  gaps: string[]
+  actions: string[]
+  samples: HotspotSample[]
+}
+
+export async function analyzeHotspot(payload: HotspotRequest): Promise<HotspotReport> {
+  const { data } = await apiClient.post<HotspotReport>('/studio/hotspot', payload)
   return data
 }
 
@@ -191,10 +221,39 @@ export function buildNovelCoverPayload(f: NovelCoverForm): CoverNovelRequest {
   }
 }
 
-// ==================== 剧本生成 ====================
+// ==================== 创作生成 ====================
 
-/** 剧本形态：长剧本 / 短剧 / 分镜脚本 */
+export type CreativeMode = 'outline' | 'draft' | 'rewrite' | 'long' | 'short' | 'storyboard'
 export type ScriptForm = 'long' | 'short' | 'storyboard'
+
+export interface CreativeRequest {
+  content: string
+  mode: CreativeMode
+  brief?: string
+  genre?: string
+  style?: string
+  target_words?: number
+  episodes?: number
+}
+
+export interface CreativeSection {
+  heading: string
+  content: string
+}
+
+export interface CreativeResult {
+  title: string
+  mode: CreativeMode | string
+  summary?: string
+  sections: CreativeSection[]
+  checklist?: string[]
+  next_steps?: string[]
+}
+
+export async function generateCreative(payload: CreativeRequest): Promise<CreativeResult> {
+  const { data } = await apiClient.post<CreativeResult>('/studio/generate', payload)
+  return data
+}
 
 export interface ScriptRequest {
   /** 小说正文 / 大纲 */
@@ -222,6 +281,38 @@ export async function generateScript(payload: ScriptRequest): Promise<ScriptResu
   return data
 }
 
+// ==================== 番茄导入器 ====================
+
+export type StudioImportSource = 'manual' | 'fanqie'
+
+export interface StudioImportRequest {
+  source: StudioImportSource
+  title?: string
+  content?: string
+  urls?: string[]
+  consent: boolean
+}
+
+export interface StudioImportChapter {
+  title: string
+  word_count: number
+  source?: string
+}
+
+export interface StudioImportResult {
+  title: string
+  source: string
+  status: 'completed' | 'queued' | string
+  chapters: StudioImportChapter[]
+  notes: string[]
+  next_actions: string[]
+}
+
+export async function importStudioContent(payload: StudioImportRequest): Promise<StudioImportResult> {
+  const { data } = await apiClient.post<StudioImportResult>('/studio/import', payload)
+  return data
+}
+
 // ==================== 创作模型配置（生图 / 文案）====================
 
 export interface ModelSlot {
@@ -235,7 +326,10 @@ export interface StudioModelConfig {
   text?: ModelSlot
 }
 
+export type ModelSlotType = 'image' | 'text'
+
 const MODEL_CONFIG_LS_KEY = 'studio_model_config'
+const STUDIO_MODEL_TEST_TIMEOUT_MS = 240_000
 
 /** 仅读本地缓存的模型配置。 */
 export function loadLocalModelConfig(): StudioModelConfig {
@@ -275,7 +369,18 @@ export async function getKeyModels(apiKeyId: number): Promise<string[]> {
   return Array.isArray(data) ? data : []
 }
 
-export type WorkType = 'cover' | 'teardown' | 'script'
+export async function testModelSlot(type: ModelSlotType, apiKeyId: number, model: string): Promise<{ ok: boolean }> {
+  const { data } = await apiClient.post<{ ok: boolean }>('/studio/model-test', {
+    type,
+    api_key_id: apiKeyId,
+    model,
+  }, {
+    timeout: STUDIO_MODEL_TEST_TIMEOUT_MS,
+  })
+  return data
+}
+
+export type WorkType = 'cover' | 'teardown' | 'hotspot' | 'generate' | 'script' | 'import'
 
 export interface WorkItem {
   id: number
@@ -306,6 +411,7 @@ export async function getWork(id: number): Promise<WorkDetail> {
 
 export const studioAPI = {
   analyzeTeardown,
+  analyzeHotspot,
   listWorks,
   getWork,
   getImageModels,
@@ -314,10 +420,13 @@ export const studioAPI = {
   saveImageConfig,
   getModelConfig,
   saveModelConfig,
+  testModelSlot,
   generateCover,
   startCoverJob,
   getCoverJob,
+  generateCreative,
   generateScript,
+  importStudioContent,
 }
 
 export default studioAPI

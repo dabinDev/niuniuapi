@@ -401,15 +401,30 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/studio/script',
-    name: 'StudioScript',
+    path: '/studio/hotspot',
+    name: 'StudioHotspot',
+    component: () => import('@/views/studio/HotspotView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Hotspot Benchmark',
+      titleKey: 'nav.studioHotspot'
+    }
+  },
+  {
+    path: '/studio/generate',
+    name: 'StudioGenerate',
     component: () => import('@/views/studio/ScriptView.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Script Generator',
-      titleKey: 'nav.studioScript'
+      title: 'Creative Generator',
+      titleKey: 'nav.studioGenerate'
     }
+  },
+  {
+    path: '/studio/script',
+    redirect: '/studio/generate'
   },
   {
     path: '/studio/downloader',

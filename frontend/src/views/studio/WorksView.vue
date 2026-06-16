@@ -1,102 +1,202 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-6xl">
-      <header class="mb-4">
-        <span class="inline-block rounded-full bg-primary-50 px-3 py-1 text-xs font-bold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-          🗂️ 创作台
-        </span>
-        <h1 class="mt-2 text-2xl font-black text-gray-900 dark:text-white sm:text-3xl">我的作品</h1>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">封面、拆书报告、剧本——每次生成都在这里，可随时回看。</p>
+    <div class="works-page mx-auto max-w-7xl" data-test="studio-workbench-shell">
+      <header class="works-head">
+        <div>
+          <span class="eyebrow">Project Spine</span>
+          <h1>作品工作台</h1>
+          <p>用一条清晰流水线管理作品：先导入章节，再拆书诊断、爆款对标、生成大纲或正文，所有结果自动进入归档。</p>
+        </div>
+        <div class="quick-actions" aria-label="作品快捷入口">
+          <router-link to="/studio/downloader">导入内容</router-link>
+          <router-link to="/studio/teardown">拆书诊断</router-link>
+          <router-link class="primary" to="/studio/generate">创作生成</router-link>
+        </div>
       </header>
 
-      <!-- 类型筛选 -->
-      <div class="mb-4 inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white p-1 dark:border-dark-700 dark:bg-dark-900">
-        <button
-          v-for="t in tabs"
-          :key="t.value"
-          type="button"
-          class="rounded-md px-3 py-1.5 text-sm font-semibold transition"
-          :class="activeType === t.value ? 'bg-primary-600 text-white' : 'text-gray-600 hover:text-primary-600 dark:text-gray-300'"
-          @click="activeType = t.value"
-        >
-          {{ t.label }}
-        </button>
-      </div>
+      <section class="spine-band" aria-label="创作流水线">
+        <article v-for="step in spineSteps" :key="step.title">
+          <span>{{ step.index }}</span>
+          <strong>{{ step.title }}</strong>
+          <p>{{ step.desc }}</p>
+        </article>
+      </section>
 
-      <div class="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <!-- 列表 -->
-        <section>
-          <div v-if="loading" class="py-12 text-center text-gray-400">加载中…</div>
-          <div v-else-if="!works.length" class="rounded-xl border border-dashed border-gray-300 py-12 text-center text-gray-400 dark:border-dark-700">
-            还没有作品，去创作台生成第一个吧。
+      <section class="workbench-grid">
+        <aside class="panel chapter-panel" aria-label="章节树">
+          <div class="panel-head">
+            <span>章节树</span>
+            <small>Chapter Map</small>
           </div>
-          <ul v-else class="grid gap-2">
-            <li v-for="w in works" :key="w.id">
-              <button
-                type="button"
-                class="work-card"
-                :class="{ 'work-card-active': selected && selected.id === w.id }"
-                @click="select(w)"
-              >
-                <span class="work-badge" :class="badgeClass(w.type)">{{ typeLabel(w.type) }}</span>
-                <span class="min-w-0 flex-1 truncate text-left font-semibold text-gray-900 dark:text-white">{{ w.title }}</span>
-                <span class="shrink-0 text-xs text-gray-400">{{ fmtTime(w.created_at) }}</span>
-              </button>
+          <ol>
+            <li v-for="chapter in chapterNodes" :key="chapter.title" :class="chapter.state">
+              <b>{{ chapter.index }}</b>
+              <div>
+                <strong>{{ chapter.title }}</strong>
+                <p>{{ chapter.note }}</p>
+              </div>
             </li>
-          </ul>
-        </section>
+          </ol>
+        </aside>
 
-        <!-- 详情 -->
-        <section class="rounded-xl border border-gray-200 bg-white p-5 dark:border-dark-800 dark:bg-dark-900">
-          <div v-if="detailLoading" class="py-12 text-center text-gray-400">加载中…</div>
-          <div v-else-if="!selected" class="py-12 text-center text-gray-400">从左侧选一个作品查看详情。</div>
+        <main class="panel overview-panel" aria-label="概览看板">
+          <div class="panel-head">
+            <span>概览看板</span>
+            <small>Quality Board</small>
+          </div>
+          <nav class="workbench-tabs" aria-label="作品功能">
+            <button v-for="tab in workbenchTabs" :key="tab" type="button">{{ tab }}</button>
+          </nav>
 
-          <template v-else>
-            <h2 class="text-lg font-black text-gray-900 dark:text-white">{{ selected.title }}</h2>
-            <p class="mb-3 text-xs text-gray-400">{{ typeLabel(selected.type) }} · {{ selected.model }} · {{ fmtTime(selected.created_at) }}</p>
+          <div class="metric-grid">
+            <article v-for="metric in projectMetrics" :key="metric.label">
+              <span>{{ metric.label }}</span>
+              <strong>{{ metric.value }}</strong>
+              <p>{{ metric.hint }}</p>
+            </article>
+          </div>
 
-            <!-- 封面 -->
-            <div v-if="selected.type === 'cover'" class="grid grid-cols-2 gap-3">
-              <figure v-for="(c, i) in coverList" :key="i" class="overflow-hidden rounded-lg border border-gray-200 dark:border-dark-800" style="aspect-ratio: 3 / 4">
+          <div class="todo-panel">
+            <div class="panel-head">
+              <span>下一步建议</span>
+              <small>从归档结果继续推进</small>
+            </div>
+            <ul>
+              <li v-for="todo in todoItems" :key="todo">{{ todo }}</li>
+            </ul>
+          </div>
+        </main>
+
+        <aside class="panel setting-panel" aria-label="设定库">
+          <div class="panel-head">
+            <span>设定库</span>
+            <small>Canon Vault</small>
+          </div>
+          <div class="setting-list">
+            <article v-for="group in settingGroups" :key="group.label">
+              <span>{{ group.label }}</span>
+              <strong>{{ group.value }}</strong>
+            </article>
+          </div>
+        </aside>
+      </section>
+
+      <section class="archive-section" aria-label="最近产出归档">
+        <div class="archive-head">
+          <div>
+            <span class="eyebrow small">Archive</span>
+            <h2>最近产出归档</h2>
+            <p>每一次拆书、爆款对标、创作生成、导入记录都会保存到这里；封面历史仍可回看大图。</p>
+          </div>
+          <div class="type-tabs" aria-label="归档类型筛选">
+            <button
+              v-for="t in tabs"
+              :key="t.value"
+              type="button"
+              :class="{ active: activeType === t.value }"
+              @click="activeType = t.value"
+            >
+              {{ t.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="archive-grid">
+          <section class="archive-list">
+            <div v-if="loading" class="archive-empty">加载中...</div>
+            <div v-else-if="!works.length" class="archive-empty dashed">
+              还没有作品，先去导入章节或生成第一份报告。
+            </div>
+            <ul v-else>
+              <li v-for="w in works" :key="w.id">
                 <button
                   type="button"
-                  class="work-cover-thumb"
-                  :data-test="`work-cover-thumb-${i}`"
-                  :aria-label="`查看作品封面 ${i + 1}`"
-                  @click="openCoverViewer(i)"
+                  class="work-card"
+                  :class="{ active: selected && selected.id === w.id }"
+                  @click="select(w)"
                 >
-                  <img :src="c.url" alt="cover" class="h-full w-full object-cover" />
+                  <span class="work-badge" :class="badgeClass(w.type)">{{ typeLabel(w.type) }}</span>
+                  <strong>{{ w.title }}</strong>
+                  <small>{{ fmtTime(w.created_at) }}</small>
                 </button>
-              </figure>
-            </div>
+              </li>
+            </ul>
+          </section>
 
-            <!-- 拆书 -->
-            <div v-else-if="selected.type === 'teardown'">
-              <div class="flex items-baseline gap-3">
-                <span class="text-4xl font-black text-primary-600 dark:text-primary-400">{{ report.overall_score }}</span>
-                <span class="text-sm font-bold text-gray-900 dark:text-white">{{ report.verdict }}</span>
-              </div>
-              <p class="mt-2 text-sm leading-7 text-gray-600 dark:text-gray-300">{{ report.summary }}</p>
-              <div v-if="report.rotten_points && report.rotten_points.length" class="mt-3">
-                <h3 class="text-sm font-bold text-gray-900 dark:text-white">🍅 烂点</h3>
-                <ul class="mt-1 list-disc pl-5 text-sm text-red-500"><li v-for="(r, i) in report.rotten_points" :key="i">{{ r }}</li></ul>
-              </div>
-              <div v-if="report.suggestions && report.suggestions.length" class="mt-3">
-                <h3 class="text-sm font-bold text-gray-900 dark:text-white">🛠️ 建议</h3>
-                <ul class="mt-1 list-disc pl-5 text-sm text-gray-600 dark:text-gray-300"><li v-for="(s, i) in report.suggestions" :key="i">{{ s }}</li></ul>
-              </div>
-            </div>
+          <section class="detail-panel">
+            <div v-if="detailLoading" class="archive-empty">加载中...</div>
+            <div v-else-if="!selected" class="archive-empty">从左侧选一个归档查看详情。</div>
 
-            <!-- 剧本 -->
-            <div v-else-if="selected.type === 'script'">
-              <div v-for="(s, i) in scriptScenes" :key="i" class="mb-3 border-l-2 border-primary-500/50 pl-3">
-                <h3 class="text-sm font-bold text-primary-700 dark:text-primary-300">{{ s.heading }}</h3>
-                <p class="mt-1 whitespace-pre-wrap text-sm leading-7 text-gray-600 dark:text-gray-300">{{ s.content }}</p>
+            <template v-else>
+              <div class="detail-head">
+                <span>{{ typeLabel(selected.type) }} · {{ selected.model }}</span>
+                <h2>{{ selected.title }}</h2>
+                <p>{{ fmtTime(selected.created_at) }}</p>
               </div>
-            </div>
-          </template>
-        </section>
-      </div>
+
+              <div v-if="selected.type === 'cover'" class="cover-grid">
+                <figure v-for="(c, i) in coverList" :key="i">
+                  <button
+                    type="button"
+                    class="work-cover-thumb"
+                    :data-test="`work-cover-thumb-${i}`"
+                    :aria-label="`查看作品封面 ${i + 1}`"
+                    @click="openCoverViewer(i)"
+                  >
+                    <img :src="c.url" alt="cover" />
+                  </button>
+                </figure>
+              </div>
+
+              <div v-else-if="selected.type === 'teardown'" class="detail-block">
+                <div class="score-inline">
+                  <strong>{{ report.overall_score || '-' }}</strong>
+                  <span>{{ report.verdict }}</span>
+                </div>
+                <p v-if="report.summary">{{ report.summary }}</p>
+                <ListGroup title="烂点" :items="report.rotten_points || []" tone="danger" />
+                <ListGroup title="建议" :items="report.suggestions || []" />
+              </div>
+
+              <div v-else-if="selected.type === 'hotspot'" class="detail-block">
+                <div class="score-inline">
+                  <strong>{{ hotspot.market_score || '-' }}</strong>
+                  <span>{{ hotspot.verdict }}</span>
+                </div>
+                <ListGroup title="可复用套路" :items="hotspot.tropes || []" />
+                <ListGroup title="下一步动作" :items="hotspot.actions || []" tone="success" />
+              </div>
+
+              <div v-else-if="selected.type === 'generate'" class="detail-block">
+                <p v-if="creative.summary">{{ creative.summary }}</p>
+                <article v-for="(section, i) in creative.sections || []" :key="i" class="section-output">
+                  <h3>{{ section.heading }}</h3>
+                  <p>{{ section.content }}</p>
+                </article>
+                <ListGroup title="下一步" :items="creative.next_steps || []" tone="success" />
+              </div>
+
+              <div v-else-if="selected.type === 'script'" class="detail-block">
+                <article v-for="(s, i) in scriptScenes" :key="i" class="section-output">
+                  <h3>{{ s.heading }}</h3>
+                  <p>{{ s.content }}</p>
+                </article>
+              </div>
+
+              <div v-else-if="selected.type === 'import'" class="detail-block">
+                <div class="chapter-summary">
+                  <article v-for="chapter in imported.chapters || []" :key="chapter.title + chapter.source">
+                    <strong>{{ chapter.title }}</strong>
+                    <span>{{ chapter.word_count || '-' }} 字</span>
+                    <small>{{ chapter.source || '粘贴内容' }}</small>
+                  </article>
+                </div>
+                <ListGroup title="下一步" :items="imported.next_actions || []" tone="success" />
+              </div>
+            </template>
+          </section>
+        </div>
+      </section>
 
       <CoverImageViewer
         v-if="viewerOpen && coverList.length"
@@ -111,17 +211,72 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import CoverImageViewer from '@/components/studio/CoverImageViewer.vue'
 import { getWork, listWorks, type CoverImage, type WorkDetail, type WorkItem } from '@/api/studio'
 
+const ListGroup = defineComponent({
+  name: 'ListGroup',
+  props: {
+    title: { type: String, required: true },
+    items: { type: Array as () => string[], required: true },
+    tone: { type: String, default: 'default' },
+  },
+  setup(props) {
+    return () => props.items.length
+      ? h('section', { class: ['list-group', `tone-${props.tone}`] }, [
+        h('h3', props.title),
+        h('ul', props.items.map((item) => h('li', { key: item }, item))),
+      ])
+      : null
+  },
+})
+
 const tabs = [
   { value: 'all', label: '全部' },
-  { value: 'cover', label: '封面' },
+  { value: 'import', label: '导入' },
   { value: 'teardown', label: '拆书' },
+  { value: 'hotspot', label: '爆款' },
+  { value: 'generate', label: '生成' },
   { value: 'script', label: '剧本' },
+  { value: 'cover', label: '封面' },
 ]
+
+const spineSteps = [
+  { index: '01', title: '导入', desc: '保存章节、链接清单和来源说明' },
+  { index: '02', title: '诊断', desc: '拆节奏、爽点、人物和伏笔' },
+  { index: '03', title: '对标', desc: '比同题材样本，找爆款差距' },
+  { index: '04', title: '生成', desc: '产出大纲、正文、改写和脚本' },
+]
+
+const projectMetrics = [
+  { label: '综合诊断', value: '待分析', hint: '从拆书报告自动汇总' },
+  { label: '爆款潜力', value: '待对标', hint: '对标后形成雷达' },
+  { label: '设定一致性', value: '待沉淀', hint: '导入章节后建立设定库' },
+]
+
+const workbenchTabs = ['概览', '拆书', '爆款', '大纲', '正文', '剧本', '导入']
+
+const chapterNodes = [
+  { index: '01', title: '导入首章', note: '先把开篇送去拆书，确定钩子和节奏。', state: 'good' },
+  { index: '02', title: '诊断缺口', note: '用爆款对标确认爽点兑现是否偏慢。', state: 'warn' },
+  { index: '03', title: '生成修订', note: '把改法喂给创作生成台，形成新版本。', state: 'good' },
+]
+
+const settingGroups = [
+  { label: '人物卡', value: '从导入章节抽取' },
+  { label: '金手指', value: '拆书后沉淀规则与代价' },
+  { label: '世界观', value: '记录地点、势力、限制' },
+  { label: '伏笔表', value: '跟踪埋设与回收' },
+]
+
+const todoItems = [
+  '先导入 1-3 章，建立可复用的作品上下文。',
+  '用拆书报告找出黄金三章的掉线位置。',
+  '把爆款对标动作直接带进创作生成，形成下一版正文。',
+]
+
 const activeType = ref('all')
 const works = ref<WorkItem[]>([])
 const loading = ref(false)
@@ -130,13 +285,23 @@ const detailLoading = ref(false)
 const viewerOpen = ref(false)
 const viewerIndex = ref(0)
 
-const typeLabelMap: Record<string, string> = { cover: '封面', teardown: '拆书', script: '剧本' }
+const typeLabelMap: Record<string, string> = {
+  cover: '封面',
+  teardown: '拆书',
+  hotspot: '爆款',
+  generate: '生成',
+  script: '剧本',
+  import: '导入',
+}
+
 function typeLabel(t: string) {
   return typeLabelMap[t] || t
 }
+
 function badgeClass(t: string) {
-  return t === 'cover' ? 'badge-cover' : t === 'teardown' ? 'badge-teardown' : 'badge-script'
+  return `badge-${t}`
 }
+
 function fmtTime(s: string) {
   if (!s) return ''
   const d = new Date(s)
@@ -154,6 +319,21 @@ const report = computed(() => out.value as {
   summary?: string
   rotten_points?: string[]
   suggestions?: string[]
+})
+const hotspot = computed(() => out.value as {
+  market_score?: number
+  verdict?: string
+  tropes?: string[]
+  actions?: string[]
+})
+const creative = computed(() => out.value as {
+  summary?: string
+  sections?: { heading: string; content: string }[]
+  next_steps?: string[]
+})
+const imported = computed(() => out.value as {
+  chapters?: { title: string; word_count: number; source?: string }[]
+  next_actions?: string[]
 })
 const scriptScenes = computed(() => (out.value.scenes as { heading: string; content: string }[]) || [])
 
@@ -202,83 +382,555 @@ onBeforeUnmount(closeCoverViewer)
 </script>
 
 <style scoped>
-.work-card {
+.works-page {
+  padding: 0.5rem 0 2.5rem;
+  color: #221a18;
+}
+
+.works-head {
   display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 0.6rem;
-  border: 1px solid rgb(229 231 235);
-  border-radius: 10px;
-  background: #fff;
-  padding: 0.6rem 0.75rem;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
 }
 
-.dark .work-card {
-  border-color: rgb(38 38 38);
-  background: rgb(17 24 39);
+.eyebrow {
+  display: inline-flex;
+  border: 1px solid rgba(232, 65, 46, 0.28);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  color: #c8351f;
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
-.work-card:hover {
-  border-color: rgba(232, 65, 46, 0.4);
+.eyebrow.small {
+  font-size: 0.68rem;
 }
 
-.work-card-active {
-  border-color: rgb(232 65 46);
-  background: rgba(232, 65, 46, 0.05);
+.works-head h1 {
+  margin: 0.55rem 0 0.35rem;
+  font-size: 2.05rem;
+  font-weight: 950;
+  letter-spacing: 0;
 }
 
-.work-badge {
-  flex-shrink: 0;
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 11px;
+.works-head p,
+.archive-head p {
+  max-width: 50rem;
+  color: #665854;
+  line-height: 1.75;
+}
+
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.quick-actions a,
+.type-tabs button {
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  padding: 0.58rem 0.8rem;
+  background: #fffdfb;
+  color: #493a35;
+  font-weight: 850;
+}
+
+.quick-actions a.primary {
+  border-color: #e8412e;
+  background: #e8412e;
+  color: #fff;
+}
+
+.spine-band {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.spine-band article,
+.panel,
+.archive-section {
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 50px rgba(54, 32, 24, 0.08);
+}
+
+.spine-band article {
+  padding: 0.9rem;
+}
+
+.spine-band span {
+  color: #c8351f;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.spine-band strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-weight: 950;
+}
+
+.spine-band p {
+  margin-top: 0.25rem;
+  color: #665854;
+  line-height: 1.55;
+}
+
+.workbench-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.78fr) minmax(0, 1.44fr) minmax(220px, 0.78fr);
+  gap: 1rem;
+}
+
+.panel {
+  padding: 0.95rem;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+}
+
+.panel-head span {
+  font-weight: 950;
+}
+
+.panel-head small {
+  color: #9f7a6d;
   font-weight: 800;
 }
 
-.badge-cover {
-  background: #ffe7e0;
+.chapter-panel ol {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.chapter-panel li {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 0.65rem;
+  border: 1px solid #f0e5df;
+  border-radius: 8px;
+  padding: 0.7rem;
+}
+
+.chapter-panel b {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #241a16;
+  color: #fff;
+  font-size: 0.78rem;
+}
+
+.chapter-panel li.warn b {
+  background: #e8412e;
+}
+
+.chapter-panel p,
+.setting-list strong,
+.todo-panel li {
+  color: #665854;
+  line-height: 1.6;
+}
+
+.workbench-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+
+.workbench-tabs button {
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  padding: 0.48rem 0.65rem;
+  background: #fffdfb;
+  color: #493a35;
+  font-weight: 850;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+}
+
+.metric-grid article,
+.todo-panel,
+.setting-list article {
+  border: 1px solid #f0e5df;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fffdfb;
+}
+
+.metric-grid span,
+.setting-list span {
+  color: #9f7a6d;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.metric-grid strong {
+  display: block;
+  margin-top: 0.25rem;
+  font-weight: 950;
+}
+
+.metric-grid p {
+  margin-top: 0.25rem;
+  color: #665854;
+  line-height: 1.55;
+}
+
+.todo-panel {
+  margin-top: 0.75rem;
+}
+
+.todo-panel ul,
+.list-group ul {
+  padding-left: 1.05rem;
+}
+
+.setting-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.setting-list strong {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.archive-section {
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.archive-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.archive-head h2 {
+  margin-top: 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 950;
+}
+
+.type-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.type-tabs button.active {
+  border-color: #241a16;
+  background: #241a16;
+  color: #fff;
+}
+
+.archive-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.75fr) minmax(0, 1.25fr);
+  gap: 1rem;
+}
+
+.archive-list ul {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.work-card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  padding: 0.68rem;
+  background: #fffdfb;
+  color: #493a35;
+}
+
+.work-card.active {
+  border-color: #e8412e;
+  box-shadow: 0 0 0 3px rgba(232, 65, 46, 0.1);
+}
+
+.work-card strong {
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-card small {
+  color: #8b7a74;
+  font-size: 0.75rem;
+}
+
+.work-badge {
+  border-radius: 999px;
+  padding: 0.22rem 0.48rem;
+  background: #fff7f3;
+  color: #c8351f;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.badge-import {
+  background: #f8fbff;
+  color: #2f5d9f;
+}
+
+.badge-hotspot {
+  background: #fff7f3;
   color: #c8351f;
 }
 
-.badge-teardown {
-  background: #fff1d9;
-  color: #a8631a;
-}
-
+.badge-generate,
 .badge-script {
-  background: #e0ecff;
-  color: #1e51b8;
+  background: #f2fbf6;
+  color: #1c755b;
 }
 
-.work-cover-thumb {
-  position: relative;
-  display: block;
+.badge-cover {
+  background: #f6f0ff;
+  color: #6c45a6;
+}
+
+.archive-empty {
+  min-height: 12rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid #f0e5df;
+  border-radius: 8px;
+  color: #8b7a74;
+  text-align: center;
+}
+
+.archive-empty.dashed {
+  border-style: dashed;
+}
+
+.detail-panel {
+  min-height: 22rem;
+}
+
+.detail-head {
+  border-radius: 8px;
+  padding: 0.9rem;
+  margin-bottom: 0.8rem;
+  background: #241a16;
+  color: #fff;
+}
+
+.detail-head span {
+  color: #f0c7bd;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.detail-head h2 {
+  margin-top: 0.25rem;
+  font-size: 1.3rem;
+  font-weight: 950;
+}
+
+.detail-head p {
+  margin-top: 0.2rem;
+  color: #f7ede4;
+}
+
+.cover-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.cover-grid figure {
+  overflow: hidden;
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  aspect-ratio: 3 / 4;
+}
+
+.work-cover-thumb,
+.work-cover-thumb img {
   width: 100%;
   height: 100%;
+  display: block;
+}
+
+.work-cover-thumb img {
+  object-fit: cover;
+}
+
+.detail-block {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.score-inline {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.score-inline strong {
+  color: #e8412e;
+  font-size: 2.5rem;
+  font-weight: 950;
+}
+
+.score-inline span {
+  font-weight: 900;
+}
+
+.detail-block > p,
+.section-output p {
+  color: #594843;
+  line-height: 1.75;
+}
+
+.list-group,
+.section-output,
+.chapter-summary article {
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  padding: 0.8rem;
+  background: #fffdfb;
+}
+
+.list-group h3,
+.section-output h3 {
+  margin-bottom: 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 950;
+}
+
+.list-group li {
+  color: #594843;
+  line-height: 1.75;
+}
+
+.tone-danger {
+  border-color: rgba(232, 65, 46, 0.28);
+  background: #fff7f3;
+}
+
+.tone-success {
+  border-color: rgba(28, 117, 91, 0.24);
+  background: #f2fbf6;
+}
+
+.chapter-summary {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.chapter-summary article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 12rem);
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.chapter-summary strong,
+.chapter-summary small {
   overflow: hidden;
-  background: rgb(17 24 39);
-  cursor: zoom-in;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.work-cover-thumb::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border: 1px solid rgba(255, 255, 255, 0);
-  background: linear-gradient(180deg, transparent 58%, rgba(0, 0, 0, 0.42));
-  opacity: 0;
-  transition: opacity 0.18s ease, border-color 0.18s ease;
+.chapter-summary span {
+  color: #c8351f;
+  font-weight: 850;
 }
 
-.work-cover-thumb:hover::after,
-.work-cover-thumb:focus-visible::after {
-  border-color: rgba(255, 255, 255, 0.42);
-  opacity: 1;
+.chapter-summary small {
+  color: #8b7a74;
 }
 
-.work-cover-thumb:focus-visible {
-  outline: 3px solid rgba(220, 56, 31, 0.5);
-  outline-offset: -3px;
+.dark .works-page,
+.dark .works-head h1,
+.dark .archive-head h2 {
+  color: #f7ede4;
+}
+
+.dark .works-head p,
+.dark .archive-head p,
+.dark .spine-band p,
+.dark .chapter-panel p,
+.dark .metric-grid p {
+  color: #cdbdb5;
+}
+
+.dark .spine-band article,
+.dark .panel,
+.dark .archive-section,
+.dark .work-card,
+.dark .metric-grid article,
+.dark .todo-panel,
+.dark .setting-list article,
+.dark .list-group,
+.dark .section-output,
+.dark .chapter-summary article {
+  border-color: #312720;
+  background: #171311;
+}
+
+@media (max-width: 1080px) {
+  .workbench-grid,
+  .archive-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .works-head,
+  .archive-head,
+  .spine-band,
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .works-head,
+  .archive-head {
+    align-items: flex-start;
+  }
+
+  .type-tabs {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .work-card,
+  .chapter-summary article,
+  .cover-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

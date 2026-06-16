@@ -219,11 +219,12 @@ const rottenReport = {
 
 const features = [
   { index: '01', tag: 'COVER', title: '小说封面生成', desc: '按书名、题材和卖点生成封面方向，第一眼先替你抢点击。', to: '/studio/cover' },
-  { index: '02', tag: 'TEARDOWN', title: '拆书 & 爆款分析', desc: '拆人物、爽点、伏笔和章节结构，把一坨稿子切成可复用模块。', to: '/studio/teardown' },
-  { index: '03', tag: 'BACKUP', title: '番茄小说下载器', desc: '面向个人作品备份与素材整理，下载后可继续喂给拆书与剧本。', to: '/studio/downloader' },
-  { index: '04', tag: 'WORKS', title: '我的作品', desc: '封面、报告、剧本一处归档，每次生成都能随时回看。', to: '/studio/works' },
-  { index: '05', tag: 'SCRIPT', title: '剧本生成', desc: '把小说片段转成短剧脚本、分镜和口播素材，一稿多吃。', to: '/studio/script' },
-  { index: '06', tag: 'TOKEN', title: 'Token 套餐', desc: '把底层额度包装成作者的创作燃料，按需购买、按量消耗。', to: '/purchase' },
+  { index: '02', tag: 'TEARDOWN', title: '拆书诊断', desc: '拆人物、爽点、伏笔和章节结构，把一坨稿子切成可复用模块。', to: '/studio/teardown' },
+  { index: '03', tag: 'HOTSPOT', title: '爆款对标', desc: '用题材榜单、爽点结构和同类样本给你的稿子找参照。', to: '/studio/hotspot' },
+  { index: '04', tag: 'BACKUP', title: '番茄小说下载器', desc: '面向个人作品备份与素材整理，下载后可继续喂给拆书与创作生成。', to: '/studio/downloader' },
+  { index: '05', tag: 'WORKS', title: '我的作品', desc: '封面、报告、剧本一处归档，每次生成都能随时回看。', to: '/studio/works' },
+  { index: '06', tag: 'GENERATE', title: '创作生成', desc: '把小说片段转成短剧脚本、分镜和口播素材，一稿多吃。', to: '/studio/generate' },
+  { index: '07', tag: 'TOKEN', title: 'Token 套餐', desc: '把底层额度包装成作者的创作燃料，按需购买、按量消耗。', to: '/purchase' },
 ]
 
 const workflow = [

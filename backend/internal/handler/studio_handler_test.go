@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -19,6 +20,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/creationtask"
 	"github.com/Wei-Shaw/sub2api/ent/enttest"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
@@ -35,6 +37,7 @@ import (
 type studioModelAccountRepoStub struct {
 	service.AccountRepository
 	byGroupPlatform map[int64]map[string][]service.Account
+	byID            map[int64]*service.Account
 }
 
 func (s *studioModelAccountRepoStub) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]service.Account, error) {
@@ -48,12 +51,31 @@ func (s *studioModelAccountRepoStub) ListSchedulableByGroupIDAndPlatform(ctx con
 	return out, nil
 }
 
+func (s *studioModelAccountRepoStub) GetByID(ctx context.Context, id int64) (*service.Account, error) {
+	if s.byID == nil {
+		return nil, errors.New("account not found")
+	}
+	account := s.byID[id]
+	if account == nil {
+		return nil, errors.New("account not found")
+	}
+	copy := *account
+	return &copy, nil
+}
+
 type studioModelsHTTPUpstream struct {
 	lastReq *http.Request
 }
 
 func (u *studioModelsHTTPUpstream) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
 	u.lastReq = req
+	if strings.HasSuffix(req.URL.Path, "/images/generations") {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"data":[{"b64_json":"aW1hZ2U="}]}`)),
+		}, nil
+	}
 	return &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
@@ -213,6 +235,18 @@ func performStudioCoverJobGet(t *testing.T, h *StudioHandler, userID int64, jobI
 	return rec
 }
 
+func performStudioImportRequest(t *testing.T, h *StudioHandler, userID int64, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/studio/import", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: userID})
+
+	h.ImportStudioContent(c)
+	return rec
+}
+
 func TestStudioKeyModelsFetchesLiveUpstreamModelsForSelectedUserKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx := context.Background()
@@ -289,6 +323,86 @@ func TestStudioKeyModelsFetchesLiveUpstreamModelsForSelectedUserKey(t *testing.T
 	require.NotContains(t, resp.Data, "gpt-image-1")
 	require.Equal(t, "https://upstream.example.com/v1/models", upstream.lastReq.URL.String())
 	require.Equal(t, "Bearer upstream-secret", upstream.lastReq.Header.Get("Authorization"))
+}
+
+func TestStudioModelTestUsesUpstreamAccountDirectly(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_model_test_upstream")
+
+	user, err := client.User.Create().
+		SetEmail("studio-model-test@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+	group, err := client.Group.Create().
+		SetName("openai-studio-model-test").
+		SetPlatform(service.PlatformOpenAI).
+		Save(ctx)
+	require.NoError(t, err)
+	apiKey, err := client.APIKey.Create().
+		SetUserID(user.ID).
+		SetName("studio-key").
+		SetKey("sk-user-key-without-balance").
+		SetGroupID(group.ID).
+		Save(ctx)
+	require.NoError(t, err)
+
+	account := service.Account{
+		ID:       9,
+		Name:     "upstream-image-account",
+		Platform: service.PlatformOpenAI,
+		Type:     service.AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "upstream-secret",
+			"base_url": "https://upstream.example.com/v1",
+		},
+		Concurrency: 1,
+	}
+	upstream := &studioModelsHTTPUpstream{}
+	repo := &studioModelAccountRepoStub{
+		byID: map[int64]*service.Account{account.ID: &account},
+		byGroupPlatform: map[int64]map[string][]service.Account{
+			group.ID: {
+				service.PlatformOpenAI: {account},
+			},
+		},
+	}
+	h := &StudioHandler{
+		client:      client,
+		accountRepo: repo,
+		accountTestService: service.NewAccountTestService(
+			repo,
+			nil,
+			nil,
+			nil,
+			upstream,
+			&config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+			nil,
+		),
+	}
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/studio/model-test", strings.NewReader(`{
+		"type":"image",
+		"api_key_id":`+strconv.FormatInt(apiKey.ID, 10)+`,
+		"model":"gpt-image-2"
+	}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: user.ID})
+
+	h.TestModel(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "https://upstream.example.com/v1/images/generations", upstream.lastReq.URL.String())
+	require.Equal(t, "Bearer upstream-secret", upstream.lastReq.Header.Get("Authorization"))
+	var payload map[string]any
+	body, err := io.ReadAll(upstream.lastReq.Body)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(body, &payload))
+	require.Equal(t, "gpt-image-2", payload["model"])
+	require.Equal(t, "b64_json", payload["response_format"])
 }
 
 func TestGenerateCoverQueuesGPTImageRequestsAsSingleImageJobs(t *testing.T) {
@@ -478,6 +592,64 @@ func TestBuildScriptPromptByForm(t *testing.T) {
 	if !strings.Contains(short, "短剧") {
 		t.Fatalf("short form should mention 短剧: %s", short)
 	}
+}
+
+func TestBuildHotspotPromptIncludesBenchmarkAndJSON(t *testing.T) {
+	system, user := buildHotspotPrompt(hotspotRequest{
+		Title:     "北境书塔",
+		Genre:     "玄幻",
+		Goal:      "new-book",
+		Content:   "主角被家族放逐后得到旧神书塔",
+		Benchmark: "同题材爆款前三章：压迫、反杀、资源差",
+	})
+	if !strings.Contains(system, "JSON") {
+		t.Fatalf("system prompt should require JSON output: %q", system)
+	}
+	for _, kw := range []string{"北境书塔", "玄幻", "旧神书塔", "同题材爆款", "market_score", "radar", "actions"} {
+		if !strings.Contains(user, kw) {
+			t.Fatalf("hotspot prompt missing %q: %s", kw, user)
+		}
+	}
+}
+
+func TestBuildCreativePromptByMode(t *testing.T) {
+	_, outline := buildCreativePrompt(creativeRequest{Mode: "outline", Content: "主角得到旧神书塔", Brief: "做成三卷大纲"})
+	for _, kw := range []string{"大纲", "三卷大纲", "sections"} {
+		if !strings.Contains(outline, kw) {
+			t.Fatalf("outline prompt missing %q: %s", kw, outline)
+		}
+	}
+	_, rewrite := buildCreativePrompt(creativeRequest{Mode: "rewrite", Content: "这一章节奏太平"})
+	if !strings.Contains(rewrite, "改写") {
+		t.Fatalf("rewrite mode should mention 改写: %s", rewrite)
+	}
+}
+
+func TestImportStudioContentRecordsManualChapters(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_import_manual")
+	user, err := client.User.Create().
+		SetEmail("studio-import@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+	h := &StudioHandler{client: client}
+
+	rec := performStudioImportRequest(t, h, user.ID, `{
+		"source":"manual",
+		"title":"北境书塔",
+		"content":"第 1 章 雨夜入塔\n正文一\n\n第 2 章 旧约\n正文二",
+		"consent":true
+	}`)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "第 1 章 雨夜入塔")
+	tasks, err := client.CreationTask.Query().Where(creationtask.UserIDEQ(user.ID), creationtask.TypeEQ("import")).All(ctx)
+	require.NoError(t, err)
+	require.Len(t, tasks, 1)
+	require.Equal(t, "北境书塔导入", tasks[0].Title)
+	require.Equal(t, "local-importer", tasks[0].Model)
 }
 
 func TestExtractJSONObject(t *testing.T) {
