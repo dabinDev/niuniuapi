@@ -682,7 +682,7 @@ const StudioCoverIcon = makeEmojiIcon('🎨')
 const StudioTeardownIcon = makeEmojiIcon('🔍')
 const StudioHotspotIcon = makeEmojiIcon('🔥')
 const StudioGenerateIcon = makeEmojiIcon('🎬')
-const StudioDownloaderIcon = makeEmojiIcon('📥')
+const StudioDownloaderIcon = makeEmojiIcon('📈')
 const StudioWorksIcon = makeEmojiIcon('🗂️')
 
 // Public-settings flags go through the registry in utils/featureFlags.ts,
@@ -735,12 +735,12 @@ function finalizeNav(items: NavItem[]): NavItem[] {
 
 // Studio (创作台) navigation items — visible to all authenticated users.
 const studioNavItems = computed((): NavItem[] => [
+  { path: '/studio/fanqie', label: t('nav.studioFanqieHotlist'), icon: StudioDownloaderIcon },
+  { path: '/studio/cover', label: t('nav.studioCover'), icon: StudioCoverIcon },
   { path: '/studio/works', label: t('nav.studioWorks'), icon: StudioWorksIcon },
   { path: '/studio/teardown', label: t('nav.studioTeardown'), icon: StudioTeardownIcon },
   { path: '/studio/hotspot', label: t('nav.studioHotspot'), icon: StudioHotspotIcon },
   { path: '/studio/generate', label: t('nav.studioGenerate'), icon: StudioGenerateIcon },
-  { path: '/studio/downloader', label: t('nav.studioDownloader'), icon: StudioDownloaderIcon },
-  { path: '/studio/cover', label: t('nav.studioCover'), icon: StudioCoverIcon },
 ])
 
 // User navigation items (for regular users)

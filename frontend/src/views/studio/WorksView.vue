@@ -3,12 +3,12 @@
     <div class="works-page mx-auto max-w-7xl" data-test="studio-workbench-shell">
       <header class="works-head">
         <div>
-          <span class="eyebrow">Project Spine</span>
-          <h1>作品工作台</h1>
-          <p>用一条清晰流水线管理作品：先导入章节，再拆书诊断、爆款对标、生成大纲或正文，所有结果自动进入归档。</p>
+          <span class="eyebrow">作品归档</span>
+          <h1>我的作品</h1>
+          <p>集中查看拆书、爆款对标、创作生成和封面历史；先筛选，再点开右侧详情继续加工。</p>
         </div>
         <div class="quick-actions" aria-label="作品快捷入口">
-          <router-link to="/studio/downloader">导入内容</router-link>
+          <router-link to="/studio/fanqie">查看热榜</router-link>
           <router-link to="/studio/teardown">拆书诊断</router-link>
           <router-link class="primary" to="/studio/generate">创作生成</router-link>
         </div>
@@ -84,9 +84,9 @@
       <section class="archive-section" aria-label="最近产出归档">
         <div class="archive-head">
           <div>
-            <span class="eyebrow small">Archive</span>
-            <h2>最近产出归档</h2>
-            <p>每一次拆书、爆款对标、创作生成、导入记录都会保存到这里；封面历史仍可回看大图。</p>
+            <span class="eyebrow small">最近产出</span>
+            <h2>作品归档</h2>
+            <p>所有创作结果按时间进入这里，左侧筛选和选择，右侧查看正文、报告或封面大图。</p>
           </div>
           <div class="type-tabs" aria-label="归档类型筛选">
             <button
@@ -244,7 +244,7 @@ const tabs = [
 ]
 
 const spineSteps = [
-  { index: '01', title: '导入', desc: '保存章节、链接清单和来源说明' },
+  { index: '01', title: '找样本', desc: '从番茄热榜挑选题材和结构参照' },
   { index: '02', title: '诊断', desc: '拆节奏、爽点、人物和伏笔' },
   { index: '03', title: '对标', desc: '比同题材样本，找爆款差距' },
   { index: '04', title: '生成', desc: '产出大纲、正文、改写和脚本' },
@@ -256,7 +256,7 @@ const projectMetrics = [
   { label: '设定一致性', value: '待沉淀', hint: '导入章节后建立设定库' },
 ]
 
-const workbenchTabs = ['概览', '拆书', '爆款', '大纲', '正文', '剧本', '导入']
+const workbenchTabs = ['概览', '拆书', '爆款', '大纲', '正文', '剧本', '热榜']
 
 const chapterNodes = [
   { index: '01', title: '导入首章', note: '先把开篇送去拆书，确定钩子和节奏。', state: 'good' },
@@ -272,7 +272,7 @@ const settingGroups = [
 ]
 
 const todoItems = [
-  '先导入 1-3 章，建立可复用的作品上下文。',
+  '先从热榜找 3 个同题材样本，确认读者正在追什么。',
   '用拆书报告找出黄金三章的掉线位置。',
   '把爆款对标动作直接带进创作生成，形成下一版正文。',
 ]
@@ -383,6 +383,8 @@ onBeforeUnmount(closeCoverViewer)
 
 <style scoped>
 .works-page {
+  display: flex;
+  flex-direction: column;
   padding: 0.5rem 0 2.5rem;
   color: #221a18;
 }
@@ -412,7 +414,7 @@ onBeforeUnmount(closeCoverViewer)
 
 .works-head h1 {
   margin: 0.55rem 0 0.35rem;
-  font-size: 2.05rem;
+  font-size: 1.85rem;
   font-weight: 950;
   letter-spacing: 0;
 }
@@ -447,10 +449,11 @@ onBeforeUnmount(closeCoverViewer)
 }
 
 .spine-band {
+  order: 2;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin: 1rem 0;
 }
 
 .spine-band article,
@@ -463,7 +466,8 @@ onBeforeUnmount(closeCoverViewer)
 }
 
 .spine-band article {
-  padding: 0.9rem;
+  padding: 0.72rem 0.85rem;
+  box-shadow: none;
 }
 
 .spine-band span {
@@ -485,6 +489,7 @@ onBeforeUnmount(closeCoverViewer)
 }
 
 .workbench-grid {
+  order: 3;
   display: grid;
   grid-template-columns: minmax(220px, 0.78fr) minmax(0, 1.44fr) minmax(220px, 0.78fr);
   gap: 1rem;
@@ -617,7 +622,8 @@ onBeforeUnmount(closeCoverViewer)
 }
 
 .archive-section {
-  margin-top: 1rem;
+  order: 1;
+  margin-top: 0;
   padding: 1rem;
 }
 
@@ -735,7 +741,7 @@ onBeforeUnmount(closeCoverViewer)
 }
 
 .detail-panel {
-  min-height: 22rem;
+  min-height: 26rem;
 }
 
 .detail-head {

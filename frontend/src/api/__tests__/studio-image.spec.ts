@@ -11,7 +11,17 @@ vi.mock('@/api/client', () => ({
   },
 }))
 
-import { buildNovelCoverPayload, generateCover, getCoverJob, startCoverJob, testModelSlot } from '@/api/studio'
+import {
+  buildNovelCoverPayload,
+  generateCover,
+  getCoverJob,
+  analyzeFanqieBook,
+  downloadFanqieBook,
+  getFanqieRank,
+  searchFanqieBooks,
+  startCoverJob,
+  testModelSlot,
+} from '@/api/studio'
 
 describe('buildNovelCoverPayload', () => {
   beforeEach(() => {
@@ -82,5 +92,50 @@ describe('buildNovelCoverPayload', () => {
 
     expect(apiClientPost).toHaveBeenCalledWith('/studio/cover/jobs', payload)
     expect(apiClientGet).toHaveBeenCalledWith('/studio/cover/jobs/job-1')
+  })
+
+  it('fetches fanqie rank channels through backend studio endpoints', async () => {
+    apiClientGet.mockResolvedValue({ data: { channel: 'hot', updated_at: '2026-06-17T00:00:00Z', books: [] } })
+
+    await expect(getFanqieRank('hot')).resolves.toMatchObject({ channel: 'hot', books: [] })
+
+    expect(apiClientGet).toHaveBeenCalledWith('/studio/fanqie/rank', {
+      params: { channel: 'hot' },
+    })
+  })
+
+  it('searches fanqie books through the backend proxy', async () => {
+    apiClientGet.mockResolvedValue({ data: { books: [{ id: '1', title: '十日终焉' }] } })
+
+    await expect(searchFanqieBooks('十日终焉')).resolves.toEqual([{ id: '1', title: '十日终焉' }])
+
+    expect(apiClientGet).toHaveBeenCalledWith('/studio/fanqie/search', {
+      params: { q: '十日终焉' },
+    })
+  })
+
+  it('downloads a fanqie book through the backend with consent', async () => {
+    const book = { id: '1', title: '十日终焉', source_url: 'https://fanqienovel.com/page/1' } as never
+    apiClientPost.mockResolvedValue({ data: { title: '十日终焉', file_name: '十日终焉.txt' } })
+
+    await expect(downloadFanqieBook(book, true)).resolves.toMatchObject({ file_name: '十日终焉.txt' })
+
+    expect(apiClientPost).toHaveBeenCalledWith(
+      '/studio/fanqie/download',
+      {
+        book,
+        consent: true,
+      },
+      expect.objectContaining({ timeout: 600000 }),
+    )
+  })
+
+  it('requests fanqie first-ten-chapter analysis through the backend', async () => {
+    const book = { id: '1', title: '十日终焉', source_url: 'https://fanqienovel.com/page/1' } as never
+    apiClientPost.mockResolvedValue({ data: { title: '十日终焉开篇分析', hooks: ['空屋'] } })
+
+    await expect(analyzeFanqieBook(book)).resolves.toMatchObject({ title: '十日终焉开篇分析' })
+
+    expect(apiClientPost).toHaveBeenCalledWith('/studio/fanqie/analyze', { book })
   })
 })

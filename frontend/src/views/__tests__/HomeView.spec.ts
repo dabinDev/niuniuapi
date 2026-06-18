@@ -49,7 +49,7 @@ describe('HomeView', () => {
     expect(wrapper.text()).toContain('小说封面生成')
     expect(wrapper.text()).toContain('拆书诊断')
     expect(wrapper.text()).toContain('爆款对标')
-    expect(wrapper.text()).toContain('番茄小说下载器')
+    expect(wrapper.text()).toContain('番茄热榜')
     expect(wrapper.text()).toContain('创作生成')
     expect(wrapper.text()).toContain('Token 套餐')
     expect(wrapper.find('.tomato .t-leaf').exists()).toBe(true)

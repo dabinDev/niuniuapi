@@ -84,6 +84,84 @@ export async function analyzeHotspot(payload: HotspotRequest): Promise<HotspotRe
   return data
 }
 
+// ==================== 番茄热榜 ====================
+
+export type FanqieRankChannel = 'hot' | 'peak' | 'male' | 'female'
+
+export interface FanqieBook {
+  id: string
+  rank: number
+  title: string
+  author: string
+  category: string
+  status: string
+  word_count: string
+  score: string
+  description: string
+  cover_url?: string
+  source_url: string
+  tags: string[]
+}
+
+export interface FanqieRankResponse {
+  channel: FanqieRankChannel
+  updated_at: string
+  source?: string
+  books: FanqieBook[]
+}
+
+export interface FanqieDownloadResult {
+  title: string
+  file_name: string
+  status: string
+  chapter_count: number
+  text: string
+  notes: string[]
+  source: string
+  decode_status: string
+}
+
+export interface FanqieAnalysisReport {
+  title: string
+  summary: string
+  hooks: string[]
+  chapter_notes?: { title: string; note: string }[]
+  actions: string[]
+  source?: string
+  notes?: string[]
+}
+
+export async function getFanqieRank(channel: FanqieRankChannel): Promise<FanqieRankResponse> {
+  const { data } = await apiClient.get<FanqieRankResponse>('/studio/fanqie/rank', {
+    params: { channel },
+  })
+  return data
+}
+
+export async function searchFanqieBooks(query: string): Promise<FanqieBook[]> {
+  const { data } = await apiClient.get<{ books: FanqieBook[] }>('/studio/fanqie/search', {
+    params: { q: query },
+  })
+  return data.books || []
+}
+
+const STUDIO_FANQIE_DOWNLOAD_TIMEOUT_MS = 600_000
+
+export async function downloadFanqieBook(book: FanqieBook, consent: boolean): Promise<FanqieDownloadResult> {
+  const { data } = await apiClient.post<FanqieDownloadResult>('/studio/fanqie/download', {
+    book,
+    consent,
+  }, {
+    timeout: STUDIO_FANQIE_DOWNLOAD_TIMEOUT_MS,
+  })
+  return data
+}
+
+export async function analyzeFanqieBook(book: FanqieBook): Promise<FanqieAnalysisReport> {
+  const { data } = await apiClient.post<FanqieAnalysisReport>('/studio/fanqie/analyze', { book })
+  return data
+}
+
 // ==================== 图像模型配置 ====================
 
 export interface StudioImageConfig {
@@ -421,6 +499,10 @@ export const studioAPI = {
   getModelConfig,
   saveModelConfig,
   testModelSlot,
+  getFanqieRank,
+  searchFanqieBooks,
+  downloadFanqieBook,
+  analyzeFanqieBook,
   generateCover,
   startCoverJob,
   getCoverJob,

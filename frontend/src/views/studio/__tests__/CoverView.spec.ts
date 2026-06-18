@@ -300,6 +300,31 @@ describe('CoverView', () => {
     expect(wrapper.find('[data-test="cover-viewer-image"]').attributes('src')).toBe('history-3.png')
   })
 
+  it('shows a readable fallback when a cover history thumbnail fails to load', async () => {
+    listWorks.mockResolvedValue([
+      { id: 5, type: 'cover', title: 'Missing Cover', model: 'gpt-image-2', created_at: '2026-06-15T05:00:00Z' },
+    ])
+    getWork.mockResolvedValue({
+      id: 5,
+      type: 'cover',
+      title: 'Missing Cover',
+      model: 'gpt-image-2',
+      created_at: '2026-06-15T05:00:00Z',
+      output: {
+        covers: [{ id: 'missing-cover', url: 'missing-cover.png' }],
+      },
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    await wrapper.find('[data-test="cover-history-thumb-0"] img').trigger('error')
+
+    expect(wrapper.find('[data-test="cover-history-placeholder-0"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="cover-history-placeholder-0"]').text()).toContain('封面加载失败')
+  })
+
   it('shows a backend-developing notice on 404', async () => {
     startCoverJob.mockRejectedValue({ response: { status: 404 } })
     const wrapper = mountView()

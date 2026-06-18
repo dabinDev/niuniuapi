@@ -158,8 +158,21 @@
             data-test="cover-history-card"
             @click="openHistoryViewer(item, 0)"
           >
-            <span class="cover-history-thumb" :data-test="`cover-history-thumb-${index}`">
-              <img :src="item.covers[0]?.url" :alt="item.title" />
+            <span
+              class="cover-history-thumb"
+              :class="{ 'is-broken': isHistoryThumbBroken(item, index) }"
+              :data-test="`cover-history-thumb-${index}`"
+            >
+              <img
+                v-if="item.covers[0]?.url && !isHistoryThumbBroken(item, index)"
+                :src="item.covers[0]?.url"
+                :alt="item.title"
+                @error.stop="markHistoryThumbBroken(item, index)"
+              />
+              <span v-else class="cover-history-placeholder" :data-test="`cover-history-placeholder-${index}`">
+                <span class="cover-history-placeholder-mark">!</span>
+                <span>封面加载失败</span>
+              </span>
             </span>
             <span class="cover-history-title">{{ item.title }}</span>
             <span class="cover-history-meta">{{ fmtTime(item.created_at) }} · {{ item.covers.length }} 张</span>
@@ -269,6 +282,7 @@ const viewerTitle = ref('')
 const restoredCoverTitle = ref('')
 const coverHistory = ref<CoverHistoryItem[]>([])
 const historyLoading = ref(false)
+const brokenHistoryThumbs = ref<Record<string, boolean>>({})
 
 const isGPTImageModel = computed(() => imageModel.value.trim().toLowerCase().startsWith('gpt-image'))
 const loadingText = computed(() => {
@@ -312,6 +326,21 @@ function fmtTime(s: string) {
   if (!s) return ''
   const d = new Date(s)
   return Number.isNaN(d.getTime()) ? s : d.toLocaleString()
+}
+
+function getHistoryThumbKey(item: CoverHistoryItem, index: number) {
+  return `${item.id}-${index}-${item.covers[0]?.url || ''}`
+}
+
+function isHistoryThumbBroken(item: CoverHistoryItem, index: number) {
+  return brokenHistoryThumbs.value[getHistoryThumbKey(item, index)] === true
+}
+
+function markHistoryThumbBroken(item: CoverHistoryItem, index: number) {
+  brokenHistoryThumbs.value = {
+    ...brokenHistoryThumbs.value,
+    [getHistoryThumbKey(item, index)]: true,
+  }
 }
 
 function normalizeCovers(value: unknown): CoverImage[] {
@@ -431,8 +460,10 @@ async function loadCoverHistory() {
       }
     })
     coverHistory.value = nextHistory
+    brokenHistoryThumbs.value = {}
   } catch {
     coverHistory.value = []
+    brokenHistoryThumbs.value = {}
   } finally {
     historyLoading.value = false
   }
@@ -832,10 +863,50 @@ async function submit() {
   background: rgb(17 24 39);
 }
 
+.cover-history-thumb.is-broken {
+  background: linear-gradient(145deg, rgb(255 247 237), rgb(254 226 226));
+}
+
+.dark .cover-history-thumb.is-broken {
+  background: linear-gradient(145deg, rgb(31 41 55), rgb(69 26 3));
+}
+
 .cover-history-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.cover-history-placeholder {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem;
+  color: rgb(153 27 27);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.dark .cover-history-placeholder {
+  color: rgb(254 202 202);
+}
+
+.cover-history-placeholder-mark {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(220, 56, 31, 0.12);
+  color: rgb(220 56 31);
+  font-size: 16px;
+  line-height: 1;
 }
 
 .cover-history-title {

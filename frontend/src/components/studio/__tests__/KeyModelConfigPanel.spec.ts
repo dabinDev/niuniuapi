@@ -32,6 +32,7 @@ describe('KeyModelConfigPanel', () => {
     Object.values(api).forEach((f) => f.mockReset())
     api.list.mockResolvedValue({ items: [{ id: 1, name: 'GPT', key: 'sk-x' }], total: 1, page: 1, page_size: 100, pages: 1 })
     api.getModelConfig.mockResolvedValue({})
+    api.getKeyModels.mockResolvedValue([])
   })
 
   it('fetches the model list for the selected key', async () => {
@@ -72,7 +73,10 @@ describe('KeyModelConfigPanel', () => {
 
     await w.find('[data-test=save]').trigger('click')
     await flushPromises()
-    expect(api.saveModelConfig).toHaveBeenCalledWith({ image: { api_key_id: 1, model: 'gpt-image-1' } })
+    expect(api.saveModelConfig).toHaveBeenLastCalledWith({
+      image: { api_key_id: 1, model: 'gpt-image-1' },
+      text: { api_key_id: 1, model: 'gpt-5.4' },
+    })
   })
 
   it('preloads a saved config', async () => {
@@ -81,6 +85,48 @@ describe('KeyModelConfigPanel', () => {
     await flushPromises()
 
     expect(w.find('[data-test=slot-image]').text()).toContain('gpt-image-1')
+    expect(w.find('[data-test=save]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('automatically configures image and text models from the first key when no config exists', async () => {
+    api.getKeyModels.mockResolvedValue(['gpt-4.1', 'gpt-image-2', 'gpt-5.1'])
+    api.saveModelConfig.mockResolvedValue(undefined)
+
+    const w = mount(KeyModelConfigPanel)
+    await flushPromises()
+
+    expect(api.getKeyModels).toHaveBeenCalledWith(1)
+    expect(api.saveModelConfig).toHaveBeenCalledWith({
+      image: { api_key_id: 1, model: 'gpt-image-2' },
+      text: { api_key_id: 1, model: 'gpt-5.1' },
+    })
+    expect(w.find('[data-test=slot-image]').text()).toContain('gpt-image-2')
+    expect(w.find('[data-test=slot-text]').text()).toContain('gpt-5.1')
+    expect(w.text()).toContain('已根据第一把密钥自动配置模型')
+  })
+
+  it('keeps saved manual config instead of auto-overwriting it', async () => {
+    api.getModelConfig.mockResolvedValue({
+      image: { api_key_id: 1, model: 'saved-image-model' },
+      text: { api_key_id: 1, model: 'saved-text-model' },
+    })
+    api.getKeyModels.mockResolvedValue(['gpt-image-2', 'gpt-5.1'])
+
+    const w = mount(KeyModelConfigPanel)
+    await flushPromises()
+
+    expect(api.saveModelConfig).not.toHaveBeenCalled()
+    expect(w.find('[data-test=slot-image]').text()).toContain('saved-image-model')
+    expect(w.find('[data-test=slot-text]').text()).toContain('saved-text-model')
+  })
+
+  it('does not require testing before saving automatically selected defaults', async () => {
+    api.getKeyModels.mockResolvedValue(['gpt-image-2', 'gpt-5.1'])
+    api.saveModelConfig.mockResolvedValue(undefined)
+
+    const w = mount(KeyModelConfigPanel)
+    await flushPromises()
+
     expect(w.find('[data-test=save]').attributes('disabled')).toBeUndefined()
   })
 

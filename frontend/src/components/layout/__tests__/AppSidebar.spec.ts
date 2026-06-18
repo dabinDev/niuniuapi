@@ -39,4 +39,22 @@ describe('AppSidebar studio navigation', () => {
     expect(componentSource).toContain("label: t('nav.studioGenerate')")
     expect(componentSource).not.toContain("path: '/studio/script', label: t('nav.studioScript')")
   })
+
+  it('puts fanqie hotlist and cover generation before the other studio tools', () => {
+    const navBlock = componentSource.match(/const studioNavItems = computed\(\(\): NavItem\[\] => \[([\s\S]*?)\]\)/)?.[1] ?? ''
+
+    const fanqieIndex = navBlock.indexOf("path: '/studio/fanqie'")
+    const coverIndex = navBlock.indexOf("path: '/studio/cover'")
+    const worksIndex = navBlock.indexOf("path: '/studio/works'")
+    const teardownIndex = navBlock.indexOf("path: '/studio/teardown'")
+    const hotspotIndex = navBlock.indexOf("path: '/studio/hotspot'")
+    const generateIndex = navBlock.indexOf("path: '/studio/generate'")
+
+    expect(fanqieIndex).toBeGreaterThanOrEqual(0)
+    expect(coverIndex).toBeGreaterThan(fanqieIndex)
+    expect(worksIndex).toBeGreaterThan(coverIndex)
+    expect(teardownIndex).toBeGreaterThan(coverIndex)
+    expect(hotspotIndex).toBeGreaterThan(coverIndex)
+    expect(generateIndex).toBeGreaterThan(coverIndex)
+  })
 })

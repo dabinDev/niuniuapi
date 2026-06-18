@@ -9,6 +9,7 @@ import { getAdminSteps, getUserSteps } from '@/components/Guide/steps'
 export interface OnboardingOptions {
   storageKey?: string
   autoStart?: boolean
+  shouldAutoStart?: () => boolean
 }
 
 export function useOnboardingTour(options: OnboardingOptions) {
@@ -66,6 +67,10 @@ export function useOnboardingTour(options: OnboardingOptions) {
 
   const hasSeen = () => {
     return localStorage.getItem(getStorageKey()) === 'true'
+  }
+
+  const canAutoStart = () => {
+    return options.shouldAutoStart?.() ?? true
   }
 
   const markAsSeen = () => {
@@ -542,8 +547,9 @@ export function useOnboardingTour(options: OnboardingOptions) {
       return
     }
 
-    if (!options.autoStart || hasSeen()) return
+    if (!options.autoStart || hasSeen() || !canAutoStart()) return
     autoStartTimer = setTimeout(() => {
+      if (!canAutoStart()) return
       void startTour()
     }, TIMING.AUTO_START_DELAY_MS)
   })

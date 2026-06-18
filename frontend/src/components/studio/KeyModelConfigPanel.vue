@@ -2,7 +2,7 @@
   <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-800 dark:bg-dark-900">
     <div class="mb-3 flex items-center gap-2">
       <h3 class="text-sm font-bold text-gray-900 dark:text-white">创作模型配置</h3>
-      <span class="text-xs text-gray-400">用某把密钥获取模型，标记为生图 / 文案模型，测试通过后保存</span>
+      <span class="text-xs text-gray-400">系统会优先用第一把密钥自动配置最新生图 / 文案模型，手动修改后再测试保存</span>
     </div>
 
     <!-- 获取模型 + 选择 + 标记 -->
@@ -96,6 +96,80 @@ function keyNameOf(id: number) {
   return keys.value.find((k) => k.id === id)?.name || `#${id}`
 }
 
+function modelRank(name: string) {
+  const lower = name.toLowerCase()
+  let score = 0
+  const gptMajor = lower.match(/gpt[-_]?(\d+(?:\.\d+)?)/)
+  if (gptMajor) score += Number(gptMajor[1]) * 100
+  const versionParts = lower.match(/(?:^|[-_])(\d+)(?:\.(\d+))?(?:[-_]|$)/g) ?? []
+  for (const part of versionParts) {
+    const nums = part.match(/\d+/g) ?? []
+    if (nums[0]) score += Number(nums[0]) * 10
+    if (nums[1]) score += Number(nums[1])
+  }
+  if (lower.includes('latest')) score += 1000
+  if (lower.includes('preview')) score += 20
+  if (lower.includes('mini')) score -= 25
+  return score
+}
+
+function chooseLatest(candidates: string[]) {
+  return [...candidates].sort((a, b) => modelRank(b) - modelRank(a) || b.localeCompare(a))[0] || ''
+}
+
+function isImageModel(name: string) {
+  const lower = name.toLowerCase()
+  return lower.includes('image') || lower.includes('dall-e') || lower.includes('imagen') || lower.includes('flux')
+}
+
+function isTextModel(name: string) {
+  const lower = name.toLowerCase()
+  if (isImageModel(name)) return false
+  return !['embedding', 'audio', 'tts', 'whisper', 'moderation', 'rerank'].some((token) => lower.includes(token))
+}
+
+async function autoConfigureMissingSlots() {
+  if (!keys.value.length) return
+  const needsImage = !slots.value.image
+  const needsText = !slots.value.text
+  if (!needsImage && !needsText) return
+
+  const firstKey = keys.value[0]
+  keyId.value = firstKey.id
+  loadingModels.value = true
+  error.value = ''
+  try {
+    const availableModels = await getKeyModels(firstKey.id)
+    models.value = availableModels
+
+    const nextSlots = { ...slots.value }
+    const imageModel = needsImage ? chooseLatest(availableModels.filter(isImageModel)) : ''
+    const textModel = needsText ? chooseLatest(availableModels.filter(isTextModel)) : ''
+
+    if (needsImage && imageModel) {
+      nextSlots.image = { api_key_id: firstKey.id, model: imageModel }
+      tested.value.image = true
+    }
+    if (needsText && textModel) {
+      nextSlots.text = { api_key_id: firstKey.id, model: textModel }
+      tested.value.text = true
+    }
+
+    if (nextSlots.image !== slots.value.image || nextSlots.text !== slots.value.text) {
+      slots.value = nextSlots
+      const cfg: StudioModelConfig = {}
+      if (nextSlots.image) cfg.image = nextSlots.image
+      if (nextSlots.text) cfg.text = nextSlots.text
+      await saveModelConfig(cfg)
+      savedMsg.value = '已根据第一把密钥自动配置模型，可手动调整后测试保存。'
+    }
+  } catch {
+    error.value = '自动配置模型失败：请检查第一把密钥是否可用，或手动获取模型列表。'
+  } finally {
+    loadingModels.value = false
+  }
+}
+
 async function loadModels() {
   if (!selectedKey.value) return
   loadingModels.value = true
@@ -177,6 +251,8 @@ onMounted(async () => {
   } catch {
     /* 忽略 */
   }
+
+  await autoConfigureMissingSlots()
 })
 </script>
 

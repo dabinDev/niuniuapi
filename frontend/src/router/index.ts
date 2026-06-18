@@ -376,7 +376,7 @@ const routes: RouteRecordRaw[] = [
   // ==================== Studio (创作台) Routes ====================
   {
     path: '/studio',
-    redirect: '/studio/teardown'
+    redirect: '/studio/fanqie'
   },
   {
     path: '/studio/cover',
@@ -427,15 +427,19 @@ const routes: RouteRecordRaw[] = [
     redirect: '/studio/generate'
   },
   {
-    path: '/studio/downloader',
-    name: 'StudioDownloader',
+    path: '/studio/fanqie',
+    name: 'StudioFanqieHotlist',
     component: () => import('@/views/studio/DownloaderView.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Fanqie Downloader',
-      titleKey: 'nav.studioDownloader'
+      title: 'Fanqie Hotlist',
+      titleKey: 'nav.studioFanqieHotlist'
     }
+  },
+  {
+    path: '/studio/downloader',
+    redirect: '/studio/fanqie'
   },
   {
     path: '/studio/works',

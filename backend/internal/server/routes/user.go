@@ -34,6 +34,10 @@ func RegisterUserRoutes(
 			studio.POST("/generate", h.Studio.GenerateCreative)
 			studio.POST("/script", h.Studio.GenerateScript)
 			studio.POST("/import", h.Studio.ImportStudioContent)
+			studio.GET("/fanqie/rank", h.Studio.GetFanqieRank)
+			studio.GET("/fanqie/search", h.Studio.SearchFanqieBooks)
+			studio.POST("/fanqie/download", h.Studio.DownloadFanqieBook)
+			studio.POST("/fanqie/analyze", h.Studio.AnalyzeFanqieBook)
 			studio.GET("/works", h.Studio.ListWorks)
 			studio.GET("/works/:id", h.Studio.GetWork)
 		}

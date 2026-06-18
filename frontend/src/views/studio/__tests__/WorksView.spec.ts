@@ -35,18 +35,18 @@ describe('WorksView', () => {
     expect(wrapper.text()).toContain('拆书报告')
   })
 
-  it('frames the archive as a project-centered studio workbench', async () => {
+  it('frames the archive as a project-centered works dashboard', async () => {
     const wrapper = mountView()
     await flushPromises()
 
     expect(wrapper.find('[data-test="studio-workbench-shell"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('作品工作台')
+    expect(wrapper.text()).toContain('我的作品')
     expect(wrapper.text()).toContain('章节树')
     expect(wrapper.text()).toContain('设定库')
     expect(wrapper.text()).toContain('概览看板')
-    expect(wrapper.text()).toContain('最近产出归档')
+    expect(wrapper.text()).toContain('作品归档')
 
-    for (const label of ['概览', '拆书', '爆款', '大纲', '正文', '剧本', '导入']) {
+    for (const label of ['概览', '拆书', '爆款', '大纲', '正文', '剧本', '热榜']) {
       expect(wrapper.text()).toContain(label)
     }
   })

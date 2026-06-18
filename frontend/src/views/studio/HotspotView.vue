@@ -54,7 +54,7 @@
             <textarea
               v-model="content"
               data-test="hotspot-content"
-              rows="10"
+              rows="8"
               placeholder="粘贴开篇、关键章节、拆书结论，至少 80 字。"
             ></textarea>
           </label>
@@ -64,7 +64,7 @@
             <textarea
               v-model="benchmark"
               data-test="hotspot-benchmark"
-              rows="7"
+              rows="6"
               placeholder="粘贴同题材爆款片段、榜单观察、读者评论，或你想借鉴的结构。"
             ></textarea>
           </label>
@@ -130,6 +130,23 @@
           <div v-else class="empty-state">
             <div class="empty-mark">BM</div>
             <p>这里会输出爆款雷达、套路库、差距清单和可执行改法。</p>
+            <div class="empty-preview" aria-label="爆款对标结果预览">
+              <article>
+                <span>雷达</span>
+                <strong>卖点强度</strong>
+                <small>题材、钩子、爽点、反转节奏</small>
+              </article>
+              <article>
+                <span>差距</span>
+                <strong>对标样本</strong>
+                <small>你的片段和样本之间的可复制差异</small>
+              </article>
+              <article>
+                <span>动作</span>
+                <strong>改写队列</strong>
+                <small>能直接喂给创作生成的下一步</small>
+              </article>
+            </div>
           </div>
         </section>
       </section>
@@ -230,7 +247,7 @@ async function submit() {
 
 .studio-hero h1 {
   margin: 0.55rem 0 0.35rem;
-  font-size: 2.05rem;
+  font-size: 1.85rem;
   font-weight: 950;
   letter-spacing: 0;
 }
@@ -404,12 +421,12 @@ textarea:focus {
 }
 
 .result-panel {
-  min-height: 36rem;
+  min-height: 34rem;
   padding: 1rem;
 }
 
 .empty-state {
-  min-height: 30rem;
+  min-height: 28rem;
   display: grid;
   place-content: center;
   gap: 1rem;
@@ -427,6 +444,44 @@ textarea:focus {
   background: #241a16;
   color: #fff;
   font-weight: 950;
+}
+
+.empty-preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  max-width: 42rem;
+}
+
+.empty-preview article {
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fffdfb;
+  text-align: left;
+}
+
+.empty-preview span {
+  color: #c8351f;
+  font-size: 0.74rem;
+  font-weight: 950;
+}
+
+.empty-preview strong,
+.empty-preview small {
+  display: block;
+}
+
+.empty-preview strong {
+  margin-top: 0.2rem;
+  color: #221a18;
+  font-weight: 950;
+}
+
+.empty-preview small {
+  margin-top: 0.25rem;
+  color: #7a6962;
+  line-height: 1.55;
 }
 
 .pulse-line {
@@ -580,10 +635,19 @@ textarea:focus {
 
 .dark .input-panel,
 .dark .result-panel,
+.dark .empty-preview article,
 .dark .three-col article,
 .dark .sample-strip article {
   border-color: #312720;
   background: #171311;
+}
+
+.dark .empty-preview strong {
+  color: #f7ede4;
+}
+
+.dark .empty-preview small {
+  color: #cdbdb5;
 }
 
 .dark input,
@@ -609,7 +673,8 @@ textarea:focus {
 
 @media (max-width: 640px) {
   .field-grid,
-  .goal-row {
+  .goal-row,
+  .empty-preview {
     grid-template-columns: 1fr;
   }
 

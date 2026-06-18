@@ -53,7 +53,7 @@
             <textarea
               id="sc-content"
               v-model="content"
-              rows="13"
+              rows="10"
               placeholder="粘贴要继续创作或改写的内容，至少 50 字。"
             ></textarea>
           </label>
@@ -94,6 +94,12 @@
               <p v-if="result.summary">{{ result.summary }}</p>
             </div>
 
+            <div class="result-actions" aria-label="生成结果操作">
+              <button type="button" @click="copyResult">复制结果</button>
+              <router-link to="/studio/works">查看归档</router-link>
+            </div>
+            <p v-if="copyStatus" class="copy-status">{{ copyStatus }}</p>
+
             <article v-for="(section, i) in result.sections" :key="i" class="scene">
               <h3>{{ section.heading }}</h3>
               <p>{{ section.content }}</p>
@@ -114,6 +120,23 @@
           <div v-else class="empty-output">
             <div class="draft-mark">GEN</div>
             <p>选择生成类型，粘贴素材，这里会输出可编辑、可归档、可继续加工的内容。</p>
+            <div class="empty-preview" aria-label="创作生成结果预览">
+              <article>
+                <span>正文</span>
+                <strong>分段产出</strong>
+                <small>按大纲、续写、改写或剧本结构生成</small>
+              </article>
+              <article>
+                <span>检查</span>
+                <strong>一致性提示</strong>
+                <small>人物、设定、节奏和伏笔的风险点</small>
+              </article>
+              <article>
+                <span>归档</span>
+                <strong>继续加工</strong>
+                <small>结果会进入我的作品，方便后续复制和改稿</small>
+              </article>
+            </div>
           </div>
         </section>
       </section>
@@ -145,6 +168,7 @@ const result = ref<CreativeResult | null>(null)
 const errorMsg = ref('')
 const configured = ref(false)
 const textModel = ref('')
+const copyStatus = ref('')
 
 const modeOptions: { value: CreativeMode; label: string; hint: string }[] = [
   { value: 'outline', label: '大纲', hint: '卷纲、主线、章节钩子' },
@@ -157,6 +181,11 @@ const modeOptions: { value: CreativeMode; label: string; hint: string }[] = [
 
 const contentLength = computed(() => content.value.trim().length)
 const canSubmit = computed(() => configured.value && contentLength.value >= MIN_LEN && !loading.value)
+const resultText = computed(() => {
+  if (!result.value) return ''
+  const sections = result.value.sections.map((section) => `${section.heading}\n${section.content}`)
+  return [result.value.title, result.value.summary, ...sections].filter(Boolean).join('\n\n')
+})
 
 onMounted(async () => {
   try {
@@ -178,6 +207,7 @@ async function submit() {
   if (!canSubmit.value) return
   loading.value = true
   errorMsg.value = ''
+  copyStatus.value = ''
   result.value = null
   try {
     result.value = await generateCreative({
@@ -194,6 +224,16 @@ async function submit() {
     errorMsg.value = msg || '生成失败，请稍后重试。'
   } finally {
     loading.value = false
+  }
+}
+
+async function copyResult() {
+  if (!resultText.value) return
+  try {
+    await navigator.clipboard.writeText(resultText.value)
+    copyStatus.value = '已复制生成结果'
+  } catch {
+    copyStatus.value = '复制失败，请手动选择结果内容'
   }
 }
 </script>
@@ -225,7 +265,7 @@ async function submit() {
 
 .creative-head h1 {
   margin: 0.55rem 0 0.35rem;
-  font-size: 2.05rem;
+  font-size: 1.85rem;
   font-weight: 950;
   letter-spacing: 0;
 }
@@ -403,12 +443,12 @@ textarea:focus {
 }
 
 .output-panel {
-  min-height: 38rem;
+  min-height: 34rem;
   padding: 1rem;
 }
 
 .empty-output {
-  min-height: 32rem;
+  min-height: 28rem;
   display: grid;
   place-content: center;
   gap: 1rem;
@@ -426,6 +466,44 @@ textarea:focus {
   background: #241a16;
   color: #fff;
   font-weight: 950;
+}
+
+.empty-preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  max-width: 42rem;
+}
+
+.empty-preview article {
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fffdfb;
+  text-align: left;
+}
+
+.empty-preview span {
+  color: #c8351f;
+  font-size: 0.74rem;
+  font-weight: 950;
+}
+
+.empty-preview strong,
+.empty-preview small {
+  display: block;
+}
+
+.empty-preview strong {
+  margin-top: 0.2rem;
+  color: #221a18;
+  font-weight: 950;
+}
+
+.empty-preview small {
+  margin-top: 0.25rem;
+  color: #7a6962;
+  line-height: 1.55;
 }
 
 .typing-bars {
@@ -480,6 +558,37 @@ textarea:focus {
   margin-top: 0.45rem;
   color: #f7ede4;
   line-height: 1.7;
+}
+
+.result-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.result-actions button,
+.result-actions a {
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  padding: 0.52rem 0.8rem;
+  background: #fffdfb;
+  color: #493a35;
+  font-weight: 850;
+}
+
+.result-actions button {
+  border-color: #e8412e;
+  background: #e8412e;
+  color: #fff;
+}
+
+.copy-status {
+  margin-top: 0.45rem;
+  color: #1c755b;
+  text-align: right;
+  font-size: 0.85rem;
+  font-weight: 850;
 }
 
 .scene {
@@ -547,10 +656,19 @@ textarea:focus {
 
 .dark .writer-panel,
 .dark .output-panel,
+.dark .empty-preview article,
 .dark .scene,
 .dark .post-grid section {
   border-color: #312720;
   background: #171311;
+}
+
+.dark .empty-preview strong {
+  color: #f7ede4;
+}
+
+.dark .empty-preview small {
+  color: #cdbdb5;
 }
 
 .dark input,
@@ -576,7 +694,8 @@ textarea:focus {
 @media (max-width: 640px) {
   .mode-grid,
   .field-grid,
-  .number-grid {
+  .number-grid,
+  .empty-preview {
     grid-template-columns: 1fr;
   }
 }

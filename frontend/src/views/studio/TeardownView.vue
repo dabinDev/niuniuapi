@@ -31,7 +31,7 @@
             <textarea
               id="td-content"
               v-model="content"
-              rows="14"
+              rows="10"
               placeholder="粘贴要拆解的小说正文，至少 100 字。建议先从开篇 1-3 章开始。"
             ></textarea>
           </label>
@@ -116,6 +116,23 @@
           <div v-else class="empty-state">
             <div class="empty-mark">QC</div>
             <p>提交章节后，这里会生成评分、烂点、改法，并自动进入“我的作品”。</p>
+            <div class="empty-preview" aria-label="拆书结果预览">
+              <article>
+                <span>01</span>
+                <strong>黄金三章评分</strong>
+                <small>开篇钩子、压迫感、第一次爽点</small>
+              </article>
+              <article>
+                <span>02</span>
+                <strong>问题清单</strong>
+                <small>拖沓、信息堆叠、伏笔未回收</small>
+              </article>
+              <article>
+                <span>03</span>
+                <strong>可执行改法</strong>
+                <small>直接带到爆款对标或创作生成</small>
+              </article>
+            </div>
           </div>
         </section>
       </section>
@@ -216,7 +233,7 @@ async function submit() {
 
 .teardown-head h1 {
   margin: 0.55rem 0 0.35rem;
-  font-size: 2.05rem;
+  font-size: 1.85rem;
   font-weight: 950;
   letter-spacing: 0;
 }
@@ -270,7 +287,8 @@ async function submit() {
 }
 
 .diagnosis-map article {
-  padding: 0.9rem;
+  padding: 0.68rem 0.8rem;
+  box-shadow: none;
 }
 
 .diagnosis-map span {
@@ -396,11 +414,11 @@ textarea:focus {
 }
 
 .result-panel {
-  min-height: 38rem;
+  min-height: 34rem;
 }
 
 .empty-state {
-  min-height: 32rem;
+  min-height: 28rem;
   display: grid;
   place-content: center;
   gap: 1rem;
@@ -418,6 +436,44 @@ textarea:focus {
   background: #241a16;
   color: #fff;
   font-weight: 950;
+}
+
+.empty-preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  max-width: 42rem;
+}
+
+.empty-preview article {
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fffdfb;
+  text-align: left;
+}
+
+.empty-preview span {
+  color: #c8351f;
+  font-size: 0.74rem;
+  font-weight: 950;
+}
+
+.empty-preview strong,
+.empty-preview small {
+  display: block;
+}
+
+.empty-preview strong {
+  margin-top: 0.2rem;
+  color: #221a18;
+  font-weight: 950;
+}
+
+.empty-preview small {
+  margin-top: 0.25rem;
+  color: #7a6962;
+  line-height: 1.55;
 }
 
 .scan-line {
@@ -564,10 +620,19 @@ textarea:focus {
 .dark .diagnosis-map article,
 .dark .input-panel,
 .dark .result-panel,
+.dark .empty-preview article,
 .dark .score-grid article,
 .dark .report-columns section {
   border-color: #312720;
   background: #171311;
+}
+
+.dark .empty-preview strong {
+  color: #f7ede4;
+}
+
+.dark .empty-preview small {
+  color: #cdbdb5;
 }
 
 .dark input,
@@ -595,7 +660,8 @@ textarea:focus {
 @media (max-width: 640px) {
   .field-grid,
   .tone-row,
-  .score-grid {
+  .score-grid,
+  .empty-preview {
     grid-template-columns: 1fr;
   }
 }

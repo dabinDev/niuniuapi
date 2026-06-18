@@ -313,3 +313,192 @@ niuniuapi    lingxi-local-test   7851fa1c445d   144MB
 ```
 
 这次没有发布、没有登录服务器、没有从服务器拉取或导出镜像。
+
+## tomato.beinai.cc Nginx/SSL 发布流程（2026-06-19）
+
+本节记录 `tomato.beinai.cc` 子域名在 `47.86.203.13` 服务器上的 Nginx/SSL 配置流程。目标是让 `http://tomato.beinai.cc` 自动跳转到 HTTPS，并且 HTTPS 使用 `tomato.beinai.cc` 自己的证书，不影响同机已有的 `qbook.top`。
+
+### 服务器与现状
+
+```text
+服务器 IP: 47.86.203.13
+SSH 用户: root
+登录方式: 密码登录（密码不要写入仓库或记忆）
+推荐登录方式: `ssh -F NUL -i C:/Users/dabin/.ssh/id_rsa root@47.86.203.13`
+Nginx: nginx/1.24.0 (Ubuntu)
+应用上游: 127.0.0.1:18089 -> niuniuapi 容器 8080
+域名: tomato.beinai.cc -> 47.86.203.13
+```
+
+同机已有 `qbook.top`，配置在：
+
+```text
+/etc/nginx/sites-enabled/qbook.top
+/etc/letsencrypt/live/qbook.top/fullchain.pem
+/etc/letsencrypt/live/qbook.top/privkey.pem
+```
+
+发布 `tomato.beinai.cc` 时不要修改 qbook 的配置文件、证书目录或 server block。只新增/覆盖 tomato 自己的文件：
+
+```text
+/etc/nginx/conf.d/tomato.beinai.cc.conf
+/etc/nginx/ssl/tomato.beinai.cc/tomato.beinai.cc_bundle.crt
+/etc/nginx/ssl/tomato.beinai.cc/tomato.beinai.cc.key
+```
+
+### 本地准备文件
+
+SSL 压缩包来源：
+
+```text
+G:/my-linux/tomato.beinai.cc_nginx.zip
+```
+
+本地解压位置：
+
+```text
+E:/ForkProject/niuniuapi/deploy/ssl/tomato.beinai.cc/
+```
+
+证书文件：
+
+```text
+tomato.beinai.cc_bundle.crt
+tomato.beinai.cc_bundle.pem
+tomato.beinai.cc.key
+tomato.beinai.cc.csr
+```
+
+`deploy/ssl/` 已加入 `deploy/.gitignore`，不要提交证书私钥。
+
+Nginx 配置与脚本：
+
+```text
+deploy/nginx/tomato.beinai.cc.conf
+deploy/nginx/install-tomato-beinai-nginx.sh
+deploy/nginx/deploy-tomato-beinai-from-windows.ps1
+```
+
+### 从 Windows 上传并安装
+
+如果可以用 OpenSSH 密钥登录，可用 PowerShell 脚本：
+
+```powershell
+.\deploy\nginx\deploy-tomato-beinai-from-windows.ps1 `
+  -Server 47.86.203.13 `
+  -User root `
+  -IdentityFile "你的 pem 路径"
+```
+
+如果只有密码登录，使用 PuTTY 工具时要固定 host key，避免误连：
+
+```powershell
+$remote = "root@47.86.203.13"
+$hostkey = "SHA256:wzD4VaS8pEgIt4Fd/5uQrrKajBLPJgHGLvyJYj4U4Bo"
+$pw = "从安全位置读取，不要写入文档"
+
+& "C:\Program Files\PuTTY\plink.exe" -ssh $remote -hostkey $hostkey -pw $pw -batch `
+  "rm -rf /tmp/tomato-beinai-nginx && mkdir -p /tmp/tomato-beinai-nginx/deploy/nginx /tmp/tomato-beinai-nginx/deploy/ssl/tomato.beinai.cc"
+
+& "C:\Program Files\PuTTY\pscp.exe" -hostkey $hostkey -pw $pw deploy\nginx\tomato.beinai.cc.conf "${remote}:/tmp/tomato-beinai-nginx/deploy/nginx/"
+& "C:\Program Files\PuTTY\pscp.exe" -hostkey $hostkey -pw $pw deploy\nginx\install-tomato-beinai-nginx.sh "${remote}:/tmp/tomato-beinai-nginx/deploy/nginx/"
+& "C:\Program Files\PuTTY\pscp.exe" -hostkey $hostkey -pw $pw deploy\ssl\tomato.beinai.cc\tomato.beinai.cc_bundle.crt "${remote}:/tmp/tomato-beinai-nginx/deploy/ssl/tomato.beinai.cc/"
+& "C:\Program Files\PuTTY\pscp.exe" -hostkey $hostkey -pw $pw deploy\ssl\tomato.beinai.cc\tomato.beinai.cc.key "${remote}:/tmp/tomato-beinai-nginx/deploy/ssl/tomato.beinai.cc/"
+
+& "C:\Program Files\PuTTY\plink.exe" -ssh $remote -hostkey $hostkey -pw $pw -batch `
+  "cd /tmp/tomato-beinai-nginx && bash deploy/nginx/install-tomato-beinai-nginx.sh"
+```
+
+安装脚本行为：
+
+1. 创建 `/etc/nginx/ssl/tomato.beinai.cc`。
+2. 复制 tomato 证书和私钥，私钥权限设为 `600`。
+3. 只写入 `/etc/nginx/conf.d/tomato.beinai.cc.conf`。
+4. 执行 `nginx -t`。
+5. 语法失败时只回滚 tomato 配置，不碰 qbook。
+6. 语法通过后执行 `systemctl reload nginx`。
+
+2026-06-19 实际执行成功时备份目录：
+
+```text
+/root/nginx-backup-tomato.beinai.cc-20260619-050117
+```
+
+2026-06-19 已给服务器 `root` 用户安装本机公钥：
+
+```text
+本机私钥: C:/Users/dabin/.ssh/id_rsa
+本机公钥: C:/Users/dabin/.ssh/id_rsa.pub
+验证命令: ssh -F NUL -o BatchMode=yes -i C:/Users/dabin/.ssh/id_rsa root@47.86.203.13 "hostname && whoami"
+```
+
+后续发布优先使用 SSH 私钥登录，不要把服务器密码写进项目文档、全局记忆、脚本或提交。
+
+### 发布后验证
+
+从本机验证 HTTP 自动跳转：
+
+```powershell
+curl.exe -I --max-time 20 http://tomato.beinai.cc/
+```
+
+期望结果：
+
+```text
+HTTP/1.1 301 Moved Permanently
+Location: https://tomato.beinai.cc/
+```
+
+验证 HTTPS：
+
+```powershell
+curl.exe -I --max-time 20 https://tomato.beinai.cc/
+curl.exe -sS --max-time 20 https://tomato.beinai.cc/health
+```
+
+期望结果：
+
+```text
+HTTP/1.1 200 OK
+{"status":"ok"}
+```
+
+验证证书：
+
+```text
+CN = tomato.beinai.cc
+SAN = DNS:tomato.beinai.cc
+Issuer = TrustAsia DV TLS RSA CA 2024
+valid_to = Sep 16 15:59:59 2026 GMT
+```
+
+验证 qbook 未受影响：
+
+```powershell
+curl.exe -I --max-time 20 https://qbook.top/
+```
+
+qbook 的证书应仍为：
+
+```text
+CN = qbook.top
+SAN = DNS:qbook.top
+```
+
+服务器上确认两个站点配置并存：
+
+```bash
+nginx -T 2>/dev/null | grep -n tomato.beinai.cc | head -20
+nginx -T 2>/dev/null | grep -n qbook.top | head -20
+```
+
+2026-06-19 验证结果：
+
+```text
+tomato.beinai.cc 配置: /etc/nginx/conf.d/tomato.beinai.cc.conf
+qbook.top 配置: /etc/nginx/sites-enabled/qbook.top
+http://tomato.beinai.cc/ -> 301 到 https://tomato.beinai.cc/
+https://tomato.beinai.cc/ -> 200 OK
+https://tomato.beinai.cc/health -> {"status":"ok"}
+qbook.top HTTPS 证书仍为 qbook.top
+```

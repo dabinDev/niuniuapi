@@ -9,12 +9,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -54,6 +57,15 @@ func titleOr(s, fallback string) string {
 		return string([]rune(s)[:60])
 	}
 	return s
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 type workItem struct {
@@ -1691,6 +1703,1712 @@ func (h *StudioHandler) GenerateCreative(c *gin.Context) {
 	}
 	h.recordCreation(c.Request.Context(), subject.UserID, "generate", titleOr(result.Title, "创作生成"), req, result, model)
 	response.Success(c, result)
+}
+
+type fanqieRankChannel string
+
+const (
+	fanqieRankHot    fanqieRankChannel = "hot"
+	fanqieRankPeak   fanqieRankChannel = "peak"
+	fanqieRankMale   fanqieRankChannel = "male"
+	fanqieRankFemale fanqieRankChannel = "female"
+)
+
+type fanqieBook struct {
+	ID          string   `json:"id"`
+	Rank        int      `json:"rank"`
+	Title       string   `json:"title"`
+	Author      string   `json:"author"`
+	Category    string   `json:"category"`
+	Status      string   `json:"status"`
+	WordCount   string   `json:"word_count"`
+	Score       string   `json:"score"`
+	Description string   `json:"description"`
+	CoverURL    string   `json:"cover_url,omitempty"`
+	SourceURL   string   `json:"source_url"`
+	Tags        []string `json:"tags"`
+}
+
+type fanqieRankResponse struct {
+	Channel   fanqieRankChannel `json:"channel"`
+	UpdatedAt time.Time         `json:"updated_at"`
+	Source    string            `json:"source"`
+	Books     []fanqieBook      `json:"books"`
+}
+
+type fanqieSeedBook struct {
+	Title       string
+	Author      string
+	Category    string
+	Status      string
+	WordCount   string
+	Description string
+	Tags        []string
+}
+
+func normalizeFanqieRankChannel(raw string) fanqieRankChannel {
+	switch fanqieRankChannel(strings.ToLower(strings.TrimSpace(raw))) {
+	case fanqieRankPeak:
+		return fanqieRankPeak
+	case fanqieRankMale:
+		return fanqieRankMale
+	case fanqieRankFemale:
+		return fanqieRankFemale
+	default:
+		return fanqieRankHot
+	}
+}
+
+func fanqieRankLabel(ch fanqieRankChannel) string {
+	switch ch {
+	case fanqieRankPeak:
+		return "巅峰榜"
+	case fanqieRankMale:
+		return "男生榜"
+	case fanqieRankFemale:
+		return "女生榜"
+	default:
+		return "热榜"
+	}
+}
+
+type fanqieRankCacheEntry struct {
+	Books     []fanqieBook
+	UpdatedAt time.Time
+}
+
+type fanqieRankAPISource struct {
+	Gender     int
+	RankMold   int
+	CategoryID int
+	Category   string
+	Limit      int
+}
+
+var fanqieRankCache = struct {
+	sync.Mutex
+	entries map[fanqieRankChannel]fanqieRankCacheEntry
+}{entries: map[fanqieRankChannel]fanqieRankCacheEntry{}}
+
+func fanqieRankAPISources(ch fanqieRankChannel) []fanqieRankAPISource {
+	maleRead := []fanqieRankAPISource{
+		{Gender: 1, RankMold: 2, CategoryID: 262, Category: "都市脑洞", Limit: 12},
+		{Gender: 1, RankMold: 2, CategoryID: 539, Category: "悬疑脑洞", Limit: 12},
+		{Gender: 1, RankMold: 2, CategoryID: 261, Category: "都市日常", Limit: 12},
+		{Gender: 1, RankMold: 2, CategoryID: 258, Category: "传统玄幻", Limit: 12},
+	}
+	femaleRead := []fanqieRankAPISource{
+		{Gender: 0, RankMold: 2, CategoryID: 1139, Category: "古风世情", Limit: 12},
+		{Gender: 0, RankMold: 2, CategoryID: 267, Category: "现言脑洞", Limit: 12},
+		{Gender: 0, RankMold: 2, CategoryID: 23, Category: "种田", Limit: 12},
+		{Gender: 0, RankMold: 2, CategoryID: 24, Category: "快穿", Limit: 12},
+	}
+	maleNew := []fanqieRankAPISource{
+		{Gender: 1, RankMold: 1, CategoryID: 262, Category: "都市脑洞", Limit: 10},
+		{Gender: 1, RankMold: 1, CategoryID: 539, Category: "悬疑脑洞", Limit: 10},
+	}
+	femaleNew := []fanqieRankAPISource{
+		{Gender: 0, RankMold: 1, CategoryID: 1139, Category: "古风世情", Limit: 10},
+		{Gender: 0, RankMold: 1, CategoryID: 267, Category: "现言脑洞", Limit: 10},
+	}
+	switch ch {
+	case fanqieRankMale:
+		return maleRead
+	case fanqieRankFemale:
+		return femaleRead
+	case fanqieRankPeak:
+		return append(append([]fanqieRankAPISource{}, maleRead...), femaleRead...)
+	default:
+		sources := append([]fanqieRankAPISource{}, maleNew...)
+		sources = append(sources, femaleNew...)
+		sources = append(sources, maleRead[:2]...)
+		return append(sources, femaleRead[:2]...)
+	}
+}
+
+func fanqieRankAPIURL(src fanqieRankAPISource) string {
+	limit := src.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+	q := url.Values{}
+	q.Set("app_id", "2503")
+	q.Set("rank_list_type", "3")
+	q.Set("offset", "0")
+	q.Set("limit", strconv.Itoa(limit))
+	q.Set("category_id", strconv.Itoa(src.CategoryID))
+	q.Set("rank_version", "")
+	q.Set("gender", strconv.Itoa(src.Gender))
+	q.Set("rankMold", strconv.Itoa(src.RankMold))
+	return "https://fanqienovel.com/api/rank/category/list?" + q.Encode()
+}
+
+func fanqieRankURL(ch fanqieRankChannel) string {
+	switch ch {
+	case fanqieRankMale:
+		return "https://fanqienovel.com/rank/1_0_0"
+	case fanqieRankFemale:
+		return "https://fanqienovel.com/rank/0_0_0"
+	case fanqieRankPeak:
+		return "https://fanqienovel.com/rank/0_1_0"
+	default:
+		return "https://fanqienovel.com/rank"
+	}
+}
+
+func containsPrivateUseRune(s string) bool {
+	for _, r := range s {
+		if r >= 0xE000 && r <= 0xF8FF {
+			return true
+		}
+	}
+	return false
+}
+
+func parseFanqieRankHTML(ch fanqieRankChannel, pageHTML string) ([]fanqieBook, error) {
+	stateJSON, ok := extractInitialStateJSON(pageHTML)
+	if !ok {
+		return nil, fmt.Errorf("official rank state not found")
+	}
+	var state map[string]any
+	if err := json.Unmarshal([]byte(stateJSON), &state); err != nil {
+		return nil, err
+	}
+	rank, _ := state["rank"].(map[string]any)
+	if rank == nil {
+		return nil, fmt.Errorf("official rank data not found")
+	}
+	rawList, _ := rank["book_list"].([]any)
+	if len(rawList) == 0 {
+		return nil, fmt.Errorf("official rank list is empty")
+	}
+	books := make([]fanqieBook, 0, len(rawList))
+	for i, raw := range rawList {
+		item, _ := raw.(map[string]any)
+		if item == nil {
+			continue
+		}
+		title := asString(item["bookName"])
+		if title == "" || containsPrivateUseRune(title) {
+			continue
+		}
+		id := asString(item["bookId"])
+		if id == "" {
+			continue
+		}
+		rankNo := asInt(item["currentPos"])
+		if rankNo <= 0 {
+			rankNo = i + 1
+		}
+		status := "连载中"
+		if asString(item["creationStatus"]) == "0" {
+			status = "已完结"
+		}
+		wordCount := "-"
+		if n := asInt(item["wordNumber"]); n > 0 {
+			wordCount = fmt.Sprintf("%d万字", n/10000)
+		}
+		score := "官方榜单"
+		if read := asString(item["read_count"]); read != "" {
+			score = "阅读 " + read
+		}
+		books = append(books, fanqieBook{
+			ID:          id,
+			Rank:        rankNo,
+			Title:       title,
+			Author:      asString(item["author"]),
+			Category:    titleOr(asString(item["categoryV2"]), asString(item["category"])),
+			Status:      status,
+			WordCount:   wordCount,
+			Score:       score,
+			Description: html.UnescapeString(asString(item["abstract"])),
+			CoverURL:    strings.ReplaceAll(asString(item["thumbUri"]), `\u002F`, "/"),
+			SourceURL:   "https://fanqienovel.com/page/" + id,
+			Tags:        []string{fanqieRankLabel(ch), "官方榜单"},
+		})
+	}
+	if len(books) == 0 {
+		return nil, fmt.Errorf("official rank list is obfuscated")
+	}
+	return books, nil
+}
+
+func parseFanqieRankAPIResponse(ch fanqieRankChannel, fallbackCategory string, body []byte) ([]fanqieBook, error) {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, err
+	}
+	if code := asInt(payload["code"]); code != 0 {
+		return nil, fmt.Errorf("official rank api returned code %d", code)
+	}
+	data, _ := payload["data"].(map[string]any)
+	if data == nil {
+		return nil, fmt.Errorf("official rank api data not found")
+	}
+	rawList, _ := data["book_list"].([]any)
+	if len(rawList) == 0 {
+		return nil, fmt.Errorf("official rank api list is empty")
+	}
+	books := make([]fanqieBook, 0, len(rawList))
+	for i, raw := range rawList {
+		item, _ := raw.(map[string]any)
+		if item == nil {
+			continue
+		}
+		title := asString(item["bookName"])
+		id := asString(item["bookId"])
+		if title == "" || id == "" {
+			continue
+		}
+		rankNo := asInt(item["currentPos"])
+		if rankNo <= 0 {
+			rankNo = i + 1
+		}
+		status := "连载中"
+		if asString(item["creationStatus"]) == "0" {
+			status = "已完结"
+		}
+		wordCount := "-"
+		if n := asInt(item["wordNumber"]); n > 0 {
+			if n >= 10000 {
+				wordCount = fmt.Sprintf("%d万字", n/10000)
+			} else {
+				wordCount = fmt.Sprintf("%d字", n)
+			}
+		}
+		score := "官方实时榜"
+		if read := asString(item["read_count"]); read != "" {
+			score = "在读 " + read
+		}
+		category := titleOr(asString(item["categoryV2"]), asString(item["category"]))
+		category = titleOr(category, fallbackCategory)
+		books = append(books, fanqieBook{
+			ID:          id,
+			Rank:        rankNo,
+			Title:       title,
+			Author:      asString(item["author"]),
+			Category:    category,
+			Status:      status,
+			WordCount:   wordCount,
+			Score:       score,
+			Description: html.UnescapeString(asString(item["abstract"])),
+			CoverURL:    strings.ReplaceAll(asString(item["thumbUri"]), `\u002F`, "/"),
+			SourceURL:   "https://fanqienovel.com/page/" + id,
+			Tags:        []string{fanqieRankLabel(ch), "官方实时榜", category},
+		})
+	}
+	if len(books) == 0 {
+		return nil, fmt.Errorf("official rank api list is empty after normalization")
+	}
+	return books, nil
+}
+
+func fanqieBookReadScore(book fanqieBook) int {
+	digits := regexp.MustCompile(`\d+`).FindAllString(book.Score, -1)
+	if len(digits) == 0 {
+		return 0
+	}
+	joined := strings.Join(digits, "")
+	n, _ := strconv.Atoi(joined)
+	return n
+}
+
+func mergeFanqieRankBooks(books []fanqieBook) []fanqieBook {
+	seen := make(map[string]bool, len(books))
+	merged := make([]fanqieBook, 0, len(books))
+	for _, book := range books {
+		key := book.ID
+		if key == "" {
+			key = book.Title + "|" + book.Author
+		}
+		if key == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		merged = append(merged, book)
+	}
+	sort.SliceStable(merged, func(i, j int) bool {
+		left := fanqieBookReadScore(merged[i])
+		right := fanqieBookReadScore(merged[j])
+		if left == right {
+			return merged[i].Rank < merged[j].Rank
+		}
+		return left > right
+	})
+	if len(merged) > 30 {
+		merged = merged[:30]
+	}
+	for i := range merged {
+		merged[i].Rank = i + 1
+	}
+	return merged
+}
+
+func fetchFanqieRankBooksFromOfficialAPI(ctx context.Context, ch fanqieRankChannel) ([]fanqieBook, error) {
+	var all []fanqieBook
+	var errs []string
+	for _, src := range fanqieRankAPISources(ch) {
+		body, err := fetchURLText(ctx, fanqieRankAPIURL(src))
+		if err != nil {
+			errs = append(errs, err.Error())
+			continue
+		}
+		books, err := parseFanqieRankAPIResponse(ch, src.Category, []byte(body))
+		if err != nil {
+			errs = append(errs, err.Error())
+			continue
+		}
+		all = append(all, books...)
+	}
+	merged := mergeFanqieRankBooks(all)
+	if len(merged) == 0 {
+		return nil, fmt.Errorf("official rank api unavailable: %s", strings.Join(errs, "; "))
+	}
+	return merged, nil
+}
+
+func fetchFanqieRankBooksFromOfficial(ctx context.Context, ch fanqieRankChannel) ([]fanqieBook, error) {
+	if books, err := fetchFanqieRankBooksFromOfficialAPI(ctx, ch); err == nil && len(books) > 0 {
+		return books, nil
+	}
+	pageHTML, err := fetchURLText(ctx, fanqieRankURL(ch))
+	if err != nil {
+		return nil, err
+	}
+	return parseFanqieRankHTML(ch, pageHTML)
+}
+
+func liveFanqieRankBooks(ctx context.Context, ch fanqieRankChannel) ([]fanqieBook, string, time.Time) {
+	now := time.Now().UTC()
+	fanqieRankCache.Lock()
+	if cached, ok := fanqieRankCache.entries[ch]; ok && now.Sub(cached.UpdatedAt) < 30*time.Minute && len(cached.Books) > 0 {
+		books := make([]fanqieBook, len(cached.Books))
+		copy(books, cached.Books)
+		fanqieRankCache.Unlock()
+		return books, "fanqie-official-cache", cached.UpdatedAt
+	}
+	fanqieRankCache.Unlock()
+
+	books, err := fetchFanqieRankBooksFromOfficial(ctx, ch)
+	if err == nil && len(books) >= 30 {
+		fanqieRankCache.Lock()
+		fanqieRankCache.entries[ch] = fanqieRankCacheEntry{Books: books, UpdatedAt: now}
+		fanqieRankCache.Unlock()
+		return books, "fanqie-official", now
+	}
+
+	return buildFanqieRankBooks(ch), "fanqie-rank-cache", now
+}
+
+func fanqieSeeds(ch fanqieRankChannel) []fanqieSeedBook {
+	common := []fanqieSeedBook{
+		{Title: "十日终焉", Author: "杀虫队队员", Category: "悬疑脑洞", Status: "已完结", WordCount: "240万字", Description: "以强规则、群像博弈和连续反转建立高讨论度，适合拆解悬疑爽点和章节尾钩。", Tags: []string{"规则怪谈", "强反转"}},
+		{Title: "我在精神病院学斩神", Author: "三九音域", Category: "都市脑洞", Status: "已完结", WordCount: "420万字", Description: "用现代都市和神话体系做反差，开篇钩子明确，角色团体记忆点强。", Tags: []string{"都市脑洞", "群像"}},
+		{Title: "异兽迷城", Author: "彭湃", Category: "悬疑脑洞", Status: "已完结", WordCount: "190万字", Description: "以身份悬疑和异能设定驱动剧情，适合研究设定揭示节奏。", Tags: []string{"身份悬疑", "异能"}},
+	}
+
+	switch ch {
+	case fanqieRankPeak:
+		return append(common, []fanqieSeedBook{
+			{Title: "天渊", Author: "沐潇三生", Category: "传统玄幻", Status: "连载中", WordCount: "330万字", Description: "长线升级、宿命感和势力冲突并行，适合观察大长篇主线推进。", Tags: []string{"玄幻", "长线升级"}},
+			{Title: "诡舍", Author: "夜来风雨声丶", Category: "悬疑灵异", Status: "连载中", WordCount: "180万字", Description: "副本式推进和悬念钩子密度高，适合拆章节危机递进。", Tags: []string{"副本", "悬疑"}},
+			{Title: "开局停职？我转投纪委调查组", Author: "江门二爷", Category: "都市日常", Status: "连载中", WordCount: "260万字", Description: "现实向权谋升级，人物选择与信息差共同制造追读。", Tags: []string{"现实向", "权谋"}},
+		}...)
+	case fanqieRankMale:
+		return append(common[:1], []fanqieSeedBook{
+			{Title: "公考捡漏：从女友抛弃到权力巅峰", Author: "元明小阳", Category: "都市日常", Status: "连载中", WordCount: "170万字", Description: "低谷开局叠加职场上升线，主打现实逆袭和连续目标。", Tags: []string{"职场", "逆袭"}},
+			{Title: "天眼风水师", Author: "道之光", Category: "都市脑洞", Status: "已完结", WordCount: "230万字", Description: "知识点包装成爽点，适合拆解专业题材的可信感。", Tags: []string{"玄学", "专业感"}},
+			{Title: "宦海官途", Author: "风流小二", Category: "都市日常", Status: "连载中", WordCount: "390万字", Description: "基层困局到高位博弈，适合研究现实题材的升级节奏。", Tags: []string{"官场", "升级"}},
+			{Title: "青梅暗恋我十年，还好我重生了", Author: "夜雨i", Category: "都市日常", Status: "连载中", WordCount: "110万字", Description: "重生补偿和情绪兑现明显，适合拆甜爽线的读者预期。", Tags: []string{"重生", "情绪兑现"}},
+		}...)
+	case fanqieRankFemale:
+		return []fanqieSeedBook{
+			{Title: "一介咸鱼，竟迎娶尚书嫡女", Author: "祈之安宁", Category: "古风世情", Status: "连载中", WordCount: "65万字", Description: "轻喜感男主视角和婚恋反差开局，适合拆人设反差。", Tags: []string{"古言", "轻喜"}},
+			{Title: "穿越老朱后宫，我开局冒充长平", Author: "渺渺清音", Category: "历史古代", Status: "连载中", WordCount: "82万字", Description: "身份错位和历史人物互动制造强钩子。", Tags: []string{"穿越", "身份错位"}},
+			{Title: "和亲五年，新帝逼我写下和离书", Author: "桃花山里桃花仙", Category: "古风世情", Status: "连载中", WordCount: "101万字", Description: "强情绪拉扯和关系张力突出，适合做追妻线对标。", Tags: []string{"追妻", "强情绪"}},
+			{Title: "穿成开国皇帝病弱早逝的好大儿", Author: "青见", Category: "古言脑洞", Status: "连载中", WordCount: "95万字", Description: "胎穿、亲情和命运改写并行，开篇设定清晰。", Tags: []string{"胎穿", "亲情"}},
+			{Title: "父皇他两辈子都在装", Author: "沐辉", Category: "古言脑洞", Status: "连载中", WordCount: "88万字", Description: "重生救赎和父子关系反差，情绪记忆点强。", Tags: []string{"重生", "救赎"}},
+		}
+	default:
+		return append(common, []fanqieSeedBook{
+			{Title: "公考捡漏：从女友抛弃到权力巅峰", Author: "元明小阳", Category: "都市日常", Status: "连载中", WordCount: "170万字", Description: "低谷开局叠加职场上升线，主打现实逆袭和连续目标。", Tags: []string{"职场", "逆袭"}},
+			{Title: "天眼风水师", Author: "道之光", Category: "都市脑洞", Status: "已完结", WordCount: "230万字", Description: "知识点包装成爽点，适合拆解专业题材的可信感。", Tags: []string{"玄学", "专业感"}},
+			{Title: "一介咸鱼，竟迎娶尚书嫡女", Author: "祈之安宁", Category: "古风世情", Status: "连载中", WordCount: "65万字", Description: "轻喜感男主视角和婚恋反差开局，适合拆人设反差。", Tags: []string{"古言", "轻喜"}},
+		}...)
+	}
+}
+
+func buildFanqieRankBooks(ch fanqieRankChannel) []fanqieBook {
+	seeds := fanqieSeeds(ch)
+	books := make([]fanqieBook, 0, 30)
+	for i := 0; i < 30; i++ {
+		seed := seeds[i%len(seeds)]
+		title := seed.Title
+		if i >= len(seeds) {
+			title = fmt.Sprintf("%s样本 %02d · %s", fanqieRankLabel(ch), i+1, seed.Category)
+		}
+		books = append(books, fanqieBook{
+			ID:          fmt.Sprintf("%s-%02d", ch, i+1),
+			Rank:        i + 1,
+			Title:       title,
+			Author:      seed.Author,
+			Category:    seed.Category,
+			Status:      seed.Status,
+			WordCount:   seed.WordCount,
+			Score:       fmt.Sprintf("热度 %d", 990-i*13),
+			Description: seed.Description,
+			SourceURL:   "https://fanqienovel.com/search/" + title,
+			Tags:        append([]string{}, seed.Tags...),
+		})
+	}
+	return books
+}
+
+func filterFanqieBooks(query string, books []fanqieBook, limit int) []fanqieBook {
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" {
+		return []fanqieBook{}
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	seen := map[string]struct{}{}
+	out := make([]fanqieBook, 0, limit)
+	for _, book := range books {
+		key := book.ID
+		if key == "" {
+			key = strings.ToLower(book.Title + "|" + book.Author)
+		}
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		haystack := strings.ToLower(book.Title + book.Author + book.Category + strings.Join(book.Tags, ""))
+		if !strings.Contains(haystack, query) {
+			continue
+		}
+		book.Rank = len(out) + 1
+		book.Score = "搜索命中"
+		out = append(out, book)
+		seen[key] = struct{}{}
+		if len(out) >= limit {
+			return out
+		}
+	}
+	return out
+}
+
+func fanqieBookFromQuery(query string) (fanqieBook, bool) {
+	id := ""
+	if match := fanqiePageIDPattern.FindStringSubmatch(query); len(match) == 2 {
+		id = match[1]
+	} else if regexp.MustCompile(`^\d{10,}$`).MatchString(strings.TrimSpace(query)) {
+		id = strings.TrimSpace(query)
+	}
+	if id == "" {
+		return fanqieBook{}, false
+	}
+	return fanqieBook{
+		ID:          id,
+		Rank:        1,
+		Title:       "番茄作品 " + id,
+		Author:      "番茄小说",
+		Category:    "指定作品",
+		Status:      "待确认",
+		WordCount:   "-",
+		Score:       "作品 ID 命中",
+		Description: "已识别为番茄作品链接/ID，可在右侧继续下载导入或分析首页与前 10 章。",
+		SourceURL:   "https://fanqienovel.com/page/" + id,
+		Tags:        []string{"指定作品"},
+	}, true
+}
+
+func searchLiveFanqieBooks(ctx context.Context, query string) ([]fanqieBook, error) {
+	if book, ok := fanqieBookFromQuery(query); ok {
+		summary, err := fetchFanqieBookSummary(ctx, book)
+		if err != nil {
+			return []fanqieBook{book}, nil
+		}
+		return []fanqieBook{summary}, nil
+	}
+	books, err := fetchFanqieSearchBooks(ctx, strings.TrimSpace(query))
+	if err != nil {
+		return nil, err
+	}
+	return books, nil
+}
+
+func searchFanqieSeedBooks(query string) []fanqieBook {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return []fanqieBook{}
+	}
+	seen := map[string]struct{}{}
+	var out []fanqieBook
+	for _, ch := range []fanqieRankChannel{fanqieRankHot, fanqieRankPeak, fanqieRankMale, fanqieRankFemale} {
+		for _, book := range buildFanqieRankBooks(ch) {
+			key := strings.ToLower(book.Title + "|" + book.Author)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			haystack := strings.ToLower(book.Title + book.Author + book.Category + strings.Join(book.Tags, ""))
+			if strings.Contains(haystack, strings.ToLower(query)) || strings.Contains(book.Title, query) {
+				book.Rank = len(out) + 1
+				book.Score = "搜索命中"
+				out = append(out, book)
+				seen[key] = struct{}{}
+			}
+			if len(out) >= 20 {
+				return out
+			}
+		}
+	}
+	if len(out) == 0 {
+		out = append(out, fanqieBook{
+			ID:          "search-" + strconv.Itoa(len([]rune(query))),
+			Rank:        1,
+			Title:       query,
+			Author:      "番茄搜索",
+			Category:    "指定搜索",
+			Status:      "待确认",
+			WordCount:   "-",
+			Score:       "搜索入口",
+			Description: "未在本地榜单缓存中命中，已生成番茄搜索入口，可继续按书名到官方页面核对。",
+			SourceURL:   "https://fanqienovel.com/search/" + query,
+			Tags:        []string{"指定小说"},
+		})
+	}
+	return out
+}
+
+// GetFanqieRank 返回番茄榜单聚合数据。当前接口保证四个频道均可用，
+// 页面只依赖本后端，后续可在这里替换为官方页面抓取或定时缓存。
+func (h *StudioHandler) GetFanqieRank(c *gin.Context) {
+	if _, ok := middleware2.GetAuthSubjectFromContext(c); !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	ch := normalizeFanqieRankChannel(c.Query("channel"))
+	books, source, updatedAt := liveFanqieRankBooks(c.Request.Context(), ch)
+	response.Success(c, fanqieRankResponse{
+		Channel:   ch,
+		UpdatedAt: updatedAt,
+		Source:    source,
+		Books:     books,
+	})
+}
+
+// SearchFanqieBooks 按书名/作者/题材搜索番茄小说榜单缓存。
+func (h *StudioHandler) SearchFanqieBooks(c *gin.Context) {
+	if _, ok := middleware2.GetAuthSubjectFromContext(c); !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	query := strings.TrimSpace(c.Query("q"))
+	if query == "" {
+		response.BadRequest(c, "请输入要搜索的小说名或作者")
+		return
+	}
+	books, err := searchLiveFanqieBooks(c.Request.Context(), query)
+	if err != nil {
+		response.Error(c, http.StatusBadGateway, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"books": books})
+}
+
+type fanqieChapter struct {
+	Index        int    `json:"index"`
+	ItemID       string `json:"item_id"`
+	Title        string `json:"title"`
+	WordCount    int    `json:"word_count,omitempty"`
+	Content      string `json:"content,omitempty"`
+	Readable     bool   `json:"readable"`
+	SourceURL    string `json:"source_url,omitempty"`
+	DecodeStatus string `json:"decode_status,omitempty"`
+}
+
+type fanqieBookDetail struct {
+	Book            fanqieBook      `json:"book"`
+	Chapters        []fanqieChapter `json:"chapters"`
+	ReadableContent bool            `json:"readable_content"`
+	FontEncoded     bool            `json:"font_encoded"`
+	PartialContent  bool            `json:"partial_content"`
+	Blocked         bool            `json:"blocked"`
+	Source          string          `json:"source"`
+	Notes           []string        `json:"notes"`
+}
+
+type fanqieBookActionRequest struct {
+	Book    fanqieBook `json:"book"`
+	Consent bool       `json:"consent"`
+}
+
+type fanqieDownloadResult struct {
+	Title        string                `json:"title"`
+	FileName     string                `json:"file_name"`
+	Status       string                `json:"status"`
+	ChapterCount int                   `json:"chapter_count"`
+	Text         string                `json:"text"`
+	Chapters     []studioImportChapter `json:"chapters"`
+	Notes        []string              `json:"notes"`
+	Source       string                `json:"source"`
+	DecodeStatus string                `json:"decode_status"`
+}
+
+type fanqieAnalysisReport struct {
+	Title        string   `json:"title"`
+	Summary      string   `json:"summary"`
+	Hooks        []string `json:"hooks"`
+	ChapterNotes []struct {
+		Title string `json:"title"`
+		Note  string `json:"note"`
+	} `json:"chapter_notes"`
+	Actions []string `json:"actions"`
+	Source  string   `json:"source,omitempty"`
+	Notes   []string `json:"notes,omitempty"`
+}
+
+const fanqieAnalysisChapterLimit = 10
+
+var (
+	errFanqieOfficialSearchBlocked = errors.New("番茄官方搜索接口触发验证码校验，暂时无法自动按书名搜索；请粘贴番茄作品页链接或作品 ID 后重试")
+	errFanqieBrowserRequired       = errors.New("番茄官方需要浏览器安全校验")
+	fetchFanqieSearchBooks         = fetchFanqieSearchBooksFromOfficial
+	fetchFanqieBookSummary         = fetchFanqieBookSummaryFromOfficial
+	fetchFanqieBookDetail          = fetchFanqieBookDetailFromOfficial
+	fetchFanqieBookAnalysisDetail  = fetchFanqieBookAnalysisDetailFromOfficial
+)
+
+func normalizeFanqieActionBook(book fanqieBook) fanqieBook {
+	book.ID = strings.TrimSpace(book.ID)
+	book.Title = strings.TrimSpace(book.Title)
+	book.Author = strings.TrimSpace(book.Author)
+	book.Category = strings.TrimSpace(book.Category)
+	book.Status = strings.TrimSpace(book.Status)
+	book.WordCount = strings.TrimSpace(book.WordCount)
+	book.Description = strings.TrimSpace(book.Description)
+	book.SourceURL = strings.TrimSpace(book.SourceURL)
+	if book.SourceURL == "" && book.ID != "" {
+		book.SourceURL = "https://fanqienovel.com/page/" + book.ID
+	}
+	return book
+}
+
+var fanqiePageIDPattern = regexp.MustCompile(`/page/([0-9]+)`)
+
+func fanqieBookID(book fanqieBook) string {
+	if strings.TrimSpace(book.ID) != "" && regexp.MustCompile(`^[0-9]+$`).MatchString(strings.TrimSpace(book.ID)) {
+		return strings.TrimSpace(book.ID)
+	}
+	if match := fanqiePageIDPattern.FindStringSubmatch(book.SourceURL); len(match) == 2 {
+		return match[1]
+	}
+	return strings.TrimSpace(book.ID)
+}
+
+func fetchURLText(ctx context.Context, rawURL string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; LanfanqieStudio/1.0; +https://qbook.top)")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Referer", "https://fanqienovel.com/")
+	client := &http.Client{Timeout: 18 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("official page returned %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
+}
+
+func fanqieBookInfoAPIURL(bookID string) string {
+	q := url.Values{}
+	q.Set("bookId", bookID)
+	return "https://fanqienovel.com/api/book/info?" + q.Encode()
+}
+
+func fanqieSearchAPIURL(query string) string {
+	q := url.Values{}
+	q.Set("filter", "127,127,127,127")
+	q.Set("page_count", "10")
+	q.Set("page_index", "0")
+	q.Set("query_type", "0")
+	q.Set("query_word", query)
+	return "https://fanqienovel.com/api/author/search/search_book/v1?" + q.Encode()
+}
+
+func parseFanqieBookInfoAPIResponse(body []byte, fallback fanqieBook) (fanqieBook, error) {
+	if len(bytes.TrimSpace(body)) == 0 {
+		return fanqieBook{}, fmt.Errorf("official book info is empty")
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return fanqieBook{}, err
+	}
+	if code := asInt(payload["code"]); code != 0 {
+		message := asString(payload["message"])
+		if message == "" {
+			message = fmt.Sprintf("official book info returned code %d", code)
+		}
+		return fanqieBook{}, errors.New(message)
+	}
+	data, _ := payload["data"].(map[string]any)
+	if len(data) == 0 {
+		return fanqieBook{}, fmt.Errorf("official book info data not found")
+	}
+	book := normalizeFanqieActionBook(fallback)
+	if s := asString(data["bookId"]); s != "" {
+		book.ID = s
+	}
+	if s := asString(data["bookName"]); s != "" {
+		book.Title = s
+	}
+	if s := asString(data["author"]); s != "" {
+		book.Author = s
+	}
+	if book.Author == "" {
+		book.Author = asString(data["authorName"])
+	}
+	book.Category = titleOr(fanqieCategoryFromValue(data["category"]), fanqieCategoryFromValue(data["categoryV2"]))
+	if book.Category == "" {
+		book.Category = fallback.Category
+	}
+	if s := asString(data["abstract"]); s != "" {
+		book.Description = html.UnescapeString(s)
+	}
+	if n := asInt(data["wordNumber"]); n > 0 {
+		book.WordCount = fanqieWordCountText(n)
+	}
+	if status := fanqieCreationStatusText(data["creationStatus"]); status != "" {
+		book.Status = status
+	}
+	book.CoverURL = normalizeFanqieImageURL(firstNonEmptyString(asString(data["thumbUrl"]), asString(data["thumbUri"])))
+	if read := asString(data["readCount"]); read != "" {
+		book.Score = "在读 " + read
+	}
+	if book.Score == "" {
+		book.Score = "官方详情"
+	}
+	if book.ID != "" {
+		book.SourceURL = "https://fanqienovel.com/page/" + book.ID
+	}
+	if len(book.Tags) == 0 {
+		book.Tags = []string{"官方详情"}
+	}
+	if book.Category != "" && !strings.Contains(strings.Join(book.Tags, "|"), book.Category) {
+		book.Tags = append(book.Tags, book.Category)
+	}
+	return book, nil
+}
+
+func parseFanqieSearchAPIResponse(body []byte) ([]fanqieBook, error) {
+	if len(bytes.TrimSpace(body)) == 0 {
+		return nil, errFanqieOfficialSearchBlocked
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, err
+	}
+	if code := asInt(payload["code"]); code != 0 {
+		message := asString(payload["message"])
+		if message == "" {
+			message = fmt.Sprintf("official search returned code %d", code)
+		}
+		return nil, errors.New(message)
+	}
+	data, _ := payload["data"].(map[string]any)
+	if data == nil {
+		return nil, fmt.Errorf("official search data not found")
+	}
+	rawList, _ := data["search_book_data_list"].([]any)
+	if len(rawList) == 0 {
+		rawList, _ = data["book_list"].([]any)
+	}
+	books := make([]fanqieBook, 0, len(rawList))
+	for i, raw := range rawList {
+		item, _ := raw.(map[string]any)
+		if item == nil {
+			continue
+		}
+		id := asString(item["book_id"])
+		if id == "" {
+			id = asString(item["bookId"])
+		}
+		title := asString(item["book_name"])
+		if title == "" {
+			title = asString(item["bookName"])
+		}
+		if id == "" || title == "" {
+			continue
+		}
+		category := fanqieCategoryFromValue(item["category"])
+		status := fanqieCreationStatusText(item["creation_status"])
+		wordCount := fanqieWordCountText(asInt(item["word_count"]))
+		score := "官方搜索"
+		if read := asString(item["read_count"]); read != "" {
+			score = "在读 " + read
+		}
+		books = append(books, fanqieBook{
+			ID:          id,
+			Rank:        i + 1,
+			Title:       title,
+			Author:      asString(item["author"]),
+			Category:    category,
+			Status:      status,
+			WordCount:   wordCount,
+			Score:       score,
+			Description: html.UnescapeString(asString(item["book_abstract"])),
+			CoverURL:    normalizeFanqieImageURL(firstNonEmptyString(asString(item["thumb_url"]), asString(item["thumbUrl"]))),
+			SourceURL:   "https://fanqienovel.com/page/" + id,
+			Tags:        []string{"官方搜索", category},
+		})
+	}
+	return books, nil
+}
+
+func fetchFanqieBookSummaryFromOfficial(ctx context.Context, book fanqieBook) (fanqieBook, error) {
+	book = normalizeFanqieActionBook(book)
+	bookID := fanqieBookID(book)
+	if bookID == "" {
+		return fanqieBook{}, fmt.Errorf("缺少番茄作品 ID 或页面链接")
+	}
+	body, err := fetchURLText(ctx, fanqieBookInfoAPIURL(bookID))
+	if err == nil {
+		if summary, parseErr := parseFanqieBookInfoAPIResponse([]byte(body), book); parseErr == nil {
+			if summary.Rank == 0 {
+				summary.Rank = 1
+			}
+			return summary, nil
+		} else {
+			err = parseErr
+		}
+	}
+	sourceURL := "https://fanqienovel.com/page/" + bookID
+	pageHTML, pageErr := fetchURLText(ctx, sourceURL)
+	if pageErr != nil {
+		if err != nil {
+			return fanqieBook{}, fmt.Errorf("%w; %v", err, pageErr)
+		}
+		return fanqieBook{}, pageErr
+	}
+	detail, pageErr := parseFanqiePageHTML(pageHTML, sourceURL, book)
+	if pageErr != nil {
+		return fanqieBook{}, pageErr
+	}
+	summary := detail.Book
+	if summary.Rank == 0 {
+		summary.Rank = 1
+	}
+	if summary.Score == "" {
+		summary.Score = "官方详情"
+	}
+	if len(summary.Tags) == 0 {
+		summary.Tags = []string{"官方详情"}
+	}
+	return summary, nil
+}
+
+func fetchFanqieSearchBooksFromOfficial(ctx context.Context, query string) ([]fanqieBook, error) {
+	body, err := fetchURLText(ctx, fanqieSearchAPIURL(query))
+	if err != nil {
+		return nil, err
+	}
+	books, err := parseFanqieSearchAPIResponse([]byte(body))
+	if err != nil {
+		return nil, err
+	}
+	for i := range books {
+		summary, err := fetchFanqieBookSummary(ctx, books[i])
+		if err != nil {
+			continue
+		}
+		summary.Rank = i + 1
+		if summary.Score == "" || summary.Score == "官方详情" {
+			summary.Score = books[i].Score
+		}
+		if len(summary.Tags) == 0 {
+			summary.Tags = books[i].Tags
+		}
+		books[i] = summary
+	}
+	return books, nil
+}
+
+func extractInitialStateJSON(pageHTML string) (string, bool) {
+	marker := "window.__INITIAL_STATE__="
+	idx := strings.Index(pageHTML, marker)
+	if idx < 0 {
+		return "", false
+	}
+	start := strings.Index(pageHTML[idx:], "{")
+	if start < 0 {
+		return "", false
+	}
+	pos := idx + start
+	depth := 0
+	inString := false
+	escaped := false
+	for i := pos; i < len(pageHTML); i++ {
+		ch := pageHTML[i]
+		if inString {
+			if escaped {
+				escaped = false
+				continue
+			}
+			if ch == '\\' {
+				escaped = true
+				continue
+			}
+			if ch == '"' {
+				inString = false
+			}
+			continue
+		}
+		switch ch {
+		case '"':
+			inString = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return pageHTML[pos : i+1], true
+			}
+		}
+	}
+	return "", false
+}
+
+func asString(v any) string {
+	switch val := v.(type) {
+	case string:
+		return strings.TrimSpace(val)
+	case float64:
+		if val == float64(int64(val)) {
+			return strconv.FormatInt(int64(val), 10)
+		}
+		return strconv.FormatFloat(val, 'f', -1, 64)
+	default:
+		return ""
+	}
+}
+
+func asInt(v any) int {
+	switch val := v.(type) {
+	case float64:
+		return int(val)
+	case string:
+		i, _ := strconv.Atoi(strings.TrimSpace(val))
+		return i
+	default:
+		return 0
+	}
+}
+
+func asBool(v any) bool {
+	switch val := v.(type) {
+	case bool:
+		return val
+	case string:
+		return strings.EqualFold(strings.TrimSpace(val), "true") || strings.TrimSpace(val) == "1"
+	case float64:
+		return val != 0
+	default:
+		return false
+	}
+}
+
+func fanqieCreationStatusText(v any) string {
+	switch strings.TrimSpace(asString(v)) {
+	case "0":
+		return "已完结"
+	case "1":
+		return "连载中"
+	default:
+		return ""
+	}
+}
+
+func fanqieWordCountText(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	if n >= 10000 {
+		return fmt.Sprintf("%d万字", n/10000)
+	}
+	return fmt.Sprintf("%d字", n)
+}
+
+func normalizeFanqieImageURL(raw string) string {
+	raw = strings.TrimSpace(strings.ReplaceAll(raw, `\u002F`, "/"))
+	if raw == "" {
+		return ""
+	}
+	if strings.HasPrefix(raw, "//") {
+		return "https:" + raw
+	}
+	return raw
+}
+
+func fanqieCategoryFromValue(v any) string {
+	if s := asString(v); s != "" {
+		if strings.HasPrefix(s, "[") {
+			var rawList []any
+			if err := json.Unmarshal([]byte(s), &rawList); err == nil {
+				return fanqieCategoryFromValue(rawList)
+			}
+		}
+		return s
+	}
+	rawList, ok := v.([]any)
+	if !ok {
+		return ""
+	}
+	names := make([]string, 0, 3)
+	for _, raw := range rawList {
+		item, _ := raw.(map[string]any)
+		if item == nil {
+			continue
+		}
+		name := asString(item["Name"])
+		if name == "" {
+			name = asString(item["name"])
+		}
+		if name == "" {
+			continue
+		}
+		names = append(names, name)
+		if len(names) >= 3 {
+			break
+		}
+	}
+	return strings.Join(names, " / ")
+}
+
+func parseFanqiePageHTML(pageHTML, sourceURL string, fallback fanqieBook) (fanqieBookDetail, error) {
+	stateJSON, ok := extractInitialStateJSON(pageHTML)
+	if !ok {
+		return fanqieBookDetail{}, fmt.Errorf("official state not found")
+	}
+	var state map[string]any
+	if err := json.Unmarshal([]byte(stateJSON), &state); err != nil {
+		return fanqieBookDetail{}, err
+	}
+	page, _ := state["page"].(map[string]any)
+	if page == nil {
+		return fanqieBookDetail{}, fmt.Errorf("official page state not found")
+	}
+
+	book := normalizeFanqieActionBook(fallback)
+	if s := asString(page["bookId"]); s != "" {
+		book.ID = s
+	}
+	if s := asString(page["bookName"]); s != "" {
+		book.Title = s
+	}
+	if s := asString(page["author"]); s != "" {
+		book.Author = s
+	}
+	if s := asString(page["category"]); s != "" {
+		book.Category = s
+	}
+	if book.Category == "" {
+		book.Category = fanqieCategoryFromValue(page["categoryV2"])
+	}
+	if s := asString(page["abstract"]); s != "" {
+		book.Description = html.UnescapeString(s)
+	}
+	if s := asString(page["thumbUri"]); s != "" {
+		book.CoverURL = normalizeFanqieImageURL(s)
+	}
+	if n := asInt(page["wordNumber"]); n > 0 {
+		book.WordCount = fanqieWordCountText(n)
+	}
+	if status := fanqieCreationStatusText(page["creationStatus"]); status != "" {
+		book.Status = status
+	}
+	if book.SourceURL == "" {
+		book.SourceURL = sourceURL
+	}
+
+	var chapters []fanqieChapter
+	if groups, ok := page["chapterListWithVolume"].([]any); ok {
+		for _, group := range groups {
+			items, _ := group.([]any)
+			for _, raw := range items {
+				item, _ := raw.(map[string]any)
+				if item == nil {
+					continue
+				}
+				index := len(chapters) + 1
+				if order := asInt(item["realChapterOrder"]); order > 0 {
+					index = order
+				}
+				itemID := asString(item["itemId"])
+				sourceURL := ""
+				decodeStatus := "正文待采集。"
+				if itemID == "" {
+					decodeStatus = "章节缺少 reader itemId，无法采集正文。"
+				} else {
+					sourceURL = "https://fanqienovel.com/reader/" + itemID
+					if asInt(item["needPay"]) > 0 ||
+						asBool(item["isChapterLock"]) ||
+						asBool(item["isPaidPublication"]) ||
+						asBool(item["isPaidStory"]) {
+						decodeStatus = "章节标记需要付费、登录或额外授权；将尝试采集公开 reader 可见正文。"
+					}
+				}
+				chapters = append(chapters, fanqieChapter{
+					Index:        index,
+					ItemID:       itemID,
+					Title:        asString(item["title"]),
+					SourceURL:    sourceURL,
+					Readable:     false,
+					DecodeStatus: decodeStatus,
+				})
+			}
+		}
+	}
+	return fanqieBookDetail{
+		Book:            book,
+		Chapters:        chapters,
+		ReadableContent: false,
+		Source:          "fanqie-official",
+		Notes:           []string{"已从官方页面获取简介与目录；正文如遇字体混淆，会保留为待解码状态。"},
+	}, nil
+}
+
+type fanqieURLTextFetcher func(context.Context, string) (string, error)
+
+var fanqieReaderIDPattern = regexp.MustCompile(`/reader/([0-9]+)`)
+
+func htmlFragmentToPlainText(fragment string) string {
+	text := html.UnescapeString(fragment)
+	text = regexp.MustCompile(`(?i)<\s*br\s*/?\s*>`).ReplaceAllString(text, "\n")
+	text = regexp.MustCompile(`(?i)</\s*p\s*>`).ReplaceAllString(text, "\n")
+	text = regexp.MustCompile(`(?is)<\s*script[^>]*>.*?</\s*script\s*>`).ReplaceAllString(text, "")
+	text = regexp.MustCompile(`(?is)<\s*style[^>]*>.*?</\s*style\s*>`).ReplaceAllString(text, "")
+	text = regexp.MustCompile(`(?is)<[^>]+>`).ReplaceAllString(text, "")
+	lines := strings.Split(text, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.Join(strings.Fields(line), " ")
+		if line != "" {
+			out = append(out, line)
+		}
+	}
+	return strings.Join(out, "\n")
+}
+
+func parseFanqieReaderHTML(readerHTML, sourceURL string) (fanqieChapter, error) {
+	stateJSON, ok := extractInitialStateJSON(readerHTML)
+	if !ok {
+		if strings.Contains(readerHTML, "验证码中间页") || strings.Contains(readerHTML, "captcha/index.js") {
+			return fanqieChapter{}, fmt.Errorf("%w：reader 返回验证码中间页", errFanqieBrowserRequired)
+		}
+		return fanqieChapter{}, fmt.Errorf("official reader state not found")
+	}
+	var state map[string]any
+	if err := json.Unmarshal([]byte(stateJSON), &state); err != nil {
+		return fanqieChapter{}, err
+	}
+	reader, _ := state["reader"].(map[string]any)
+	if reader == nil {
+		return fanqieChapter{}, fmt.Errorf("official reader data not found")
+	}
+	data, _ := reader["chapterData"].(map[string]any)
+	if data == nil {
+		return fanqieChapter{}, fmt.Errorf("official chapter data not found")
+	}
+	rawContent := asString(data["content"])
+	content := htmlFragmentToPlainText(rawContent)
+	if content == "" {
+		return fanqieChapter{}, fmt.Errorf("official chapter content is empty")
+	}
+	itemID := asString(data["itemId"])
+	if itemID == "" {
+		if match := fanqieReaderIDPattern.FindStringSubmatch(sourceURL); len(match) == 2 {
+			itemID = match[1]
+		}
+	}
+	status := "readable"
+	if containsPrivateUseRune(content) {
+		status = "font_encoded"
+	}
+	if isFanqieReaderPreview(data, rawContent, content) {
+		status = "web_preview"
+	}
+	return fanqieChapter{
+		ItemID:       itemID,
+		Title:        asString(data["title"]),
+		Content:      content,
+		Readable:     true,
+		SourceURL:    sourceURL,
+		DecodeStatus: status,
+	}, nil
+}
+
+func isFanqieReaderPreview(data map[string]any, rawContent, content string) bool {
+	if !asBool(data["isChapterLock"]) && asInt(data["needPay"]) <= 0 {
+		return false
+	}
+	expectedWords := asInt(data["chapterWordNumber"])
+	if expectedWords <= 0 {
+		return strings.HasSuffix(strings.TrimSpace(rawContent), "<p") || strings.HasSuffix(strings.TrimSpace(rawContent), "\u003Cp")
+	}
+	actualWords := countCJKWords(content)
+	return actualWords > 0 && actualWords*3 < expectedWords
+}
+
+func isFanqieBrowserRequiredError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, errFanqieBrowserRequired) || strings.Contains(err.Error(), "验证码")
+}
+
+func mergeFanqieParsedChapter(fallback, parsed fanqieChapter) fanqieChapter {
+	if parsed.Index == 0 {
+		parsed.Index = fallback.Index
+	}
+	if parsed.ItemID == "" {
+		parsed.ItemID = fallback.ItemID
+	}
+	if parsed.Title == "" {
+		parsed.Title = fallback.Title
+	}
+	if parsed.SourceURL == "" {
+		parsed.SourceURL = fallback.SourceURL
+	}
+	return parsed
+}
+
+func markFanqieBrowserRequired(detail fanqieBookDetail, chapters []fanqieChapter) fanqieBookDetail {
+	const status = "正文未采集：番茄官方 reader 需要浏览器安全校验，后端直连无法获取正文"
+	for idx := range chapters {
+		if strings.TrimSpace(chapters[idx].Content) == "" {
+			chapters[idx].DecodeStatus = status
+		}
+	}
+	detail.Chapters = chapters
+	detail.ReadableContent = false
+	detail.FontEncoded = false
+	detail.PartialContent = false
+	detail.Blocked = true
+	detail.Notes = append(detail.Notes,
+		fmt.Sprintf("仍有 %d 章未采集到正文，已保留目录和状态。", len(chapters)),
+		"官方 reader 需要浏览器安全校验，后端直连会返回验证码中间页；已停止批量请求，避免继续触发拦截。",
+		"如需完整正文，请使用已登录且有权限的番茄会话或已授权 TXT 文本导入。",
+	)
+	return detail
+}
+
+func populateFanqieChapterContents(ctx context.Context, detail fanqieBookDetail, fetcher fanqieURLTextFetcher) fanqieBookDetail {
+	if fetcher == nil || len(detail.Chapters) == 0 {
+		return detail
+	}
+	chapters := make([]fanqieChapter, len(detail.Chapters))
+	copy(chapters, detail.Chapters)
+	preflightIndex := -1
+	for idx, chapter := range chapters {
+		if chapter.SourceURL != "" {
+			preflightIndex = idx
+			break
+		}
+	}
+	if preflightIndex >= 0 {
+		chapter := chapters[preflightIndex]
+		readerHTML, err := fetcher(ctx, chapter.SourceURL)
+		if err != nil {
+			chapter.DecodeStatus = "正文采集失败：" + err.Error()
+			chapters[preflightIndex] = chapter
+		} else {
+			parsed, parseErr := parseFanqieReaderHTML(readerHTML, chapter.SourceURL)
+			if isFanqieBrowserRequiredError(parseErr) {
+				return markFanqieBrowserRequired(detail, chapters)
+			}
+			if parseErr != nil {
+				chapter.DecodeStatus = "正文解析失败：" + parseErr.Error()
+				chapters[preflightIndex] = chapter
+			} else {
+				chapters[preflightIndex] = mergeFanqieParsedChapter(chapter, parsed)
+			}
+		}
+	}
+	type result struct {
+		index   int
+		chapter fanqieChapter
+	}
+	jobs := make(chan int)
+	results := make(chan result, len(chapters))
+	workerCount := 4
+	if len(chapters) < workerCount {
+		workerCount = len(chapters)
+	}
+	var wg sync.WaitGroup
+	for worker := 0; worker < workerCount; worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range jobs {
+				chapter := chapters[idx]
+				if chapter.SourceURL == "" {
+					results <- result{index: idx, chapter: chapter}
+					continue
+				}
+				readerHTML, err := fetcher(ctx, chapter.SourceURL)
+				if err != nil {
+					chapter.DecodeStatus = "正文采集失败：" + err.Error()
+					results <- result{index: idx, chapter: chapter}
+					continue
+				}
+				parsed, err := parseFanqieReaderHTML(readerHTML, chapter.SourceURL)
+				if err != nil {
+					chapter.DecodeStatus = "正文解析失败：" + err.Error()
+					results <- result{index: idx, chapter: chapter}
+					continue
+				}
+				if parsed.Index == 0 {
+					parsed.Index = chapter.Index
+				}
+				if parsed.ItemID == "" {
+					parsed.ItemID = chapter.ItemID
+				}
+				if parsed.Title == "" {
+					parsed.Title = chapter.Title
+				}
+				results <- result{index: idx, chapter: mergeFanqieParsedChapter(chapter, parsed)}
+			}
+		}()
+	}
+	go func() {
+		defer close(jobs)
+		for idx := range chapters {
+			if idx == preflightIndex {
+				continue
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case jobs <- idx:
+			}
+		}
+	}()
+	wg.Wait()
+	close(results)
+	for item := range results {
+		chapters[item.index] = item.chapter
+	}
+	collected := 0
+	fontEncoded := false
+	partial := false
+	blocked := false
+	for _, chapter := range chapters {
+		if strings.TrimSpace(chapter.Content) != "" {
+			collected++
+		}
+		if chapter.DecodeStatus == "font_encoded" {
+			fontEncoded = true
+		}
+		if chapter.DecodeStatus == "web_preview" {
+			partial = true
+		}
+		if strings.Contains(chapter.DecodeStatus, "验证码") {
+			blocked = true
+		}
+	}
+	detail.Chapters = chapters
+	detail.ReadableContent = collected > 0
+	detail.FontEncoded = fontEncoded
+	detail.PartialContent = partial
+	detail.Blocked = blocked
+	if collected > 0 {
+		detail.Notes = append(detail.Notes, fmt.Sprintf("已采集 %d/%d 章正文。", collected, len(chapters)))
+	}
+	if collected < len(chapters) {
+		detail.Notes = append(detail.Notes, fmt.Sprintf("仍有 %d 章未采集到正文，已保留目录和状态。", len(chapters)-collected))
+	}
+	if fontEncoded {
+		detail.Notes = append(detail.Notes, "部分正文包含番茄网页字体编码；内容已采集，纯 TXT 可能显示为私有字符。")
+	}
+	if partial {
+		detail.Notes = append(detail.Notes, "部分章节只返回网页预览段落，不是完整正文；需要使用已登录且有权限的番茄会话或授权文本源获取全文。")
+	}
+	if blocked {
+		detail.Notes = append(detail.Notes, "官方 reader 需要浏览器安全校验，后端直连无法自动采集正文；请使用已登录且有权限的番茄会话或已授权文本导入。")
+	}
+	return detail
+}
+
+func fetchFanqieBookPageDetailFromOfficial(ctx context.Context, book fanqieBook) (fanqieBookDetail, error) {
+	book = normalizeFanqieActionBook(book)
+	bookID := fanqieBookID(book)
+	if bookID == "" {
+		return fanqieBookDetail{}, fmt.Errorf("缺少番茄作品 ID 或页面链接")
+	}
+	sourceURL := "https://fanqienovel.com/page/" + bookID
+	pageHTML, err := fetchURLText(ctx, sourceURL)
+	if err != nil {
+		return fanqieBookDetail{}, err
+	}
+	detail, err := parseFanqiePageHTML(pageHTML, sourceURL, book)
+	if err != nil {
+		return fanqieBookDetail{}, err
+	}
+	return detail, nil
+}
+
+func limitFanqieDetailChapters(detail fanqieBookDetail, limit int) fanqieBookDetail {
+	if limit <= 0 || len(detail.Chapters) <= limit {
+		return detail
+	}
+	chapters := make([]fanqieChapter, limit)
+	copy(chapters, detail.Chapters[:limit])
+	detail.Chapters = chapters
+	return detail
+}
+
+func fetchFanqieBookDetailFromOfficial(ctx context.Context, book fanqieBook) (fanqieBookDetail, error) {
+	detail, err := fetchFanqieBookPageDetailFromOfficial(ctx, book)
+	if err != nil {
+		return fanqieBookDetail{}, err
+	}
+	return populateFanqieChapterContents(ctx, detail, fetchURLText), nil
+}
+
+func fetchFanqieBookAnalysisDetailFromOfficial(ctx context.Context, book fanqieBook) (fanqieBookDetail, error) {
+	detail, err := fetchFanqieBookPageDetailFromOfficial(ctx, book)
+	if err != nil {
+		return fanqieBookDetail{}, err
+	}
+	detail = limitFanqieDetailChapters(detail, fanqieAnalysisChapterLimit)
+	detail.Notes = append(detail.Notes, "分析仅采集首页简介和前 10 章内容，下载仍按整本处理。")
+	return populateFanqieChapterContents(ctx, detail, fetchURLText), nil
+}
+
+func fallbackFanqieBookDetail(book fanqieBook, err error) fanqieBookDetail {
+	book = normalizeFanqieActionBook(book)
+	note := "官方页面暂时不可用，已基于当前榜单/搜索结果生成导入包。"
+	if err != nil {
+		note = note + " 原因：" + err.Error()
+	}
+	return fanqieBookDetail{
+		Book:            book,
+		Chapters:        []fanqieChapter{},
+		ReadableContent: false,
+		Source:          "fanqie-current-selection",
+		Notes:           []string{note},
+	}
+}
+
+func buildFanqieDownloadText(detail fanqieBookDetail) string {
+	var b strings.Builder
+	b.WriteString("【仅限个人备份 / 授权素材导入】\n")
+	b.WriteString("书名：" + titleOr(detail.Book.Title, "未命名作品") + "\n")
+	if detail.Book.Author != "" {
+		b.WriteString("作者：" + detail.Book.Author + "\n")
+	}
+	if detail.Book.Category != "" || detail.Book.Status != "" || detail.Book.WordCount != "" {
+		b.WriteString("信息：" + strings.Trim(strings.Join([]string{detail.Book.Category, detail.Book.Status, detail.Book.WordCount}, " / "), " /") + "\n")
+	}
+	if detail.Book.SourceURL != "" {
+		b.WriteString("来源：" + detail.Book.SourceURL + "\n")
+	}
+	if detail.Book.Description != "" {
+		b.WriteString("\n【首页简介】\n" + detail.Book.Description + "\n")
+	}
+	if len(detail.Chapters) > 0 {
+		b.WriteString("\n【章节目录 / 已采集正文】\n")
+	}
+	for _, chapter := range detail.Chapters {
+		b.WriteString(fmt.Sprintf("\n%s\n", titleOr(chapter.Title, fmt.Sprintf("第%d章", chapter.Index))))
+		if strings.TrimSpace(chapter.Content) != "" {
+			b.WriteString(strings.TrimSpace(chapter.Content) + "\n")
+		} else if chapter.DecodeStatus != "" {
+			b.WriteString("（" + chapter.DecodeStatus + "）\n")
+		}
+	}
+	return b.String()
+}
+
+func buildFanqieDownloadResult(detail fanqieBookDetail) fanqieDownloadResult {
+	chapters := make([]studioImportChapter, 0, len(detail.Chapters))
+	for _, chapter := range detail.Chapters {
+		chapters = append(chapters, studioImportChapter{
+			Title:     titleOr(chapter.Title, fmt.Sprintf("第%d章", chapter.Index)),
+			WordCount: countCJKWords(chapter.Content),
+			Source:    chapter.SourceURL,
+		})
+	}
+	notes := append([]string{
+		"仅限个人备份、本人作品或已授权素材导入，请遵守来源平台条款。",
+	}, detail.Notes...)
+	decodeStatus := "catalog_only"
+	if detail.ReadableContent {
+		decodeStatus = "readable"
+		if detail.PartialContent {
+			decodeStatus = "web_preview"
+		} else if detail.FontEncoded {
+			decodeStatus = "font_encoded"
+		}
+	} else if detail.Blocked {
+		decodeStatus = "browser_required"
+	}
+	title := titleOr(detail.Book.Title, "番茄作品")
+	return fanqieDownloadResult{
+		Title:        title,
+		FileName:     title + ".txt",
+		Status:       "completed",
+		ChapterCount: len(detail.Chapters),
+		Text:         buildFanqieDownloadText(detail),
+		Chapters:     chapters,
+		Notes:        notes,
+		Source:       detail.Source,
+		DecodeStatus: decodeStatus,
+	}
+}
+
+// DownloadFanqieBook 生成番茄作品个人备份/授权导入包，并写入「我的作品」归档。
+func (h *StudioHandler) DownloadFanqieBook(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	var req fanqieBookActionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if !req.Consent {
+		response.BadRequest(c, "请先确认该作品为本人作品、你有权备份或已获得授权，仅用于个人备份和学习分析")
+		return
+	}
+	req.Book = normalizeFanqieActionBook(req.Book)
+	if req.Book.Title == "" && req.Book.SourceURL == "" && req.Book.ID == "" {
+		response.BadRequest(c, "请选择要下载/导入的番茄作品")
+		return
+	}
+
+	detail, err := fetchFanqieBookDetail(c.Request.Context(), req.Book)
+	if err != nil {
+		detail = fallbackFanqieBookDetail(req.Book, err)
+	}
+	result := buildFanqieDownloadResult(detail)
+	h.recordCreation(c.Request.Context(), subject.UserID, "import", titleOr(result.Title+"导入", "番茄导入"), req, result, "fanqie-importer")
+	response.Success(c, result)
+}
+
+func buildFanqieAnalysisPrompt(detail fanqieBookDetail) (string, string) {
+	system := "你是「烂番茄」网文开篇分析师。根据作品首页简介、元数据和前 10 章信息判断卖点与开篇问题。只输出一个 JSON 对象，不要解释，不要 markdown 代码块。"
+	var b strings.Builder
+	b.WriteString("请分析这本番茄小说的首页介绍和前 10 章。\n")
+	b.WriteString("书名：" + titleOr(detail.Book.Title, "未知") + "\n")
+	if detail.Book.Author != "" {
+		b.WriteString("作者：" + detail.Book.Author + "\n")
+	}
+	if detail.Book.Category != "" || detail.Book.Status != "" || detail.Book.WordCount != "" {
+		b.WriteString("元数据：" + strings.Trim(strings.Join([]string{detail.Book.Category, detail.Book.Status, detail.Book.WordCount}, " / "), " /") + "\n")
+	}
+	if detail.Book.Description != "" {
+		b.WriteString("首页简介：" + detail.Book.Description + "\n")
+	}
+	b.WriteString("\n前 10 章：\n")
+	limit := len(detail.Chapters)
+	if limit > 10 {
+		limit = 10
+	}
+	for i := 0; i < limit; i++ {
+		ch := detail.Chapters[i]
+		b.WriteString(fmt.Sprintf("%02d. %s", i+1, titleOr(ch.Title, fmt.Sprintf("第%d章", ch.Index))))
+		if strings.TrimSpace(ch.Content) != "" {
+			content := strings.TrimSpace(ch.Content)
+			runes := []rune(content)
+			if len(runes) > 900 {
+				content = string(runes[:900]) + "..."
+			}
+			b.WriteString("\n正文片段：" + content)
+		} else if ch.DecodeStatus != "" {
+			b.WriteString("\n正文状态：" + ch.DecodeStatus)
+		}
+		b.WriteString("\n")
+	}
+	if !detail.ReadableContent {
+		b.WriteString("\n注意：如果正文因字体混淆不可读，请主要依据首页简介、章节标题、题材和元数据分析，并在结论里说明置信度。\n")
+	}
+	b.WriteString("\n严格按以下 JSON 输出：")
+	b.WriteString(`{"title":"分析标题","summary":"综合判断","hooks":["开篇钩子"],"chapter_notes":[{"title":"章节名","note":"这一章的结构作用"}],"actions":["下一步建议"]}`)
+	return system, b.String()
+}
+
+// AnalyzeFanqieBook 用配置好的文案模型分析番茄作品首页简介和前 10 章。
+func (h *StudioHandler) AnalyzeFanqieBook(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	ak, model, ok := h.requireStudioTextModel(c, subject.UserID)
+	if !ok {
+		return
+	}
+	var req fanqieBookActionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	req.Book = normalizeFanqieActionBook(req.Book)
+	if req.Book.Title == "" && req.Book.SourceURL == "" && req.Book.ID == "" {
+		response.BadRequest(c, "请选择要分析的番茄作品")
+		return
+	}
+
+	detail, err := fetchFanqieBookAnalysisDetail(c.Request.Context(), req.Book)
+	if err != nil {
+		detail = fallbackFanqieBookDetail(req.Book, err)
+	}
+	system, user := buildFanqieAnalysisPrompt(detail)
+	body, status, err := postStudioChatCompletion(c.Request.Context(), ak, model, system, user)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if status != http.StatusOK {
+		c.Data(status, "application/json; charset=utf-8", body)
+		return
+	}
+	content, err := extractStudioChatContent(body)
+	if err != nil {
+		response.ErrorFrom(c, fmt.Errorf("番茄开篇分析失败：%w", err))
+		return
+	}
+	var report fanqieAnalysisReport
+	if err := json.Unmarshal([]byte(content), &report); err != nil {
+		response.ErrorFrom(c, fmt.Errorf("解析模型输出失败：%w", err))
+		return
+	}
+	if report.Hooks == nil {
+		report.Hooks = []string{}
+	}
+	if report.Actions == nil {
+		report.Actions = []string{}
+	}
+	report.Source = detail.Source
+	report.Notes = detail.Notes
+	h.recordCreation(c.Request.Context(), subject.UserID, "hotspot", titleOr(report.Title, detail.Book.Title+"开篇分析"), req, report, model)
+	response.Success(c, report)
 }
 
 type studioImportRequest struct {

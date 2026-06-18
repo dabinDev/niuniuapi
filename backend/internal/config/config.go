@@ -150,6 +150,9 @@ type GeminiTierQuotaConfig struct {
 }
 
 type UpdateConfig struct {
+	// Repository 指向当前项目维护的 GitHub Release 仓库，例如 "dabinDev/niuniuapi"。
+	// 版本更新检查会读取该仓库的 latest release，避免 fork 项目继续跟随上游更新渠道。
+	Repository string `mapstructure:"repository"`
 	// ProxyURL 用于访问 GitHub 的代理地址
 	// 支持 http/https/socks5/socks5h 协议
 	// 例如: "http://127.0.0.1:7890", "socks5://127.0.0.1:1080"
@@ -1808,6 +1811,10 @@ func setDefaults() {
 	viper.SetDefault("idempotency.max_stored_response_len", 64*1024)
 	viper.SetDefault("idempotency.cleanup_interval_seconds", 60)
 	viper.SetDefault("idempotency.cleanup_batch_size", 500)
+
+	// Update
+	viper.SetDefault("update.repository", "dabinDev/niuniuapi")
+	viper.SetDefault("update.proxy_url", "")
 
 	// Gateway
 	viper.SetDefault("gateway.response_header_timeout", 600) // 600秒(10分钟)等待上游响应头，LLM高负载时可能排队较久

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -133,6 +134,36 @@ func startStudioCoverGatewayRecorder(t *testing.T) *studioCoverGatewayRecorder {
 	return startStudioCoverGatewayRecorderWithRelease(t, nil)
 }
 
+func startStudioChatGatewayRecorder(t *testing.T, content string) *studioCoverGatewayRecorder {
+	t.Helper()
+	recorder := &studioCoverGatewayRecorder{}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	port := strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+	t.Setenv("SERVER_PORT", port)
+
+	payload, err := json.Marshal(gin.H{
+		"choices": []gin.H{{
+			"message": gin.H{"content": content},
+		}},
+	})
+	require.NoError(t, err)
+
+	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		recorder.add(studioCoverGatewayRequest{
+			Path:        r.URL.Path,
+			ContentType: r.Header.Get("Content-Type"),
+			Body:        body,
+		})
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(payload)
+	})}
+	go func() { _ = srv.Serve(listener) }()
+	t.Cleanup(func() { _ = srv.Shutdown(context.Background()) })
+	return recorder
+}
+
 func startStudioCoverGatewayRecorderWithRelease(t *testing.T, release <-chan struct{}) *studioCoverGatewayRecorder {
 	t.Helper()
 	recorder := &studioCoverGatewayRecorder{}
@@ -199,6 +230,42 @@ func newStudioCoverHandlerWithConfig(t *testing.T, name string, model string) (*
 	return &StudioHandler{client: client}, user.ID
 }
 
+func newStudioTextHandlerWithConfig(t *testing.T, name string, model string) (*StudioHandler, int64) {
+	t.Helper()
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, name)
+
+	user, err := client.User.Create().
+		SetEmail(name + "@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+	group, err := client.Group.Create().
+		SetName(name + "-openai").
+		SetPlatform(service.PlatformOpenAI).
+		Save(ctx)
+	require.NoError(t, err)
+	apiKey, err := client.APIKey.Create().
+		SetUserID(user.ID).
+		SetName(name + "-key").
+		SetKey("sk-" + name).
+		SetGroupID(group.ID).
+		Save(ctx)
+	require.NoError(t, err)
+
+	cfg, err := json.Marshal(studioModelConfigDTO{
+		Text: &studioModelSlot{APIKeyID: apiKey.ID, Model: model},
+	})
+	require.NoError(t, err)
+	_, err = client.StudioModelConfig.Create().
+		SetUserID(user.ID).
+		SetConfig(string(cfg)).
+		Save(ctx)
+	require.NoError(t, err)
+
+	return &StudioHandler{client: client}, user.ID
+}
+
 func performStudioCoverRequest(t *testing.T, h *StudioHandler, userID int64, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
@@ -244,6 +311,52 @@ func performStudioImportRequest(t *testing.T, h *StudioHandler, userID int64, bo
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: userID})
 
 	h.ImportStudioContent(c)
+	return rec
+}
+
+func performStudioFanqieRankRequest(t *testing.T, h *StudioHandler, userID int64, channel string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/studio/fanqie/rank?channel="+channel, nil)
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: userID})
+
+	h.GetFanqieRank(c)
+	return rec
+}
+
+func performStudioFanqieSearchRequest(t *testing.T, h *StudioHandler, userID int64, query string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/studio/fanqie/search?q="+query, nil)
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: userID})
+
+	h.SearchFanqieBooks(c)
+	return rec
+}
+
+func performStudioFanqieDownloadRequest(t *testing.T, h *StudioHandler, userID int64, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/studio/fanqie/download", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: userID})
+
+	h.DownloadFanqieBook(c)
+	return rec
+}
+
+func performStudioFanqieAnalyzeRequest(t *testing.T, h *StudioHandler, userID int64, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/studio/fanqie/analyze", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: userID})
+
+	h.AnalyzeFanqieBook(c)
 	return rec
 }
 
@@ -650,6 +763,459 @@ func TestImportStudioContentRecordsManualChapters(t *testing.T) {
 	require.Len(t, tasks, 1)
 	require.Equal(t, "北境书塔导入", tasks[0].Title)
 	require.Equal(t, "local-importer", tasks[0].Model)
+}
+
+func TestStudioFanqieRankReturnsThirtyBooks(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_fanqie_rank")
+	user, err := client.User.Create().
+		SetEmail("studio-fanqie-rank@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+	h := &StudioHandler{client: client}
+
+	rec := performStudioFanqieRankRequest(t, h, user.ID, "male")
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			Channel string `json:"channel"`
+			Books   []struct {
+				Rank  int    `json:"rank"`
+				Title string `json:"title"`
+			} `json:"books"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.Equal(t, "male", resp.Data.Channel)
+	require.Len(t, resp.Data.Books, 30)
+	require.Equal(t, 1, resp.Data.Books[0].Rank)
+	require.NotEmpty(t, resp.Data.Books[0].Title)
+}
+
+func TestParseFanqieRankHTMLReturnsOfficialBooks(t *testing.T) {
+	html := `<script>window.__INITIAL_STATE__={"rank":{"book_list":[{"bookId":"1001","bookName":"新鲜热榜书","author":"作者A","abstract":"开篇强钩子","categoryV2":"都市脑洞","creationStatus":"1","wordNumber":"880000","thumbUri":"https:\/\/img.example.com\/cover.jpg","currentPos":1,"read_count":"12345"},{"bookId":"1002","bookName":"第二本","author":"作者B","abstract":"反转密集","categoryV2":"悬疑脑洞","creationStatus":"0","wordNumber":"1200000","currentPos":2,"read_count":"999"}]}};</script>`
+
+	books, err := parseFanqieRankHTML(fanqieRankHot, html)
+
+	require.NoError(t, err)
+	require.Len(t, books, 2)
+	require.Equal(t, "1001", books[0].ID)
+	require.Equal(t, "新鲜热榜书", books[0].Title)
+	require.Equal(t, "作者A", books[0].Author)
+	require.Equal(t, "连载中", books[0].Status)
+	require.Equal(t, "https://fanqienovel.com/page/1001", books[0].SourceURL)
+	require.Equal(t, "阅读 12345", books[0].Score)
+}
+
+func TestParseFanqieRankAPIResponseReturnsLiveBooks(t *testing.T) {
+	body := []byte(`{"code":0,"data":{"book_list":[{"bookId":"1001","bookName":"Live Book","author":"Author A","abstract":"Live intro","categoryV2":"Urban","creationStatus":"1","wordNumber":"880000","thumbUri":"https://img.example.com/cover.jpg","currentPos":1,"read_count":"12345"},{"bookId":"1002","bookName":"Second Book","author":"Author B","abstract":"Second intro","category":"","creationStatus":"0","wordNumber":"1200000","currentPos":2,"read_count":"999"}]}}`)
+
+	books, err := parseFanqieRankAPIResponse(fanqieRankHot, "Urban", body)
+
+	require.NoError(t, err)
+	require.Len(t, books, 2)
+	require.Equal(t, "1001", books[0].ID)
+	require.Equal(t, "Live Book", books[0].Title)
+	require.Equal(t, "Urban", books[0].Category)
+	require.Equal(t, "连载中", books[0].Status)
+	require.Equal(t, "88万字", books[0].WordCount)
+	require.Equal(t, "在读 12345", books[0].Score)
+	require.Equal(t, "https://fanqienovel.com/page/1001", books[0].SourceURL)
+	require.Equal(t, "Urban", books[1].Category)
+}
+
+func TestParseFanqieBookInfoAPIResponseParsesStringifiedCategoryList(t *testing.T) {
+	body := []byte(`{"code":0,"data":{"bookId":"7143038691944959011","bookName":"十日终焉","author":"杀虫队队员","abstract":"死亡游戏与规则怪谈。","categoryV2":"[{\"Name\":\"悬疑脑洞\",\"MainCategory\":true},{\"Name\":\"推理\"}]","creationStatus":"0","wordNumber":"3201288","thumbUrl":"https://example.com/cover.jpg","readCount":"2175190"}}`)
+
+	book, err := parseFanqieBookInfoAPIResponse(body, fanqieBook{})
+
+	require.NoError(t, err)
+	require.Equal(t, "十日终焉", book.Title)
+	require.Equal(t, "悬疑脑洞 / 推理", book.Category)
+	require.Equal(t, "320万字", book.WordCount)
+	require.Equal(t, "https://example.com/cover.jpg", book.CoverURL)
+}
+
+func TestParseFanqieBookInfoAPIResponseDoesNotTruncateSignedCoverURL(t *testing.T) {
+	cover := "https://p9-novel-sign.byteimg.com/novel-pic/4900f950c7af7f82fdc14cf528e0e288~tplv-resize:225:300.image?lk3s=191c1ecc&x-expires=1781773667&x-signature=q1WdTShPZ29y5QFD0NLiqf3JPDQ%3D"
+	body := []byte(`{"code":0,"data":{"bookId":"7143038691944959011","bookName":"Live Book","thumbUrl":"` + cover + `"}}`)
+
+	book, err := parseFanqieBookInfoAPIResponse(body, fanqieBook{})
+
+	require.NoError(t, err)
+	require.Equal(t, cover, book.CoverURL)
+}
+
+func TestFilterFanqieBooksKeepsOfficialSearchResultsDownloadable(t *testing.T) {
+	books := []fanqieBook{
+		{ID: "1001", Rank: 1, Title: "Live Book", Author: "Author A", Category: "Urban", SourceURL: "https://fanqienovel.com/page/1001"},
+		{ID: "1002", Rank: 2, Title: "Second Book", Author: "Author B", Category: "Mystery", SourceURL: "https://fanqienovel.com/page/1002"},
+	}
+
+	results := filterFanqieBooks("author a", books, 20)
+
+	require.Len(t, results, 1)
+	require.Equal(t, 1, results[0].Rank)
+	require.Equal(t, "Live Book", results[0].Title)
+	require.Equal(t, "搜索命中", results[0].Score)
+	require.Equal(t, "https://fanqienovel.com/page/1001", results[0].SourceURL)
+}
+
+func TestParseFanqieReaderHTMLExtractsChapterContent(t *testing.T) {
+	html := `<script>window.__INITIAL_STATE__={"reader":{"chapterData":{"itemId":"c1","title":"Chapter 1","content":"<p>First paragraph</p><p>Second&nbsp;paragraph</p>"}}};</script>`
+
+	chapter, err := parseFanqieReaderHTML(html, "https://fanqienovel.com/reader/c1")
+
+	require.NoError(t, err)
+	require.Equal(t, "c1", chapter.ItemID)
+	require.Equal(t, "Chapter 1", chapter.Title)
+	require.Equal(t, "First paragraph\nSecond paragraph", chapter.Content)
+	require.True(t, chapter.Readable)
+	require.Equal(t, "readable", chapter.DecodeStatus)
+}
+
+func TestParseFanqieReaderHTMLDetectsCaptchaPage(t *testing.T) {
+	html := `<html><head><title>验证码中间页</title><script src="https://example.com/captcha/index.js"></script></head></html>`
+
+	_, err := parseFanqieReaderHTML(html, "https://fanqienovel.com/reader/c1")
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "验证码")
+}
+
+func TestParseFanqieReaderHTMLParsesNormalReaderPageWithCaptchaBootstrap(t *testing.T) {
+	html := `<html><head><script src="https://example.com/captcha/index.js"></script></head><body><script>window.__INITIAL_STATE__={"reader":{"chapterData":{"itemId":"c1","title":"Chapter 1","content":"<p>Visible body</p>"}}};</script></body></html>`
+
+	chapter, err := parseFanqieReaderHTML(html, "https://fanqienovel.com/reader/c1")
+
+	require.NoError(t, err)
+	require.Equal(t, "Visible body", chapter.Content)
+	require.Equal(t, "readable", chapter.DecodeStatus)
+}
+
+func TestParseFanqiePageHTMLSkipsLockedChapters(t *testing.T) {
+	html := `<script>window.__INITIAL_STATE__={"page":{"bookId":"1001","bookName":"Live Book","chapterListWithVolume":[[{"itemId":"c1","title":"Locked Chapter","realChapterOrder":"1","isChapterLock":true}]]}};</script>`
+
+	detail, err := parseFanqiePageHTML(html, "https://fanqienovel.com/page/1001", fanqieBook{})
+
+	require.NoError(t, err)
+	require.Len(t, detail.Chapters, 1)
+	require.Equal(t, "https://fanqienovel.com/reader/c1", detail.Chapters[0].SourceURL)
+	require.NotEmpty(t, detail.Chapters[0].DecodeStatus)
+}
+
+func TestPopulateFanqieChapterContentsReportsCaptchaBlocked(t *testing.T) {
+	detail := fanqieBookDetail{
+		Book: fanqieBook{ID: "1001", Title: "Live Book", SourceURL: "https://fanqienovel.com/page/1001"},
+		Chapters: []fanqieChapter{
+			{Index: 1, ItemID: "c1", Title: "Chapter 1", SourceURL: "https://fanqienovel.com/reader/c1"},
+		},
+		Source: "fixture",
+	}
+	fetcher := func(_ context.Context, _ string) (string, error) {
+		return `<html><head><title>验证码中间页</title><script src="https://example.com/captcha/index.js"></script></head></html>`, nil
+	}
+
+	result := populateFanqieChapterContents(context.Background(), detail, fetcher)
+	download := buildFanqieDownloadResult(result)
+
+	require.False(t, result.ReadableContent)
+	require.Equal(t, "browser_required", download.DecodeStatus)
+	require.Contains(t, strings.Join(download.Notes, "\n"), "验证码")
+}
+
+func TestPopulateFanqieChapterContentsStopsWhenReaderRequiresBrowserVerification(t *testing.T) {
+	detail := fanqieBookDetail{
+		Book: fanqieBook{ID: "1001", Title: "Live Book", SourceURL: "https://fanqienovel.com/page/1001"},
+		Chapters: []fanqieChapter{
+			{Index: 1, ItemID: "c1", Title: "Chapter 1", SourceURL: "https://fanqienovel.com/reader/c1"},
+			{Index: 2, ItemID: "c2", Title: "Chapter 2", SourceURL: "https://fanqienovel.com/reader/c2"},
+			{Index: 3, ItemID: "c3", Title: "Chapter 3", SourceURL: "https://fanqienovel.com/reader/c3"},
+		},
+		Source: "fixture",
+	}
+	fetches := 0
+	fetcher := func(_ context.Context, _ string) (string, error) {
+		fetches++
+		return `<html><head><title>验证码中间页</title><script src="https://example.com/captcha/index.js"></script></head></html>`, nil
+	}
+
+	result := populateFanqieChapterContents(context.Background(), detail, fetcher)
+	download := buildFanqieDownloadResult(result)
+
+	require.Equal(t, 1, fetches)
+	require.False(t, result.ReadableContent)
+	require.True(t, result.Blocked)
+	require.Equal(t, "browser_required", download.DecodeStatus)
+	require.Contains(t, strings.Join(download.Notes, "\n"), "浏览器安全校验")
+	for _, chapter := range result.Chapters {
+		require.Contains(t, chapter.DecodeStatus, "浏览器安全校验")
+	}
+}
+
+func TestPopulateFanqieChapterContentsFetchesReaderPages(t *testing.T) {
+	detail := fanqieBookDetail{
+		Book: fanqieBook{ID: "1001", Title: "Live Book", SourceURL: "https://fanqienovel.com/page/1001"},
+		Chapters: []fanqieChapter{
+			{Index: 1, ItemID: "c1", Title: "Chapter 1", SourceURL: "https://fanqienovel.com/reader/c1"},
+			{Index: 2, ItemID: "c2", Title: "Chapter 2", SourceURL: "https://fanqienovel.com/reader/c2"},
+		},
+		Source: "fixture",
+	}
+	fetcher := func(_ context.Context, rawURL string) (string, error) {
+		switch rawURL {
+		case "https://fanqienovel.com/reader/c1":
+			return `<script>window.__INITIAL_STATE__={"reader":{"chapterData":{"itemId":"c1","title":"Chapter 1","content":"<p>First body</p>"}}};</script>`, nil
+		case "https://fanqienovel.com/reader/c2":
+			return `<script>window.__INITIAL_STATE__={"reader":{"chapterData":{"itemId":"c2","title":"Chapter 2","content":"<p>Second body</p>"}}};</script>`, nil
+		default:
+			return "", fmt.Errorf("unexpected url %s", rawURL)
+		}
+	}
+
+	result := populateFanqieChapterContents(context.Background(), detail, fetcher)
+	download := buildFanqieDownloadResult(result)
+
+	require.True(t, result.ReadableContent)
+	require.Equal(t, "readable", download.DecodeStatus)
+	require.Contains(t, download.Text, "First body")
+	require.Contains(t, download.Text, "Second body")
+	require.Equal(t, 10, download.Chapters[0].WordCount)
+}
+
+func TestPopulateFanqieChapterContentsMarksLockedPreviewContent(t *testing.T) {
+	detail := fanqieBookDetail{
+		Book: fanqieBook{ID: "1001", Title: "Live Book", SourceURL: "https://fanqienovel.com/page/1001"},
+		Chapters: []fanqieChapter{
+			{Index: 1, ItemID: "c1", Title: "Chapter 1", SourceURL: "https://fanqienovel.com/reader/c1"},
+		},
+		Source: "fixture",
+	}
+	fetcher := func(_ context.Context, _ string) (string, error) {
+		return `<script>window.__INITIAL_STATE__={"reader":{"chapterData":{"itemId":"c1","title":"Chapter 1","chapterWordNumber":"2000","isChapterLock":true,"content":"<p>Short preview</p><p"}}};</script>`, nil
+	}
+
+	result := populateFanqieChapterContents(context.Background(), detail, fetcher)
+	download := buildFanqieDownloadResult(result)
+
+	require.True(t, result.PartialContent)
+	require.Equal(t, "web_preview", download.DecodeStatus)
+	require.Contains(t, strings.Join(download.Notes, "\n"), "网页预览")
+}
+
+func TestStudioFanqieSearchFindsNamedNovel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_fanqie_search")
+	user, err := client.User.Create().
+		SetEmail("studio-fanqie-search@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+	h := &StudioHandler{client: client}
+
+	oldSearch := fetchFanqieSearchBooks
+	fetchFanqieSearchBooks = func(_ context.Context, query string) ([]fanqieBook, error) {
+		require.Equal(t, "十日终焉", query)
+		return []fanqieBook{{
+			ID:          "7143038691944959011",
+			Rank:        1,
+			Title:       "十日终焉",
+			Author:      "杀虫队队员",
+			Category:    "悬疑脑洞",
+			Status:      "已完结",
+			WordCount:   "320万字",
+			Score:       "官方搜索",
+			Description: "死亡游戏与规则怪谈。",
+			CoverURL:    "https://example.com/cover.jpg",
+			SourceURL:   "https://fanqienovel.com/page/7143038691944959011",
+			Tags:        []string{"官方搜索"},
+		}}, nil
+	}
+	t.Cleanup(func() { fetchFanqieSearchBooks = oldSearch })
+
+	rec := performStudioFanqieSearchRequest(t, h, user.ID, "十日终焉")
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "十日终焉")
+	var resp struct {
+		Data struct {
+			Books []struct {
+				Title string `json:"title"`
+			} `json:"books"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.NotEmpty(t, resp.Data.Books)
+}
+
+func TestSearchLiveFanqieBooksEnrichesDirectPageQuery(t *testing.T) {
+	oldSearch := fetchFanqieSearchBooks
+	oldSummary := fetchFanqieBookSummary
+	fetchFanqieSearchBooks = func(context.Context, string) ([]fanqieBook, error) {
+		t.Fatal("direct page query should not call the official search endpoint")
+		return nil, nil
+	}
+	fetchFanqieBookSummary = func(_ context.Context, book fanqieBook) (fanqieBook, error) {
+		require.Equal(t, "7143038691944959011", book.ID)
+		return fanqieBook{
+			ID:          "7143038691944959011",
+			Rank:        1,
+			Title:       "十日终焉",
+			Author:      "杀虫队队员",
+			Category:    "悬疑脑洞",
+			Status:      "已完结",
+			WordCount:   "320万字",
+			Score:       "官方详情",
+			Description: "死亡游戏与规则怪谈。",
+			CoverURL:    "https://example.com/cover.jpg",
+			SourceURL:   "https://fanqienovel.com/page/7143038691944959011",
+			Tags:        []string{"官方详情"},
+		}, nil
+	}
+	t.Cleanup(func() {
+		fetchFanqieSearchBooks = oldSearch
+		fetchFanqieBookSummary = oldSummary
+	})
+
+	books, err := searchLiveFanqieBooks(context.Background(), "https://fanqienovel.com/page/7143038691944959011")
+
+	require.NoError(t, err)
+	require.Len(t, books, 1)
+	require.Equal(t, "十日终焉", books[0].Title)
+	require.Equal(t, "https://example.com/cover.jpg", books[0].CoverURL)
+	require.Equal(t, "死亡游戏与规则怪谈。", books[0].Description)
+}
+
+func TestStudioFanqieDownloadRequiresConsent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_fanqie_download_consent")
+	user, err := client.User.Create().
+		SetEmail("studio-fanqie-download-consent@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+	h := &StudioHandler{client: client}
+
+	rec := performStudioFanqieDownloadRequest(t, h, user.ID, `{
+		"book":{"id":"7143038691944959011","title":"十日终焉","source_url":"https://fanqienovel.com/page/7143038691944959011"},
+		"consent":false
+	}`)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), "有权")
+}
+
+func TestStudioFanqieDownloadBuildsAuthorizedImportPackage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_fanqie_download_package")
+	user, err := client.User.Create().
+		SetEmail("studio-fanqie-download@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+	h := &StudioHandler{client: client}
+
+	oldFetch := fetchFanqieBookDetail
+	fetchFanqieBookDetail = func(context.Context, fanqieBook) (fanqieBookDetail, error) {
+		return fanqieBookDetail{
+			Book: fanqieBook{
+				ID:          "7143038691944959011",
+				Title:       "十日终焉",
+				Author:      "杀虫队队员",
+				Category:    "悬疑脑洞",
+				Status:      "已完结",
+				WordCount:   "320万字",
+				Description: "规则怪谈与群像博弈。",
+				SourceURL:   "https://fanqienovel.com/page/7143038691944959011",
+				Tags:        []string{"规则怪谈"},
+			},
+			Chapters: []fanqieChapter{
+				{Index: 1, ItemID: "c1", Title: "第1章 空屋", Content: "封闭房间里醒来。", Readable: true},
+				{Index: 2, ItemID: "c2", Title: "第2章 说谎", Content: "游戏规则开始出现。", Readable: true},
+			},
+			ReadableContent: true,
+			Source:          "fixture",
+		}, nil
+	}
+	t.Cleanup(func() { fetchFanqieBookDetail = oldFetch })
+
+	rec := performStudioFanqieDownloadRequest(t, h, user.ID, `{
+		"book":{"id":"7143038691944959011","title":"十日终焉","source_url":"https://fanqienovel.com/page/7143038691944959011"},
+		"consent":true
+	}`)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "十日终焉.txt")
+	require.Contains(t, rec.Body.String(), "第1章 空屋")
+	require.Contains(t, rec.Body.String(), "仅限个人备份")
+	tasks, err := client.CreationTask.Query().Where(creationtask.UserIDEQ(user.ID), creationtask.TypeEQ("import")).All(ctx)
+	require.NoError(t, err)
+	require.Len(t, tasks, 1)
+	require.Equal(t, "十日终焉导入", tasks[0].Title)
+}
+
+func TestStudioFanqieAnalyzeUsesIntroAndFirstTenChapters(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := startStudioChatGatewayRecorder(t, `{"title":"十日终焉开篇分析","summary":"封闭空间开局建立规则压力","hooks":["空屋醒来"],"chapter_notes":[{"title":"第1章 空屋","note":"快速建立异常场景"}],"actions":["强化规则代价"]}`)
+	h, userID := newStudioTextHandlerWithConfig(t, "studio_fanqie_analyze", "gpt-5.5")
+
+	oldDownloadFetch := fetchFanqieBookDetail
+	oldAnalysisFetch := fetchFanqieBookAnalysisDetail
+	fetchFanqieBookDetail = func(context.Context, fanqieBook) (fanqieBookDetail, error) {
+		t.Fatal("analysis should use the first-ten-chapter fetcher, not the full download fetcher")
+		return fanqieBookDetail{}, nil
+	}
+	fetchFanqieBookAnalysisDetail = func(context.Context, fanqieBook) (fanqieBookDetail, error) {
+		chapters := make([]fanqieChapter, 0, 10)
+		for i := 1; i <= 10; i++ {
+			chapters = append(chapters, fanqieChapter{
+				Index:    i,
+				ItemID:   fmt.Sprintf("c%d", i),
+				Title:    fmt.Sprintf("第%d章 样章", i),
+				Content:  fmt.Sprintf("第%d章可读正文片段", i),
+				Readable: true,
+			})
+		}
+		return fanqieBookDetail{
+			Book: fanqieBook{
+				ID:          "7143038691944959011",
+				Title:       "十日终焉",
+				Author:      "杀虫队队员",
+				Category:    "悬疑脑洞",
+				Status:      "已完结",
+				WordCount:   "320万字",
+				Description: "首页简介：死亡游戏与规则怪谈。",
+				SourceURL:   "https://fanqienovel.com/page/7143038691944959011",
+			},
+			Chapters:        chapters,
+			ReadableContent: true,
+			Source:          "fixture",
+		}, nil
+	}
+	t.Cleanup(func() {
+		fetchFanqieBookDetail = oldDownloadFetch
+		fetchFanqieBookAnalysisDetail = oldAnalysisFetch
+	})
+
+	rec := performStudioFanqieAnalyzeRequest(t, h, userID, `{
+		"book":{"id":"7143038691944959011","title":"十日终焉","source_url":"https://fanqienovel.com/page/7143038691944959011"}
+	}`)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "十日终焉开篇分析")
+	requests := recorder.snapshot()
+	require.Len(t, requests, 1)
+	require.Contains(t, string(requests[0].Body), "首页简介")
+	require.Contains(t, string(requests[0].Body), "第10章 样章")
+	require.NotContains(t, string(requests[0].Body), "第11章 样章")
 }
 
 func TestExtractJSONObject(t *testing.T) {
