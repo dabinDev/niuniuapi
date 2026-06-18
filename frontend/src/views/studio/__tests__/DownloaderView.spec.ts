@@ -157,6 +157,43 @@ describe('DownloaderView as FanqieHotlist', () => {
     expect(wrapper.text()).toContain('榜单小说 1.txt')
   })
 
+  it('keeps analysis scoped to first ten chapters while download imports the complete novel txt', async () => {
+    downloadFanqieBook.mockResolvedValue({
+      title: '榜单小说 1',
+      file_name: '榜单小说 1.txt',
+      chapter_count: 328,
+      text: 'Book 1\n\nChapter 1\n...\nChapter 328',
+      status: 'completed',
+      source: 'fanqie',
+      decode_status: 'readable',
+      notes: ['完整 TXT 已生成，仅限个人备份'],
+    })
+    analyzeFanqieBook.mockResolvedValue({
+      title: '榜单小说 1 开篇分析',
+      summary: '只分析简介和前十章，避免为了分析下载整本。',
+      hooks: ['开局压迫'],
+      actions: ['强化第 10 章后的追读钩子'],
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('分析前10章')
+    expect(wrapper.text()).toContain('下载/导入完整小说 TXT')
+
+    await wrapper.find('[data-test="fanqie-analyze"]').trigger('click')
+    await flushPromises()
+    expect(analyzeFanqieBook).toHaveBeenCalledWith(rankBooks[0])
+    expect(downloadFanqieBook).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('只分析简介和前十章')
+
+    await wrapper.find('[data-test="fanqie-consent"]').setValue(true)
+    await wrapper.find('[data-test="fanqie-download"]').trigger('click')
+    await flushPromises()
+    expect(downloadFanqieBook).toHaveBeenCalledWith(rankBooks[0], true)
+    expect(wrapper.text()).toContain('328 章')
+    expect(wrapper.text()).toContain('完整 TXT 已生成')
+  })
+
   it('saves the generated fanqie import package as a txt file', async () => {
     const createObjectURL = vi.fn(() => 'blob:fanqie-txt')
     const revokeObjectURL = vi.fn()
