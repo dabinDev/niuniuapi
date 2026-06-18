@@ -191,7 +191,7 @@
                 :disabled="downloadLoading || !consent"
                 @click="downloadSelectedBook"
               >
-                {{ downloadLoading ? '导入中...' : '下载完整小说 / 导入 TXT' }}
+                {{ downloadLoading ? '导入中...' : '下载/导入完整小说 TXT' }}
               </button>
             </div>
             <p v-if="copyMsg" class="copy-msg">{{ copyMsg }}</p>
@@ -436,17 +436,10 @@ onMounted(loadRank)
 </script>
 
 <style scoped>
-@font-face {
-  font-family: "FanqieRankOfficial";
-  src:
-    url("https://lf6-awef.bytetos.com/obj/awesome-font/c/dc027189e0ba4cd.woff2") format("woff2"),
-    url("https://lf3-awef.bytetos.com/obj/awesome-font/c/dc027189e0ba4cd.woff2") format("woff2");
-  font-display: swap;
-}
-
 .fanqie-page {
   padding: 0.5rem 0 2.5rem;
   color: #221a18;
+  font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
 }
 
 .page-head {
@@ -669,7 +662,7 @@ onMounted(loadRank)
   max-height: 44rem;
   overflow: auto;
   padding-right: 0.25rem;
-  font-family: "FanqieRankOfficial", "Microsoft YaHei", sans-serif;
+  font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
 }
 
 .rank-row {
@@ -763,31 +756,61 @@ onMounted(loadRank)
 
 .sample-card {
   border-radius: 8px;
-  padding: 1rem;
-  background: #241a16;
+  padding: 0.9rem;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(232, 65, 46, 0.28), transparent 13rem),
+    linear-gradient(145deg, #241a16, #382018);
   color: #fff;
-  font-family: "FanqieRankOfficial", "Microsoft YaHei", sans-serif;
+  font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
 }
 
 .sample-card.has-cover {
   display: grid;
-  grid-template-columns: 5rem minmax(0, 1fr);
-  gap: 0.85rem;
+  grid-template-columns: minmax(6.8rem, 0.36fr) minmax(0, 1fr);
+  gap: 1rem;
   align-items: start;
 }
 
-.sample-cover {
+.sample-cover-frame {
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
   aspect-ratio: 3 / 4;
   border-radius: 7px;
   background: #3b2923;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
 }
 
+.sample-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sample-cover-empty {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: #ffc8a5;
+  font-size: 3rem;
+  font-weight: 950;
+}
+
 .sample-copy {
   min-width: 0;
 }
 
-.sample-card span {
+.sample-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.sample-meta-line span {
+  border: 1px solid rgba(255, 200, 165, 0.24);
+  border-radius: 999px;
+  padding: 0.16rem 0.48rem;
+  background: rgba(255, 255, 255, 0.08);
   color: #f0c7bd;
   font-size: 0.78rem;
   font-weight: 900;
@@ -801,7 +824,11 @@ onMounted(loadRank)
 }
 
 .sample-card p {
-  margin-top: 0.55rem;
+  margin-top: 0.8rem;
+  max-height: 7.2rem;
+  overflow: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 0.7rem;
   color: #f7ede4;
   line-height: 1.75;
 }
@@ -843,7 +870,7 @@ onMounted(loadRank)
   min-height: 11rem;
   resize: vertical;
   line-height: 1.7;
-  font-family: "FanqieRankOfficial", "Microsoft YaHei", sans-serif;
+  font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
 }
 
 .sample-actions {
@@ -897,7 +924,7 @@ onMounted(loadRank)
   border-radius: 8px;
   padding: 0.8rem;
   background: #fffdfb;
-  font-family: "FanqieRankOfficial", "Microsoft YaHei", sans-serif;
+  font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
 }
 
 .action-result span,
@@ -1019,7 +1046,8 @@ onMounted(loadRank)
 @media (max-width: 760px) {
   .channel-tabs,
   .sample-card dl,
-  .rank-row {
+  .rank-row,
+  .sample-card.has-cover {
     grid-template-columns: 1fr;
   }
 

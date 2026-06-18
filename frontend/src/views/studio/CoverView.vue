@@ -1,14 +1,16 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-6xl">
-      <header class="mb-5">
-        <span class="inline-block rounded-full bg-primary-50 px-3 py-1 text-xs font-bold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-          P0 · 创作台
-        </span>
-        <h1 class="mt-2 text-2xl font-black text-gray-900 dark:text-white sm:text-3xl">小说封面生成</h1>
-        <p class="mt-1 text-sm leading-7 text-gray-500 dark:text-gray-400">
-          自定义提示词，或用小说简介 + 主角信息，一键生成多版封面。
-        </p>
+    <div class="cover-lab mx-auto max-w-7xl">
+      <header class="cover-hero">
+        <div>
+          <span class="cover-kicker">Cover Foundry</span>
+          <h1>封面生成</h1>
+          <p>把书名、人物、题材和关键意象整理成可执行的封面 brief，直接生成竖版网文封面候选。</p>
+        </div>
+        <div class="cover-hero-card">
+          <strong>{{ configured ? imageModel : '等待配置生图模型' }}</strong>
+          <span>{{ configured ? '模型已就绪，可开始出图' : '去 API 密钥页创建密钥后会自动预设模型' }}</span>
+        </div>
       </header>
 
       <!-- 生图模型状态：在「API 密钥」页配置 -->
@@ -45,9 +47,9 @@
         </button>
       </div>
 
-      <div class="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <div class="cover-workbench">
         <!-- 表单 -->
-        <section class="rounded-xl border border-gray-200 bg-white p-5 dark:border-dark-800 dark:bg-dark-900">
+        <section class="cover-form-card">
           <template v-if="mode === 'custom'">
             <label class="form-label" for="cv-prompt">提示词</label>
             <textarea id="cv-prompt" v-model="prompt" class="form-input" rows="6" placeholder="描述你想要的画面……"></textarea>
@@ -116,7 +118,7 @@
         </section>
 
         <!-- 结果 -->
-        <section class="rounded-xl border border-gray-200 bg-white p-5 dark:border-dark-800 dark:bg-dark-900">
+        <section class="cover-preview-card">
           <div v-if="loading" class="flex min-h-[280px] flex-col items-center justify-center gap-3 text-gray-400">
             <div class="spinner"></div>
             <p>{{ loadingText }}</p>
@@ -680,6 +682,97 @@ async function submit() {
 </script>
 
 <style scoped>
+.cover-lab {
+  padding-bottom: 2.5rem;
+  color: #201714;
+  font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+.cover-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.36fr);
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1.2rem;
+  border: 1px solid rgba(232, 65, 46, 0.18);
+  border-radius: 22px;
+  padding: 1.35rem;
+  background:
+    radial-gradient(circle at 88% 20%, rgba(232, 65, 46, 0.18), transparent 17rem),
+    linear-gradient(135deg, #fffaf3, #fff);
+  box-shadow: 0 22px 70px rgba(74, 35, 22, 0.1);
+}
+
+.cover-kicker {
+  display: inline-flex;
+  border: 1px solid rgba(232, 65, 46, 0.24);
+  border-radius: 999px;
+  padding: 0.22rem 0.62rem;
+  color: #c8351f;
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+}
+
+.cover-hero h1 {
+  margin-top: 0.55rem;
+  color: #201714;
+  font-size: clamp(2rem, 5vw, 4.2rem);
+  font-weight: 950;
+  letter-spacing: -0.06em;
+  line-height: 0.95;
+}
+
+.cover-hero p {
+  margin-top: 0.75rem;
+  max-width: 44rem;
+  color: #6c5a52;
+  line-height: 1.85;
+}
+
+.cover-hero-card {
+  border: 1px solid rgba(32, 23, 20, 0.1);
+  border-radius: 18px;
+  padding: 1rem;
+  background: #201714;
+  color: #fff7ed;
+}
+
+.cover-hero-card strong,
+.cover-hero-card span {
+  display: block;
+}
+
+.cover-hero-card strong {
+  font-weight: 950;
+}
+
+.cover-hero-card span {
+  margin-top: 0.25rem;
+  color: #f0c7bd;
+  font-size: 0.82rem;
+}
+
+.cover-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.cover-form-card,
+.cover-preview-card {
+  border: 1px solid rgb(234 222 216);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 1.25rem;
+  box-shadow: 0 18px 50px rgba(54, 32, 24, 0.08);
+}
+
+.cover-preview-card {
+  min-height: 31rem;
+}
+
 .form-label {
   display: block;
   margin: 0.75rem 0 0.35rem;
@@ -937,6 +1030,35 @@ async function submit() {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+.dark .cover-lab,
+.dark .cover-hero h1 {
+  color: #f7ede4;
+}
+
+.dark .cover-hero {
+  border-color: #312720;
+  background:
+    radial-gradient(circle at 88% 20%, rgba(232, 65, 46, 0.16), transparent 17rem),
+    linear-gradient(135deg, #171311, #0f0c0b);
+}
+
+.dark .cover-hero p {
+  color: #cdbdb5;
+}
+
+.dark .cover-form-card,
+.dark .cover-preview-card {
+  border-color: #312720;
+  background: #171311;
+}
+
+@media (max-width: 1040px) {
+  .cover-hero,
+  .cover-workbench {
+    grid-template-columns: 1fr;
   }
 }
 </style>

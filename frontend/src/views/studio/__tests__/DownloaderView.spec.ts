@@ -146,7 +146,7 @@ describe('DownloaderView as FanqieHotlist', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('分析前10章')
-    expect(wrapper.text()).toContain('下载/导入')
+    expect(wrapper.text()).toContain('下载/导入完整小说 TXT')
     await wrapper.find('[data-test="fanqie-consent"]').setValue(true)
     await wrapper.find('[data-test="fanqie-download"]').trigger('click')
     await flushPromises()
