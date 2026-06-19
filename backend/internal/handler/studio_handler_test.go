@@ -68,6 +68,7 @@ func (s *studioModelAccountRepoStub) GetByID(ctx context.Context, id int64) (*se
 type studioModelsHTTPUpstream struct {
 	lastReq       *http.Request
 	modelsPayload string
+	modelsStatus  int
 }
 
 func (u *studioModelsHTTPUpstream) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
@@ -80,10 +81,17 @@ func (u *studioModelsHTTPUpstream) Do(req *http.Request, proxyURL string, accoun
 		}, nil
 	}
 	return &http.Response{
-		StatusCode: http.StatusOK,
+		StatusCode: u.modelsStatusCode(),
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(u.modelsResponse())),
 	}, nil
+}
+
+func (u *studioModelsHTTPUpstream) modelsStatusCode() int {
+	if u.modelsStatus != 0 {
+		return u.modelsStatus
+	}
+	return http.StatusOK
 }
 
 func (u *studioModelsHTTPUpstream) modelsResponse() string {
@@ -445,6 +453,85 @@ func TestStudioKeyModelsFetchesLiveUpstreamModelsForSelectedUserKey(t *testing.T
 	require.NotContains(t, resp.Data, "gpt-image-1")
 	require.Equal(t, "https://upstream.example.com/v1/models", upstream.lastReq.URL.String())
 	require.Equal(t, "Bearer upstream-secret", upstream.lastReq.Header.Get("Authorization"))
+}
+
+func TestStudioKeyModelsFallsBackToStaticCatalogWhenUpstreamModelListUnauthorized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_key_models_upstream_unauthorized_fallback")
+
+	user, err := client.User.Create().
+		SetEmail("studio-models-unauthorized@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+	group, err := client.Group.Create().
+		SetName("openai-studio-models-unauthorized").
+		SetPlatform(service.PlatformOpenAI).
+		Save(ctx)
+	require.NoError(t, err)
+	apiKey, err := client.APIKey.Create().
+		SetUserID(user.ID).
+		SetName("studio-key").
+		SetKey("sk-studio-test").
+		SetGroupID(group.ID).
+		Save(ctx)
+	require.NoError(t, err)
+
+	upstream := &studioModelsHTTPUpstream{
+		modelsStatus:  http.StatusUnauthorized,
+		modelsPayload: `{"error":"expired upstream token"}`,
+	}
+	repo := &studioModelAccountRepoStub{byGroupPlatform: map[int64]map[string][]service.Account{
+		group.ID: {
+			service.PlatformOpenAI: {
+				{
+					ID:       19,
+					Name:     "unauthorized-model-list",
+					Platform: service.PlatformOpenAI,
+					Type:     service.AccountTypeAPIKey,
+					Credentials: map[string]any{
+						"api_key":  "upstream-secret",
+						"base_url": "https://upstream.example.com/v1",
+					},
+					Concurrency: 1,
+				},
+			},
+		},
+	}}
+	h := &StudioHandler{
+		client:      client,
+		accountRepo: repo,
+		accountTestService: service.NewAccountTestService(
+			repo,
+			nil,
+			nil,
+			nil,
+			upstream,
+			&config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+			nil,
+		),
+	}
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/studio/keys/"+strconv.FormatInt(apiKey.ID, 10)+"/models", nil)
+	c.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(apiKey.ID, 10)}}
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: user.ID})
+
+	h.ListKeyModels(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Code int      `json:"code"`
+		Data []string `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.Contains(t, resp.Data, "gpt-5.5")
+	require.Contains(t, resp.Data, "gpt-image-2")
+	require.NotContains(t, rec.Body.String(), "HTTP 401")
+	require.NotContains(t, rec.Body.String(), "expired upstream token")
 }
 
 func TestStudioModelTestUsesUpstreamAccountDirectly(t *testing.T) {

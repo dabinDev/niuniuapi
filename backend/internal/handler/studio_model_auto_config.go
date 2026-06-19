@@ -14,6 +14,9 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/studiomodelconfig"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
@@ -122,6 +125,109 @@ func appendOpenAIStudioImageFallbackModels(models []string) []string {
 	return out
 }
 
+func addStudioModelID(modelSet map[string]struct{}, model string) {
+	model = strings.TrimSpace(model)
+	if model != "" {
+		modelSet[model] = struct{}{}
+	}
+}
+
+func sortedStudioModelIDs(modelSet map[string]struct{}) []string {
+	out := make([]string, 0, len(modelSet))
+	for model := range modelSet {
+		out = append(out, model)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func studioDefaultModelIDs(platform string) []string {
+	switch platform {
+	case service.PlatformOpenAI:
+		return openai.DefaultModelIDs()
+	case service.PlatformGemini:
+		out := make([]string, 0, len(geminicli.DefaultModels))
+		for _, model := range geminicli.DefaultModels {
+			out = append(out, model.ID)
+		}
+		return out
+	case service.PlatformAnthropic:
+		return claude.DefaultModelIDs()
+	case service.PlatformAntigravity:
+		models := antigravity.DefaultModels()
+		out := make([]string, 0, len(models))
+		for _, model := range models {
+			out = append(out, model.ID)
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func studioStaticModelCatalog(g *dbent.Group, accounts []service.Account) []string {
+	modelSet := map[string]struct{}{}
+	if g != nil && g.ModelsListConfig.Enabled && len(g.ModelsListConfig.Models) > 0 {
+		for _, model := range g.ModelsListConfig.Models {
+			addStudioModelID(modelSet, model)
+		}
+		return sortedStudioModelIDs(modelSet)
+	}
+
+	for i := range accounts {
+		for model := range accounts[i].GetModelMapping() {
+			addStudioModelID(modelSet, model)
+		}
+	}
+	if len(modelSet) > 0 {
+		return sortedStudioModelIDs(modelSet)
+	}
+
+	if g != nil {
+		for _, model := range studioDefaultModelIDs(g.Platform) {
+			addStudioModelID(modelSet, model)
+		}
+	}
+	return sortedStudioModelIDs(modelSet)
+}
+
+func (h *StudioHandler) collectStudioModelsFromAccounts(ctx context.Context, g *dbent.Group, accounts []service.Account) ([]string, error) {
+	modelSet := make(map[string]struct{})
+	var lastErr error
+	for i := range accounts {
+		models, err := h.accountTestService.FetchUpstreamSupportedModels(ctx, &accounts[i])
+		if err != nil {
+			lastErr = err
+			var syncErr *service.UpstreamModelSyncError
+			if errors.As(err, &syncErr) {
+				slog.Warn("studio_key_models_fetch_failed", "account_id", accounts[i].ID, "kind", syncErr.Kind)
+			} else {
+				slog.Warn("studio_key_models_fetch_failed", "account_id", accounts[i].ID)
+			}
+			continue
+		}
+		for _, model := range models {
+			addStudioModelID(modelSet, model)
+		}
+	}
+	if len(modelSet) > 0 {
+		return sortedStudioModelIDs(modelSet), nil
+	}
+
+	fallback := studioStaticModelCatalog(g, accounts)
+	if len(fallback) > 0 {
+		if lastErr != nil && g != nil {
+			slog.Warn("studio_key_models_static_catalog_fallback", "platform", g.Platform, "error", lastErr)
+		}
+		return fallback, nil
+	}
+
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, fmt.Errorf("no upstream models are available for this api key")
+}
+
 func (h *StudioHandler) discoverStudioKeyModels(ctx context.Context, userID, keyID int64) ([]string, error) {
 	if h.accountRepo == nil || h.accountTestService == nil {
 		return nil, fmt.Errorf("studio model discovery is not configured")
@@ -151,39 +257,7 @@ func (h *StudioHandler) discoverStudioKeyModels(ctx context.Context, userID, key
 		return nil, fmt.Errorf("no schedulable upstream accounts are available for this api key")
 	}
 
-	modelSet := make(map[string]struct{})
-	var lastErr error
-	for i := range accounts {
-		models, err := h.accountTestService.FetchUpstreamSupportedModels(ctx, &accounts[i])
-		if err != nil {
-			lastErr = err
-			var syncErr *service.UpstreamModelSyncError
-			if errors.As(err, &syncErr) {
-				slog.Warn("studio_key_models_fetch_failed", "account_id", accounts[i].ID, "kind", syncErr.Kind)
-			} else {
-				slog.Warn("studio_key_models_fetch_failed", "account_id", accounts[i].ID)
-			}
-			continue
-		}
-		for _, model := range models {
-			model = strings.TrimSpace(model)
-			if model != "" {
-				modelSet[model] = struct{}{}
-			}
-		}
-	}
-	if len(modelSet) == 0 {
-		if lastErr != nil {
-			return nil, lastErr
-		}
-		return nil, fmt.Errorf("no upstream models are available for this api key")
-	}
-	out := make([]string, 0, len(modelSet))
-	for model := range modelSet {
-		out = append(out, model)
-	}
-	sort.Strings(out)
-	return out, nil
+	return h.collectStudioModelsFromAccounts(ctx, g, accounts)
 }
 
 func (h *StudioHandler) autoConfigureStudioModelConfig(ctx context.Context, userID int64, current studioModelConfigDTO) (studioModelConfigDTO, error) {

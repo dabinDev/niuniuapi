@@ -281,39 +281,12 @@ func (h *StudioHandler) ListKeyModels(c *gin.Context) {
 		return
 	}
 
-	modelSet := make(map[string]struct{})
-	var lastErr error
-	for i := range accounts {
-		models, err := h.accountTestService.FetchUpstreamSupportedModels(c.Request.Context(), &accounts[i])
-		if err != nil {
-			lastErr = err
-			var syncErr *service.UpstreamModelSyncError
-			if errors.As(err, &syncErr) {
-				slog.Warn("studio_key_models_fetch_failed", "account_id", accounts[i].ID, "kind", syncErr.Kind)
-			} else {
-				slog.Warn("studio_key_models_fetch_failed", "account_id", accounts[i].ID)
-			}
-			continue
-		}
-		for _, model := range models {
-			model = strings.TrimSpace(model)
-			if model != "" {
-				modelSet[model] = struct{}{}
-			}
-		}
-	}
-
-	if len(modelSet) == 0 {
-		writeStudioModelDiscoveryError(c, lastErr)
+	models, err := h.collectStudioModelsFromAccounts(c.Request.Context(), g, accounts)
+	if err != nil {
+		writeStudioModelDiscoveryError(c, err)
 		return
 	}
-
-	out := make([]string, 0, len(modelSet))
-	for model := range modelSet {
-		out = append(out, model)
-	}
-	sort.Strings(out)
-	response.Success(c, out)
+	response.Success(c, models)
 }
 
 func writeStudioModelDiscoveryError(c *gin.Context, err error) {
