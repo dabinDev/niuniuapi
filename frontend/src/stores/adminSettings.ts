@@ -79,6 +79,10 @@ export const useAdminSettingsStore = defineStore('adminSettings', () => {
     } catch (err) {
       // Keep cached/default value: do not "flip" the UI based on a transient fetch failure.
       loaded.value = true
+      const error = err as { status?: number; code?: string }
+      if (error.status === 423 && error.code === 'ADMIN_COMPLIANCE_ACK_REQUIRED') {
+        return
+      }
       console.error('[adminSettings] Failed to fetch settings:', err)
     } finally {
       loading.value = false

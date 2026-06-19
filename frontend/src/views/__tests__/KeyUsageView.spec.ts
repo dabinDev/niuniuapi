@@ -162,6 +162,7 @@ describe('KeyUsageView daily detail', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -204,5 +205,31 @@ describe('KeyUsageView daily detail', () => {
     expect(text).toContain('$0.12')
 
     wrapper.unmount()
+  })
+
+  it('cancels pending ring animation work after unmount', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => window.setTimeout(() => cb(0), 0))
+    const wrapper = mount(KeyUsageView, {
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+          LocaleSwitcher: true,
+          Icon: true,
+        },
+      },
+    })
+
+    await wrapper.find('input').setValue('sk-test-key')
+    await wrapper.find('input').trigger('keydown.enter')
+    await flushPromises()
+    await nextTick()
+
+    wrapper.unmount()
+    vi.stubGlobal('requestAnimationFrame', () => {
+      throw new Error('requestAnimationFrame should not run after unmount')
+    })
+
+    expect(() => vi.runOnlyPendingTimers()).not.toThrow()
   })
 })

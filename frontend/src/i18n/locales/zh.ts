@@ -6872,7 +6872,7 @@ export default {
       welcome: {
         title: '👋 欢迎使用 烂番茄',
         description:
-          '<div style="line-height: 1.8;"><p style="margin-bottom: 16px;">烂番茄 是一个强大的 AI 服务中转平台，让您轻松管理和分发 AI 服务。</p><p style="margin-bottom: 12px;"><b>🎯 核心功能：</b></p><ul style="margin-left: 20px; margin-bottom: 16px;"><li>📦 <b>分组管理</b> - 创建不同的服务套餐（VIP、免费试用等）</li><li>🔗 <b>账号池</b> - 连接多个上游 AI 服务商账号</li><li>🔑 <b>密钥分发</b> - 为用户生成独立的 API Key</li><li>💰 <b>计费管理</b> - 灵活的费率和配额控制</li></ul><p style="color: #10b981; font-weight: 600;">接下来，我们将用 3 分钟带您完成首次配置 →</p></div>',
+          '<div style="line-height: 1.8;"><p style="margin-bottom: 16px;">烂番茄 是面向小说作者的 AI 创作工作台，把选题观察、封面生成、拆书诊断和创作生成串成同一条作品流。</p><p style="margin-bottom: 12px;"><b>🎯 创作台核心能力：</b></p><ul style="margin-left: 20px; margin-bottom: 16px;"><li>📈 <b>番茄热榜</b> - 抓取榜单样本，支持完整小说 TXT 下载/导入</li><li>🎨 <b>封面生成</b> - 自动选择生图模型，整理书名、人设和卖点 brief</li><li>🔍 <b>拆书诊断</b> - 把黄金三章拆成节奏、钩子和改稿清单</li><li>🔥 <b>爆款对标</b> - 用热榜样本对照题材、卖点和章节结构</li><li>🎬 <b>创作生成</b> - 基于诊断结论生成大纲、续写、改写和剧本</li></ul><p style="color: #e8412e; font-weight: 700;">接下来，我们将用 3 分钟带您把创作台跑通 →</p></div>',
         nextBtn: '开始配置 🚀',
         prevBtn: '跳过'
       },

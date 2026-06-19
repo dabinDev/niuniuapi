@@ -557,6 +557,11 @@ const formatDuration = (ms: number): string => {
   return `${Math.round(ms)}ms`
 }
 
+const isAdminComplianceGateError = (error: unknown): boolean => {
+  const err = error as { status?: number; code?: string }
+  return err?.status === 423 && err?.code === 'ADMIN_COMPLIANCE_ACK_REQUIRED'
+}
+
 const goToUserUsage = (item: UserSpendingRankingItem) => {
   void router.push({
     path: '/admin/usage',
@@ -615,6 +620,7 @@ const loadDashboardSnapshot = async (includeStats: boolean) => {
     modelStats.value = response.models || []
   } catch (error) {
     if (currentSeq !== chartLoadSeq) return
+    if (isAdminComplianceGateError(error)) return
     appStore.showError(t('admin.dashboard.failedToLoad'))
     console.error('Error loading dashboard snapshot:', error)
   } finally {
@@ -639,6 +645,7 @@ const loadUsersTrend = async () => {
     userTrend.value = response.trend || []
   } catch (error) {
     if (currentSeq !== usersTrendLoadSeq) return
+    if (isAdminComplianceGateError(error)) return
     console.error('Error loading users trend:', error)
     userTrend.value = []
   } finally {
@@ -665,6 +672,7 @@ const loadUserSpendingRanking = async () => {
     rankingTotalTokens.value = response.total_tokens || 0
   } catch (error) {
     if (currentSeq !== rankingLoadSeq) return
+    if (isAdminComplianceGateError(error)) return
     console.error('Error loading user spending ranking:', error)
     rankingItems.value = []
     rankingTotalActualCost.value = 0

@@ -175,7 +175,17 @@ func (h *StudioHandler) GetModelConfig(c *gin.Context) {
 		Only(c.Request.Context())
 	if err != nil {
 		if dbent.IsNotFound(err) {
-			response.Success(c, nil)
+			dto, autoErr := h.autoConfigureStudioModelConfig(c.Request.Context(), subject.UserID, studioModelConfigDTO{})
+			if autoErr != nil {
+				slog.Warn("studio_model_auto_config_failed", "user_id", subject.UserID, "error", autoErr)
+				response.Success(c, nil)
+				return
+			}
+			if dto.Image == nil && dto.Text == nil {
+				response.Success(c, nil)
+				return
+			}
+			response.Success(c, dto)
 			return
 		}
 		response.ErrorFrom(c, err)
@@ -184,6 +194,13 @@ func (h *StudioHandler) GetModelConfig(c *gin.Context) {
 	var dto studioModelConfigDTO
 	if row.Config != "" {
 		_ = json.Unmarshal([]byte(row.Config), &dto)
+	}
+	if dto.Image == nil || dto.Text == nil {
+		if next, autoErr := h.autoConfigureStudioModelConfig(c.Request.Context(), subject.UserID, dto); autoErr == nil {
+			dto = next
+		} else {
+			slog.Warn("studio_model_auto_config_failed", "user_id", subject.UserID, "error", autoErr)
+		}
 	}
 	response.Success(c, dto)
 }
@@ -1785,10 +1802,14 @@ type fanqieRankAPISource struct {
 	Limit      int
 }
 
+const fanqieRankOfficialFetchTimeout = 1500 * time.Millisecond
+
 var fanqieRankCache = struct {
 	sync.Mutex
 	entries map[fanqieRankChannel]fanqieRankCacheEntry
 }{entries: map[fanqieRankChannel]fanqieRankCacheEntry{}}
+
+var fetchFanqieRankBooksFromOfficialFunc = fetchFanqieRankBooksFromOfficial
 
 func fanqieRankAPISources(ch fanqieRankChannel) []fanqieRankAPISource {
 	maleRead := []fanqieRankAPISource{
@@ -2061,6 +2082,7 @@ func fetchFanqieRankBooksFromOfficialAPI(ctx context.Context, ch fanqieRankChann
 		all = append(all, books...)
 	}
 	merged := mergeFanqieRankBooks(all)
+	merged = enrichFanqieObfuscatedRankBooks(ctx, merged)
 	if len(merged) == 0 {
 		return nil, fmt.Errorf("official rank api unavailable: %s", strings.Join(errs, "; "))
 	}
@@ -2089,7 +2111,10 @@ func liveFanqieRankBooks(ctx context.Context, ch fanqieRankChannel) ([]fanqieBoo
 	}
 	fanqieRankCache.Unlock()
 
-	books, err := fetchFanqieRankBooksFromOfficial(ctx, ch)
+	fetchCtx, cancel := context.WithTimeout(ctx, fanqieRankOfficialFetchTimeout)
+	defer cancel()
+
+	books, err := fetchFanqieRankBooksFromOfficialFunc(fetchCtx, ch)
 	if err == nil && len(books) >= 30 {
 		fanqieRankCache.Lock()
 		fanqieRankCache.entries[ch] = fanqieRankCacheEntry{Books: books, UpdatedAt: now}
@@ -2235,7 +2260,10 @@ func searchLiveFanqieBooks(ctx context.Context, query string) ([]fanqieBook, err
 	}
 	books, err := fetchFanqieSearchBooks(ctx, strings.TrimSpace(query))
 	if err != nil {
-		return nil, err
+		return searchFanqieSeedBooks(query), nil
+	}
+	if len(books) == 0 {
+		return searchFanqieSeedBooks(query), nil
 	}
 	return books, nil
 }
@@ -3250,6 +3278,7 @@ func buildFanqieDownloadResult(detail fanqieBookDetail) fanqieDownloadResult {
 			Title:     titleOr(chapter.Title, fmt.Sprintf("第%d章", chapter.Index)),
 			WordCount: countCJKWords(chapter.Content),
 			Source:    chapter.SourceURL,
+			Content:   strings.TrimSpace(chapter.Content),
 		})
 	}
 	notes := append([]string{
@@ -3423,6 +3452,7 @@ type studioImportChapter struct {
 	Title     string `json:"title"`
 	WordCount int    `json:"word_count"`
 	Source    string `json:"source,omitempty"`
+	Content   string `json:"content,omitempty"`
 }
 
 type studioImportResult struct {
@@ -3464,7 +3494,7 @@ func splitManualChapters(content string) []studioImportChapter {
 		if title == "" {
 			title = "全文导入"
 		}
-		chapters = append(chapters, studioImportChapter{Title: title, WordCount: countCJKWords(text)})
+		chapters = append(chapters, studioImportChapter{Title: title, WordCount: countCJKWords(text), Content: text})
 		body.Reset()
 	}
 

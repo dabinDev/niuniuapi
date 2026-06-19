@@ -3,8 +3,13 @@
 package service
 
 import (
+	"archive/tar"
 	"context"
 	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -88,4 +93,56 @@ func TestUpdateServiceUsesConfiguredRepository(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "owner/custom-release-channel", client.repo)
+}
+
+func TestUpdateServiceUsesNiuniuBinaryNameForOwnReleaseChannel(t *testing.T) {
+	svc := NewUpdateService(&updateServiceCacheStub{}, &updateServiceGitHubClientStub{}, "0.1.132", "release", "")
+
+	require.Equal(t, "niuniuapi", svc.binaryName())
+	require.Equal(t, ".niuniuapi-update-*", svc.tempDirPattern())
+}
+
+func TestUpdateServiceExtractsNiuniuBinaryFromReleaseArchive(t *testing.T) {
+	svc := NewUpdateService(&updateServiceCacheStub{}, &updateServiceGitHubClientStub{}, "0.1.132", "release", "")
+	tempDir := t.TempDir()
+	archivePath := filepath.Join(tempDir, "niuniuapi_linux_amd64.tar")
+	destPath := filepath.Join(tempDir, "candidate")
+
+	createTarArchive(t, archivePath, "niuniuapi", "own release binary")
+
+	require.NoError(t, svc.extractBinary(archivePath, destPath))
+	got, err := os.ReadFile(destPath)
+	require.NoError(t, err)
+	require.Equal(t, "own release binary", string(got))
+}
+
+func TestUpdateServiceRejectsArchiveWithoutNiuniuBinary(t *testing.T) {
+	svc := NewUpdateService(&updateServiceCacheStub{}, &updateServiceGitHubClientStub{}, "0.1.132", "release", "")
+	tempDir := t.TempDir()
+	archivePath := filepath.Join(tempDir, "upstream_linux_amd64.tar")
+	destPath := filepath.Join(tempDir, "candidate")
+
+	createTarArchive(t, archivePath, "sub2api", "upstream binary")
+
+	err := svc.extractBinary(archivePath, destPath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "niuniuapi")
+}
+
+func createTarArchive(t *testing.T, path, name, content string) {
+	t.Helper()
+	f, err := os.Create(path)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, f.Close()) }()
+
+	tw := tar.NewWriter(f)
+	defer func() { require.NoError(t, tw.Close()) }()
+
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Name: name,
+		Mode: 0o755,
+		Size: int64(len(content)),
+	}))
+	_, err = io.Copy(tw, strings.NewReader(content))
+	require.NoError(t, err)
 }

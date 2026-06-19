@@ -457,6 +457,9 @@ const showDatePicker = ref(false)
 const resultData = ref<any>(null)
 const now = ref(new Date())
 let resetTimer: ReturnType<typeof setInterval> | null = null
+let ringDelayTimer: number | null = null
+let ringAnimationDisposed = false
+const ringFrameIds = new Set<number>()
 
 // ==================== Date Range State ====================
 
@@ -551,13 +554,45 @@ function getRingOffset(ring: RingItem): number {
   return CIRCUMFERENCE - (Math.min(ring.pct, 100) / 100) * CIRCUMFERENCE
 }
 
+function scheduleRingFrame(cb: FrameRequestCallback) {
+  const raf = globalThis.requestAnimationFrame
+  const id = typeof raf === 'function'
+    ? raf(cb)
+    : window.setTimeout(() => cb(performance.now()), 16)
+  ringFrameIds.add(id)
+  return id
+}
+
+function cancelRingFrame(id: number) {
+  if (typeof globalThis.cancelAnimationFrame === 'function') {
+    globalThis.cancelAnimationFrame(id)
+  }
+  window.clearTimeout(id)
+  ringFrameIds.delete(id)
+}
+
+function cancelRingAnimation() {
+  if (ringDelayTimer) {
+    window.clearTimeout(ringDelayTimer)
+    ringDelayTimer = null
+  }
+  for (const id of Array.from(ringFrameIds)) {
+    cancelRingFrame(id)
+  }
+}
+
 function triggerRingAnimation(items: RingItem[]) {
+  cancelRingAnimation()
   ringAnimated.value = false
   displayPcts.value = items.map(() => 0)
 
   nextTick(() => {
-    requestAnimationFrame(() => {
-      setTimeout(() => {
+    if (ringAnimationDisposed) return
+    scheduleRingFrame(() => {
+      if (ringAnimationDisposed) return
+      ringDelayTimer = window.setTimeout(() => {
+        ringDelayTimer = null
+        if (ringAnimationDisposed) return
         ringAnimated.value = true
 
         // Animate percentage numbers
@@ -566,13 +601,14 @@ function triggerRingAnimation(items: RingItem[]) {
         const targets = items.map(item => item.isBalance ? 0 : item.pct)
 
         function tick() {
+          if (ringAnimationDisposed) return
           const elapsed = performance.now() - startTime
           const p = Math.min(elapsed / duration, 1)
           const ease = 1 - Math.pow(1 - p, 3)
           displayPcts.value = targets.map(target => Math.round(ease * target))
-          if (p < 1) requestAnimationFrame(tick)
+          if (p < 1) scheduleRingFrame(tick)
         }
-        requestAnimationFrame(tick)
+        scheduleRingFrame(tick)
       }, 50)
     })
   })
@@ -925,6 +961,7 @@ function formatResetTime(resetAt: string | null | undefined): string {
 }
 
 onMounted(() => {
+  ringAnimationDisposed = false
   initTheme()
   if (!appStore.publicSettingsLoaded) {
     appStore.fetchPublicSettings()
@@ -934,6 +971,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (resetTimer) clearInterval(resetTimer)
+  ringAnimationDisposed = true
+  cancelRingAnimation()
 })
 </script>
 

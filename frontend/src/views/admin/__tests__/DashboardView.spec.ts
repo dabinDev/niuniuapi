@@ -140,4 +140,36 @@ describe('admin DashboardView', () => {
       granularity: 'hour'
     }))
   })
+
+  it('treats admin compliance gate responses as expected blocking state without noisy dashboard errors', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const complianceGateError = {
+      status: 423,
+      code: 'ADMIN_COMPLIANCE_ACK_REQUIRED',
+      message: 'admin compliance acknowledgement required'
+    }
+    getSnapshotV2.mockRejectedValue(complianceGateError)
+    getUserUsageTrend.mockRejectedValue(complianceGateError)
+    getUserSpendingRanking.mockRejectedValue(complianceGateError)
+
+    mount(DashboardView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          LoadingSpinner: true,
+          Icon: true,
+          DateRangePicker: true,
+          Select: true,
+          ModelDistributionChart: true,
+          TokenUsageTrend: true,
+          Line: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(consoleError).not.toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
 })

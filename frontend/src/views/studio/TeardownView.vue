@@ -7,25 +7,56 @@
           <h1>拆书诊断</h1>
           <p>把章节拆成可执行的质检报告：黄金三章、节奏热区、人物钩子、伏笔追踪和下一步改法分开呈现。</p>
         </div>
-        <router-link class="head-link" to="/studio/hotspot">去爆款对标</router-link>
+        <router-link class="head-link studio-action-link" to="/studio/hotspot">去爆款对标</router-link>
       </header>
 
-      <div class="model-strip" :class="{ ready: configured }">
-        <span>{{ configured ? '文案模型' : '还没配置文案模型' }}</span>
-        <strong>{{ configured ? textModel : '请先到 API 密钥页设置文案模型' }}</strong>
-        <router-link to="/keys">模型设置</router-link>
+      <div class="model-strip model-strip-compact" :class="{ ready: configured }" data-test="model-auto-config-strip">
+        <span>{{ configured ? '文案模型已就绪' : '自动配置流程' }}</span>
+        <strong>{{ configured ? textModel : '创建第一把密钥后，系统会优先自动选择第一把密钥的最新文案模型' }}</strong>
+        <p class="model-strip-copy">{{ configured ? '如需覆盖默认值，可在 API 密钥页手动测试后保存。' : '自动选择最新文案模型；手动测试后保存会记住你的选择，不手动修改时创作台继续使用自动配置。' }}</p>
+        <router-link to="/keys">{{ configured ? '模型设置' : '检查密钥' }}</router-link>
+      </div>
+
+      <div v-if="bridgeNotice" class="bridge-notice" data-test="teardown-bridge-notice">
+        {{ bridgeNotice }}
       </div>
 
       <section class="diagnosis-map" aria-label="拆书诊断模块">
         <article v-for="item in diagnosisModules" :key="item.title">
           <span>{{ item.kicker }}</span>
           <strong>{{ item.title }}</strong>
-          <p>{{ item.desc }}</p>
+          <p class="model-strip-copy">{{ item.desc }}</p>
         </article>
       </section>
 
       <section class="teardown-grid">
         <form class="input-panel" @submit.prevent="submit">
+          <div class="template-strip" aria-label="拆书模板">
+            <button
+              v-for="tpl in teardownTemplates"
+              :key="tpl.title"
+              :data-test="`teardown-template-${tpl.key}`"
+              type="button"
+              @click="applyTemplate(tpl.key)"
+            >
+              <strong>{{ tpl.title }}</strong>
+              <span>{{ tpl.desc }}</span>
+            </button>
+          </div>
+
+          <div class="quality-gate" data-test="teardown-quality-gate" aria-label="提交前质量闸门">
+            <div>
+              <span>提交前看这 4 个点</span>
+              <strong>别只贴正文，先确认它能被诊断</strong>
+            </div>
+            <ul>
+              <li>开篇钩子：前 300 字有没有问题、压迫或反常识？</li>
+              <li>首次爽点：主角是否已经赢下一次可感知的小胜利？</li>
+              <li>章尾钩子：读者有没有“下一章必须看”的未兑现问题？</li>
+              <li>代价/伏笔：金手指、反转或设定有没有留下代价和回收点？</li>
+            </ul>
+          </div>
+
           <label class="stacked" for="td-content">
             <span>小说正文 / 章节</span>
             <textarea
@@ -89,6 +120,11 @@
 
             <p class="summary">{{ report.summary }}</p>
 
+            <div class="report-actions" data-test="teardown-report-actions">
+              <button data-test="teardown-send-hotspot" type="button" @click="sendReportTo('hotspot')">送去爆款对标</button>
+              <button data-test="teardown-send-generate" type="button" @click="sendReportTo('generate')">送去创作生成</button>
+            </div>
+
             <div v-if="report.scores.length" class="score-grid">
               <article v-for="s in report.scores" :key="s.label">
                 <span>{{ s.label }}</span>
@@ -114,8 +150,23 @@
           </template>
 
           <div v-else class="empty-state">
-            <div class="empty-mark">QC</div>
-            <p>提交章节后，这里会生成评分、烂点、改法，并自动进入“我的作品”。</p>
+            <div class="empty-kicker">
+              <div class="empty-mark">QC</div>
+              <span>先看钩子，再看兑现</span>
+            </div>
+            <h2>把一章拆成能执行的改稿清单</h2>
+            <p>提交章节后，这里会生成评分、烂点、改法，并自动进入“我的作品”。建议先从黄金三章开始，确认读者为什么继续看。</p>
+            <button data-test="teardown-empty-sample" type="button" class="empty-action" @click="applyTemplate('golden')">
+              先填入黄金三章示例
+            </button>
+            <div class="empty-guide" aria-label="拆书使用路径">
+              <strong>使用路径</strong>
+              <ol>
+                <li>粘贴 1-3 章正文，先抓开篇钩子和第一次爽点。</li>
+                <li>查看烂点、伏笔风险和节奏掉线位置。</li>
+                <li>把改法可直接复制到对标和生成，继续产出新版正文。</li>
+              </ol>
+            </div>
             <div class="empty-preview" aria-label="拆书结果预览">
               <article>
                 <span>01</span>
@@ -142,10 +193,14 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { analyzeTeardown, getModelConfig, type TeardownReport, type TeardownTone } from '@/api/studio'
+import { consumeStudioBridgePayload, saveStudioBridgePayload, type StudioBridgeTarget } from '@/utils/studioBridge'
 
 const MIN_LEN = 100
+
+const router = useRouter()
 
 const content = ref('')
 const title = ref('')
@@ -156,12 +211,18 @@ const report = ref<TeardownReport | null>(null)
 const errorMsg = ref('')
 const configured = ref(false)
 const textModel = ref('')
+const bridgeNotice = ref('')
 
 const diagnosisModules = [
   { kicker: '01', title: '黄金三章', desc: '专看开篇钩子、压迫感和首次爽点兑现。' },
   { kicker: '02', title: '节奏热区', desc: '标出拖沓、信息堆叠和回报偏慢的位置。' },
   { kicker: '03', title: '伏笔追踪', desc: '把未回收伏笔和设定风险拉成清单。' },
   { kicker: '04', title: '改法队列', desc: '把建议变成可喂给创作生成的动作。' },
+]
+
+const teardownTemplates = [
+  { key: 'golden', title: '黄金三章诊断', desc: '开篇钩子、压迫、首次爽点' },
+  { key: 'rhythm', title: '节奏掉线排查', desc: '找拖沓段落和信息堆叠' },
 ]
 
 const toneOptions: { value: TeardownTone; label: string }[] = [
@@ -183,7 +244,68 @@ onMounted(async () => {
   } catch {
     configured.value = false
   }
+  applyBridgePayload()
 })
+
+function applyBridgePayload() {
+  const payload = consumeStudioBridgePayload('teardown')
+  if (!payload) return
+  title.value = payload.title
+  genre.value = payload.genre
+  content.value = payload.content
+  bridgeNotice.value = payload.source === 'works'
+    ? '已从我的作品带入素材，可直接开始拆书诊断。'
+    : '已从番茄热榜带入素材，可直接拆开篇钩子和爽点节奏。'
+}
+
+function applyTemplate(key: string) {
+  if (key === 'golden') {
+    title.value = '雨夜入塔'
+    genre.value = '玄幻悬疑'
+    content.value = [
+      '第 1 章：雨夜里，主角被家族逐出，背着欠债和母亲遗物进入废弃书塔。门缝里传来旧神低语，要求他用一个秘密换一次翻身机会。',
+      '第 2 章：主角发现书塔能兑换禁忌知识，但每次兑换都会失去一段记忆。他先用最小代价反杀追债人，却忘记了母亲留下的警告。',
+      '第 3 章：家族派来的天才少主登场，公开羞辱主角。主角用书塔知识破局，赢下一次低成本胜利，同时埋下记忆缺口的伏笔。',
+      '请重点诊断：开篇钩子是否足够狠、压迫感是否持续、首次爽点是否兑现、代价和伏笔是否能撑住追读。',
+    ].join('\n\n')
+    return
+  }
+  title.value = title.value || '节奏排查样本'
+  genre.value = genre.value || '都市爽文'
+  content.value = [
+    '当前问题：第 1 章有冲突，第 2 章开始解释设定，第 3 章才出现第一次小胜利。',
+    '请按段落标出拖沓、信息堆叠、情绪断点和爽点兑现过慢的位置，并给出可直接改写的动作清单。',
+    '补充正文：主角被上司当众羞辱，获得系统后先查看规则，解释了大量等级、商城和任务，直到章末才准备反击。',
+  ].join('\n\n')
+}
+
+function sendReportTo(target: StudioBridgeTarget) {
+  if (!report.value) return
+  const workTitle = title.value.trim() || '未命名作品'
+  const workGenre = genre.value.trim() || ''
+  const reportText = [
+    `书名：${workTitle}`,
+    `题材：${workGenre || '未填写'}`,
+    `综合诊断：${report.value.overall_score}/100`,
+    `结论：${report.value.verdict}`,
+    `摘要：${report.value.summary}`,
+    `亮点：${report.value.highlights.join('；')}`,
+    `烂点：${report.value.rotten_points.join('；')}`,
+    `改法：${report.value.suggestions.join('；')}`,
+  ].join('\n')
+  saveStudioBridgePayload({
+    source: 'fanqie',
+    target,
+    title: workTitle,
+    genre: workGenre,
+    content: [content.value.trim(), reportText].filter(Boolean).join('\n\n'),
+    benchmark: reportText,
+    brief: target === 'generate'
+      ? `根据拆书建议生成改写方案：${report.value.suggestions.join('；')}`
+      : '对照同题材爆款样本，找出可复制套路与差距。',
+  })
+  void router.push(`/studio/${target}`)
+}
 
 async function submit() {
   if (!canSubmit.value) return
@@ -208,6 +330,8 @@ async function submit() {
 
 <style scoped>
 .teardown-page {
+  width: min(100%, 96rem);
+  max-width: calc(100vw - 2rem);
   padding: 0.5rem 0 2.5rem;
   color: #221a18;
 }
@@ -250,6 +374,32 @@ async function submit() {
   font-weight: 800;
 }
 
+.studio-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  border: 1px solid rgba(232, 65, 46, 0.24);
+  border-radius: 999px;
+  background: #241a16;
+  padding: 0.68rem 1rem;
+  color: #fff7ed;
+  font-weight: 950;
+  white-space: nowrap;
+  box-shadow: 0 14px 28px rgba(54, 32, 24, 0.14);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.studio-action-link::after {
+  content: "→";
+  font-weight: 950;
+}
+
+.studio-action-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px rgba(54, 32, 24, 0.18);
+}
+
 .model-strip {
   display: flex;
   flex-wrap: wrap;
@@ -257,17 +407,89 @@ async function submit() {
   align-items: center;
   justify-content: space-between;
   border: 1px dashed rgba(232, 65, 46, 0.34);
-  border-radius: 8px;
-  padding: 0.75rem 0.9rem;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
   margin-bottom: 1rem;
-  background: #fff7f3;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(232, 65, 46, 0.12), transparent 12rem),
+    #fff7f3;
   color: #8c3024;
+}
+
+.model-strip span {
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  background: rgba(232, 65, 46, 0.1);
+  color: #c8351f;
+  font-size: 0.76rem;
+  font-weight: 950;
 }
 
 .model-strip.ready {
   border-color: rgba(28, 117, 91, 0.25);
-  background: #f2fbf6;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(28, 117, 91, 0.12), transparent 12rem),
+    #f2fbf6;
   color: #1c755b;
+}
+
+.model-strip.ready span {
+  background: rgba(28, 117, 91, 0.1);
+  color: #1c755b;
+}
+
+.model-strip p {
+  flex-basis: 100%;
+  margin: -0.35rem 0 0;
+  color: #6b443a;
+  line-height: 1.55;
+}
+
+.model-strip.ready p {
+  color: #3d6e5f;
+}
+
+.model-strip-compact {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.34rem 0.75rem;
+  align-items: center;
+  padding: 0.72rem 0.95rem;
+  border-radius: 16px;
+}
+
+.model-strip-compact strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-strip-compact .model-strip-copy {
+  grid-column: 2;
+  flex-basis: auto;
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.42;
+}
+
+.model-strip-compact a {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.bridge-notice {
+  margin-bottom: 1rem;
+  border: 1px solid rgba(232, 65, 46, 0.22);
+  border-radius: 16px;
+  padding: 0.8rem 1rem;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(232, 65, 46, 0.16), transparent 10rem),
+    #fff8f3;
+  color: #5a3429;
+  font-weight: 850;
+  box-shadow: 0 14px 36px rgba(54, 32, 24, 0.07);
 }
 
 .diagnosis-map {
@@ -318,6 +540,74 @@ async function submit() {
 .input-panel,
 .result-panel {
   padding: 1rem;
+}
+
+.template-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+}
+
+.template-strip button {
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  padding: 0.68rem;
+  background: #fffdfb;
+  color: #493a35;
+  text-align: left;
+}
+
+.template-strip strong,
+.template-strip span {
+  display: block;
+}
+
+.template-strip strong {
+  font-weight: 950;
+}
+
+.template-strip span {
+  margin-top: 0.22rem;
+  color: #836f68;
+  font-size: 0.78rem;
+}
+
+.quality-gate {
+  display: grid;
+  grid-template-columns: 0.58fr 1fr;
+  gap: 0.8rem;
+  border: 1px solid rgba(232, 65, 46, 0.2);
+  border-radius: 12px;
+  padding: 0.85rem;
+  margin-bottom: 0.9rem;
+  background:
+    linear-gradient(135deg, rgba(232, 65, 46, 0.1), rgba(255, 255, 255, 0.78)),
+    #fffaf6;
+}
+
+.quality-gate span {
+  display: inline-flex;
+  margin-bottom: 0.3rem;
+  color: #c8351f;
+  font-size: 0.76rem;
+  font-weight: 950;
+}
+
+.quality-gate strong {
+  display: block;
+  color: #241a16;
+  line-height: 1.45;
+}
+
+.quality-gate ul {
+  display: grid;
+  gap: 0.28rem;
+  margin: 0;
+  padding-left: 1.05rem;
+  color: #5d4640;
+  font-size: 0.84rem;
+  line-height: 1.55;
 }
 
 label span {
@@ -421,21 +711,85 @@ textarea:focus {
   min-height: 28rem;
   display: grid;
   place-content: center;
-  gap: 1rem;
-  text-align: center;
+  gap: 0.9rem;
   color: #7a6962;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(232, 65, 46, 0.09), transparent 16rem),
+    linear-gradient(180deg, rgba(255, 251, 247, 0.9), rgba(255, 255, 255, 0.72));
+}
+
+.empty-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  justify-self: center;
+  color: #c8351f;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.empty-state h2 {
+  margin: 0;
+  color: #221a18;
+  font-size: 1.25rem;
+  font-weight: 950;
+  text-align: center;
+}
+
+.empty-state > p {
+  max-width: 38rem;
+  margin: 0 auto;
+  text-align: center;
+  line-height: 1.75;
 }
 
 .empty-mark {
-  width: 4.2rem;
-  height: 4.2rem;
+  width: 3rem;
+  height: 3rem;
   display: grid;
   place-items: center;
-  margin: 0 auto;
   border-radius: 8px;
   background: #241a16;
   color: #fff;
   font-weight: 950;
+}
+
+.empty-action {
+  width: max-content;
+  margin: 0 auto;
+  border: 1px solid #e8412e;
+  border-radius: 999px;
+  padding: 0.62rem 1rem;
+  background: #e8412e;
+  color: #fff;
+  font-weight: 950;
+  box-shadow: 0 14px 32px rgba(232, 65, 46, 0.22);
+}
+
+.empty-guide {
+  max-width: 42rem;
+  border: 1px solid rgba(232, 65, 46, 0.22);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  background: rgba(255, 247, 243, 0.92);
+  color: #5d4640;
+}
+
+.empty-guide strong {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: #241a16;
+  font-weight: 950;
+}
+
+.empty-guide ol {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.empty-guide li {
+  padding: 0.16rem 0;
+  line-height: 1.6;
 }
 
 .empty-preview {
@@ -535,6 +889,28 @@ textarea:focus {
   margin: 0.9rem 0;
   color: #594843;
   line-height: 1.8;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin: -0.2rem 0 0.85rem;
+}
+
+.report-actions button {
+  border: 1px solid #e8412e;
+  border-radius: 8px;
+  padding: 0.54rem 0.82rem;
+  background: #e8412e;
+  color: #fff;
+  font-weight: 900;
+}
+
+.report-actions button:last-child {
+  border-color: #241a16;
+  background: #241a16;
 }
 
 .score-grid {
@@ -637,10 +1013,40 @@ textarea:focus {
 
 .dark input,
 .dark textarea,
+.dark .template-strip button,
 .dark .tone-row button {
   border-color: #3a2d26;
   background: #211916;
   color: #f7ede4;
+}
+
+.dark .quality-gate {
+  border-color: rgba(232, 65, 46, 0.28);
+  background:
+    linear-gradient(135deg, rgba(232, 65, 46, 0.14), rgba(23, 19, 17, 0.8)),
+    #171311;
+}
+
+.dark .quality-gate strong {
+  color: #f7ede4;
+}
+
+.dark .quality-gate ul {
+  color: #d3c1b8;
+}
+
+.dark .studio-action-link {
+  border-color: rgba(232, 65, 46, 0.36);
+  background: #e8412e;
+  color: #fff7ed;
+}
+
+.dark .bridge-notice {
+  border-color: rgba(232, 65, 46, 0.28);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(232, 65, 46, 0.18), transparent 10rem),
+    #171311;
+  color: #f0c7bd;
 }
 
 @media (max-width: 980px) {
@@ -658,8 +1064,20 @@ textarea:focus {
 }
 
 @media (max-width: 640px) {
+  .model-strip-compact {
+    grid-template-columns: 1fr;
+  }
+
+  .model-strip-compact .model-strip-copy,
+  .model-strip-compact a {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
   .field-grid,
   .tone-row,
+  .template-strip,
+  .quality-gate,
   .score-grid,
   .empty-preview {
     grid-template-columns: 1fr;

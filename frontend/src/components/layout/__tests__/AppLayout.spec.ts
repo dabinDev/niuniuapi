@@ -66,6 +66,19 @@ describe('AppLayout onboarding auto-start', () => {
     wrapper.unmount()
   })
 
+  it.each(['/keys', '/admin/settings', '/admin/accounts'])(
+    'does not auto-start the onboarding tour on critical configuration page %s',
+    (path) => {
+      const wrapper = mountLayout(path)
+      const options = onboardingCalls[0]
+
+      expect(options.shouldAutoStart).toEqual(expect.any(Function))
+      expect((options.shouldAutoStart as () => boolean)()).toBe(false)
+
+      wrapper.unmount()
+    }
+  )
+
   it('keeps onboarding auto-start available outside the studio workspace', () => {
     const wrapper = mountLayout('/admin/dashboard')
     const options = onboardingCalls[0]

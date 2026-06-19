@@ -2,15 +2,15 @@
   <BaseDialog
     :show="visible"
     :title="t('adminCompliance.title')"
-    width="wide"
+    width="extra-wide"
     :close-on-escape="false"
     :close-on-click-outside="false"
     :show-close-button="false"
     :z-index="80"
     @close="noop"
   >
-    <div class="space-y-5">
-      <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+    <div class="space-y-5 admin-compliance-shell">
+      <div class="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4 text-sm text-amber-900 shadow-sm dark:border-amber-500/30 dark:from-amber-500/10 dark:to-orange-500/10 dark:text-amber-100">
         <div class="flex gap-3">
           <Icon name="exclamationTriangle" size="md" class="mt-0.5 flex-shrink-0" />
           <div class="space-y-2">
@@ -20,51 +20,55 @@
         </div>
       </div>
 
-      <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_240px]">
-        <section class="min-h-[320px] max-h-[46vh] overflow-y-auto rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900">
+      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <section class="admin-compliance-document min-h-[360px] max-h-[52vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-inner dark:border-dark-700 dark:bg-dark-900">
           <div class="legal-document-content" v-html="renderedDocument"></div>
         </section>
 
-        <aside class="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm dark:border-dark-700 dark:bg-dark-900/60">
+        <aside class="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm shadow-sm dark:border-dark-700 dark:bg-dark-900/60">
           <div>
             <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-dark-400">
               {{ t('adminCompliance.version') }}
             </p>
             <p class="mt-1 break-all font-mono text-gray-900 dark:text-white">
-              {{ complianceStore.status?.version || 'v2026.06.10' }}
+              {{ complianceStore.status?.version || 'v2026.06.19' }}
             </p>
           </div>
-          <a
-            :href="documentUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex items-center gap-2 text-primary-600 underline underline-offset-4 hover:text-primary-700 dark:text-primary-300 dark:hover:text-primary-200"
-          >
-            <Icon name="externalLink" size="sm" />
-            {{ t('adminCompliance.openDocument') }}
-          </a>
+          <div class="rounded-xl border border-primary-200 bg-white p-3 dark:border-primary-500/30 dark:bg-dark-950/60">
+            <a
+              :href="documentUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 font-semibold text-primary-600 underline underline-offset-4 hover:text-primary-700 dark:text-primary-300 dark:hover:text-primary-200"
+            >
+              <Icon name="externalLink" size="sm" />
+              {{ t('adminCompliance.openDocument') }}
+            </a>
+          </div>
           <p class="leading-6 text-gray-600 dark:text-dark-300">
             {{ t('adminCompliance.documentSource') }}
           </p>
         </aside>
       </div>
 
-      <div class="space-y-3">
+      <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-900/60">
         <label for="admin-compliance-phrase" class="block text-sm font-semibold text-gray-900 dark:text-white">
           {{ t('adminCompliance.inputLabel') }}
         </label>
-        <div class="rounded-lg bg-gray-100 px-3 py-2 font-mono text-sm text-gray-900 dark:bg-dark-800 dark:text-dark-100">
+        <div class="mt-3 rounded-xl bg-white px-3 py-2 font-mono text-sm text-gray-900 ring-1 ring-gray-200 dark:bg-dark-950 dark:text-dark-100 dark:ring-dark-700">
           {{ expectedPhrase }}
         </div>
-        <Input
-          id="admin-compliance-phrase"
-          v-model="typedPhrase"
-          :placeholder="t('adminCompliance.inputPlaceholder')"
-          autocomplete="off"
-          :disabled="complianceStore.submitting"
-          :error="inputError"
-          @enter="submit"
-        />
+        <div class="mt-3">
+          <Input
+            id="admin-compliance-phrase"
+            v-model="typedPhrase"
+            :placeholder="t('adminCompliance.inputPlaceholder')"
+            autocomplete="off"
+            :disabled="complianceStore.submitting"
+            :error="inputError"
+            @enter="submit"
+          />
+        </div>
       </div>
 
       <p class="text-xs leading-5 text-gray-500 dark:text-dark-400">
@@ -98,6 +102,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useI18n } from 'vue-i18n'
@@ -113,6 +118,7 @@ const { t } = useI18n()
 const complianceStore = useAdminComplianceStore()
 const authStore = useAuthStore()
 const appStore = useAppStore()
+const route = useRoute()
 const typedPhrase = ref('')
 const attemptedSubmit = ref(false)
 
@@ -121,15 +127,21 @@ marked.setOptions({
   gfm: true,
 })
 
-const visible = computed(() => authStore.isAuthenticated && authStore.isAdmin && complianceStore.shouldShow)
+const isAdminManagementRoute = computed(() => route.meta?.requiresAdmin === true || route.path.startsWith('/admin'))
+const visible = computed(() => (
+  authStore.isAuthenticated
+  && authStore.isAdmin
+  && isAdminManagementRoute.value
+  && complianceStore.shouldShow
+))
 const expectedPhrase = computed(() => complianceStore.expectedPhrase)
 const canSubmit = computed(() => typedPhrase.value.trim() === expectedPhrase.value)
 const currentDocument = computed(() => getLocale() === 'zh' ? zhDocument : enDocument)
 const documentUrl = computed(() => {
   if (getLocale() === 'zh') {
-    return complianceStore.status?.document_url_zh || 'https://github.com/Wei-Shaw/sub2api/blob/main/docs/legal/admin-compliance.zh.md'
+    return complianceStore.status?.document_url_zh || 'https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/legal/admin-compliance.zh.md'
   }
-  return complianceStore.status?.document_url_en || 'https://github.com/Wei-Shaw/sub2api/blob/main/docs/legal/admin-compliance.en.md'
+  return complianceStore.status?.document_url_en || 'https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/legal/admin-compliance.en.md'
 })
 const inputError = computed(() => {
   if (!attemptedSubmit.value || canSubmit.value) {
@@ -184,6 +196,14 @@ async function logout(): Promise<void> {
 </script>
 
 <style scoped>
+.admin-compliance-shell {
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-compliance-document {
+  scrollbar-gutter: stable;
+}
+
 .legal-document-content {
   line-height: 1.75;
   overflow-wrap: anywhere;

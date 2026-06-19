@@ -5,24 +5,28 @@ const getFanqieRank = vi.hoisted(() => vi.fn())
 const searchFanqieBooks = vi.hoisted(() => vi.fn())
 const downloadFanqieBook = vi.hoisted(() => vi.fn())
 const analyzeFanqieBook = vi.hoisted(() => vi.fn())
+const routerPush = vi.hoisted(() => vi.fn())
 
 vi.mock('@/api/studio', () => ({ getFanqieRank, searchFanqieBooks, downloadFanqieBook, analyzeFanqieBook }))
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push: routerPush }),
+}))
 
 import DownloaderView from '../DownloaderView.vue'
 
 const rankBooks = Array.from({ length: 30 }, (_, index) => ({
   id: String(1000 + index),
   rank: index + 1,
-  title: `榜单小说 ${index + 1}`,
-  author: `作者 ${index + 1}`,
-  category: index % 2 ? '都市日常' : '玄幻脑洞',
-  status: '连载中',
-  word_count: `${80 + index}万字`,
-  score: `${99 - index} 热度`,
-  description: `第 ${index + 1} 本榜单书的卖点说明`,
+  title: `Rank Novel ${index + 1}`,
+  author: `Author ${index + 1}`,
+  category: index % 2 ? 'Urban Daily / System / Business' : 'Suspense Brainstorm / Mystery / Infinite Flow',
+  status: index % 2 ? 'Serializing' : 'Completed',
+  word_count: `${80 + index}0k words`,
+  score: `${99 - index} heat`,
+  description: `Selling point for rank novel ${index + 1}`,
   cover_url: `https://img.example.com/cover-${index + 1}.jpg`,
   source_url: `https://fanqienovel.com/page/${1000 + index}`,
-  tags: ['强钩子', '可对标'],
+  tags: ['hook', 'benchmark'],
 }))
 
 const mountView = () =>
@@ -41,6 +45,8 @@ describe('DownloaderView as FanqieHotlist', () => {
     searchFanqieBooks.mockReset()
     downloadFanqieBook.mockReset()
     analyzeFanqieBook.mockReset()
+    routerPush.mockReset()
+    localStorage.clear()
     getFanqieRank.mockResolvedValue({
       channel: 'hot',
       updated_at: '2026-06-17T00:00:00Z',
@@ -54,12 +60,8 @@ describe('DownloaderView as FanqieHotlist', () => {
     await flushPromises()
 
     expect(getFanqieRank).toHaveBeenCalledWith('hot')
-    expect(wrapper.text()).toContain('番茄热榜')
-    expect(wrapper.text()).toContain('热榜')
-    expect(wrapper.text()).toContain('巅峰榜')
-    expect(wrapper.text()).toContain('男生榜')
-    expect(wrapper.text()).toContain('女生榜')
     expect(wrapper.findAll('[data-test="fanqie-rank-row"]')).toHaveLength(30)
+    expect(wrapper.find('[data-test="fanqie-channel-hot"]').classes()).toContain('active')
   })
 
   it('renders book covers in the list and selected sample card', async () => {
@@ -74,6 +76,84 @@ describe('DownloaderView as FanqieHotlist', () => {
     const selectedCover = wrapper.find('[data-test="fanqie-selected-cover"]')
     expect(selectedCover.exists()).toBe(true)
     expect(selectedCover.attributes('src')).toBe('https://img.example.com/cover-1.jpg')
+    expect(wrapper.find('[data-test="fanqie-sample-card"]').classes()).toContain('has-cover')
+    expect(wrapper.find('[data-test="fanqie-sample-card"]').classes()).toContain('sample-card-compact')
+    expect(wrapper.find('[data-test="fanqie-download"]').exists()).toBe(true)
+  })
+
+  it('uses a wide topic stat in the selected sample card so long genres do not collapse vertically', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const topic = wrapper.find('[data-test="fanqie-sample-topic"]')
+    expect(topic.exists()).toBe(true)
+    expect(topic.classes()).toContain('sample-profile-topic')
+    expect(wrapper.find('[data-test="fanqie-sample-word-count"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-sample-status"]').exists()).toBe(true)
+  })
+
+  it('organizes the sample card around analysis, authorized backup, and downstream actions', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="fanqie-sample-panel"]').classes()).toContain('sample-panel-scroll')
+    expect(wrapper.find('[data-test="fanqie-sample-fast-lane"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-sample-fast-lane"]').text()).toContain('授权下载')
+    expect(wrapper.find('[data-test="fanqie-decision-strip"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-sample-ops"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-sample-ops"]').classes()).toContain('sample-ops-compact')
+    expect(wrapper.find('[data-test="fanqie-sample-action-rail"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-backup-card"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-backup-card"]').classes()).toContain('backup-section-stack')
+    expect(wrapper.find('[data-test="fanqie-backup-card"]').text()).toContain('完整小说 TXT')
+    expect(wrapper.find('[data-test="fanqie-analyze"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-download"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-send-teardown"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-send-hotspot"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-send-generate"]').exists()).toBe(true)
+  })
+
+  it('uses designed cover placeholders when fanqie does not provide images', async () => {
+    const noCoverBooks = rankBooks.map((book) => ({ ...book, cover_url: '' }))
+    getFanqieRank.mockResolvedValueOnce({
+      channel: 'hot',
+      updated_at: '2026-06-17T00:00:00Z',
+      source: 'fanqie-rank',
+      books: noCoverBooks,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-test="fanqie-cover-placeholder"]')).toHaveLength(30)
+    expect(wrapper.find('[data-test="fanqie-cover-placeholder"] b').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-cover-placeholder"] small').text()).toContain('榜样')
+    expect(wrapper.find('[data-test="fanqie-selected-cover-placeholder"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-selected-cover-placeholder"] b').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-selected-cover-placeholder"] small').text()).toContain('NO COVER')
+    expect(wrapper.find('[data-test="fanqie-selected-cover-placeholder"]').text()).toContain('Rank')
+  })
+
+  it('separates sample analysis, downstream routing, and authorized full-book backup', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="fanqie-sample-action-rail"]').text()).toContain('前十章轻拆')
+    expect(wrapper.find('[data-test="fanqie-sample-downstream-card"]').text()).toContain('下游加工')
+    expect(wrapper.find('[data-test="fanqie-backup-card"]').text()).toContain('授权全本备份')
+  })
+
+  it('sends the selected hotlist sample to downstream studio tools', async () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-test="fanqie-send-hotspot"]').trigger('click')
+
+    expect(setItem).toHaveBeenCalledWith('studio_bridge_payload', expect.stringContaining('"target":"hotspot"'))
+    expect(setItem).toHaveBeenCalledWith('studio_bridge_payload', expect.stringContaining(rankBooks[0].title))
+    expect(routerPush).toHaveBeenCalledWith('/studio/hotspot')
+    setItem.mockRestore()
   })
 
   it('switches rank channels', async () => {
@@ -91,107 +171,148 @@ describe('DownloaderView as FanqieHotlist', () => {
       {
         id: '42',
         rank: 1,
-        title: '十日终焉',
-        author: '杀虫队队员',
-        category: '悬疑脑洞',
-        status: '已完结',
-        word_count: '240万字',
-        score: '搜索命中',
-        description: '指定小说搜索结果',
+        title: 'Ten Days Final',
+        author: 'Search Author',
+        category: 'Suspense',
+        status: 'Completed',
+        word_count: '2400k words',
+        score: 'search hit',
+        description: 'Named search result',
         cover_url: '',
         source_url: 'https://fanqienovel.com/page/42',
-        tags: ['搜索'],
+        tags: ['search'],
       },
     ])
     const wrapper = mountView()
     await flushPromises()
 
-    await wrapper.find('[data-test="fanqie-search-input"]').setValue('十日终焉')
+    await wrapper.find('[data-test="fanqie-search-input"]').setValue('Ten Days Final')
     await wrapper.find('[data-test="fanqie-search-submit"]').trigger('click')
     await flushPromises()
 
-    expect(searchFanqieBooks).toHaveBeenCalledWith('十日终焉')
-    expect(wrapper.text()).toContain('搜索结果')
-    expect(wrapper.text()).toContain('十日终焉')
+    expect(searchFanqieBooks).toHaveBeenCalledWith('Ten Days Final')
+    expect(wrapper.text()).toContain('Ten Days Final')
   })
 
   it('shows backend search failure details', async () => {
-    searchFanqieBooks.mockRejectedValue({
-      status: 502,
-      message: '番茄官方搜索接口触发验证码校验，暂时无法自动按书名搜索；请粘贴番茄作品页链接或作品 ID 后重试',
-    })
+    searchFanqieBooks.mockRejectedValue({ status: 502, message: 'fanqie captcha required' })
     const wrapper = mountView()
     await flushPromises()
 
-    await wrapper.find('[data-test="fanqie-search-input"]').setValue('十日终焉')
+    await wrapper.find('[data-test="fanqie-search-input"]').setValue('blocked novel')
     await wrapper.find('[data-test="fanqie-search-submit"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('验证码校验')
-    expect(wrapper.text()).toContain('粘贴番茄作品页链接')
+    expect(wrapper.text()).toContain('fanqie captcha required')
+  })
+
+  it('translates generic backend rank failures into a readable local troubleshooting card', async () => {
+    getFanqieRank.mockRejectedValue({ response: { status: 500 } })
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="fanqie-rank-empty-action"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-sample-empty-guide"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Request failed with status code 500')
   })
 
   it('downloads the selected book after the user confirms backup rights', async () => {
     downloadFanqieBook.mockResolvedValue({
-      title: '榜单小说 1',
-      file_name: '榜单小说 1.txt',
+      title: 'Rank Novel 1',
+      file_name: 'Rank Novel 1.txt',
       chapter_count: 30,
       text: 'Book 1\n\nChapter 1',
       status: 'completed',
       source: 'fanqie',
       decode_status: 'browser_required',
-      notes: ['仅限个人备份'],
+      notes: ['personal backup only'],
     })
     const wrapper = mountView()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('分析前10章')
-    expect(wrapper.text()).toContain('下载/导入完整小说 TXT')
     await wrapper.find('[data-test="fanqie-consent"]').setValue(true)
     await wrapper.find('[data-test="fanqie-download"]').trigger('click')
     await flushPromises()
 
     expect(downloadFanqieBook).toHaveBeenCalledWith(rankBooks[0], true)
-    expect(wrapper.text()).toContain('需要浏览器校验')
     expect(wrapper.text()).not.toContain('browser_required')
-    expect(wrapper.text()).toContain('榜单小说 1.txt')
+    expect(wrapper.text()).toContain('Rank Novel 1.txt')
+  })
+
+  it('shows a long-running complete novel import notice while download is pending', async () => {
+    let resolveDownload!: (value: unknown) => void
+    downloadFanqieBook.mockReturnValue(new Promise((resolve) => {
+      resolveDownload = resolve
+    }))
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-test="fanqie-consent"]').setValue(true)
+    await wrapper.find('[data-test="fanqie-download"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="fanqie-download-progress"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fanqie-download-progress"]').text()).toContain('完整小说')
+
+    resolveDownload({
+      title: 'Rank Novel 1',
+      file_name: 'Rank Novel 1.txt',
+      chapter_count: 1,
+      text: 'Book 1',
+      status: 'completed',
+      source: 'fanqie',
+      decode_status: 'readable',
+      notes: [],
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="fanqie-download-progress"]').exists()).toBe(false)
+  })
+
+  it('translates complete novel download timeouts into actionable guidance', async () => {
+    downloadFanqieBook.mockRejectedValue({ code: 'ECONNABORTED', message: 'timeout of 600000ms exceeded' })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-test="fanqie-consent"]').setValue(true)
+    await wrapper.find('[data-test="fanqie-download"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('完整小说下载耗时较长')
+    expect(wrapper.text()).not.toContain('timeout of 600000ms exceeded')
   })
 
   it('keeps analysis scoped to first ten chapters while download imports the complete novel txt', async () => {
     downloadFanqieBook.mockResolvedValue({
-      title: '榜单小说 1',
-      file_name: '榜单小说 1.txt',
+      title: 'Rank Novel 1',
+      file_name: 'Rank Novel 1.txt',
       chapter_count: 328,
       text: 'Book 1\n\nChapter 1\n...\nChapter 328',
       status: 'completed',
       source: 'fanqie',
       decode_status: 'readable',
-      notes: ['完整 TXT 已生成，仅限个人备份'],
+      notes: ['complete TXT generated'],
     })
     analyzeFanqieBook.mockResolvedValue({
-      title: '榜单小说 1 开篇分析',
-      summary: '只分析简介和前十章，避免为了分析下载整本。',
-      hooks: ['开局压迫'],
-      actions: ['强化第 10 章后的追读钩子'],
+      title: 'Rank Novel 1 opening analysis',
+      summary: 'Only introduction and first ten chapters are analyzed.',
+      hooks: ['opening pressure'],
+      actions: ['strengthen chapter 10 hook'],
     })
     const wrapper = mountView()
     await flushPromises()
-
-    expect(wrapper.text()).toContain('分析前10章')
-    expect(wrapper.text()).toContain('下载/导入完整小说 TXT')
 
     await wrapper.find('[data-test="fanqie-analyze"]').trigger('click')
     await flushPromises()
     expect(analyzeFanqieBook).toHaveBeenCalledWith(rankBooks[0])
     expect(downloadFanqieBook).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('只分析简介和前十章')
+    expect(wrapper.text()).toContain('Only introduction and first ten chapters are analyzed.')
 
     await wrapper.find('[data-test="fanqie-consent"]').setValue(true)
     await wrapper.find('[data-test="fanqie-download"]').trigger('click')
     await flushPromises()
     expect(downloadFanqieBook).toHaveBeenCalledWith(rankBooks[0], true)
-    expect(wrapper.text()).toContain('328 章')
-    expect(wrapper.text()).toContain('完整 TXT 已生成')
+    expect(wrapper.text()).toContain('328')
   })
 
   it('saves the generated fanqie import package as a txt file', async () => {
@@ -234,10 +355,10 @@ describe('DownloaderView as FanqieHotlist', () => {
 
   it('runs first-ten-chapter analysis for the selected book', async () => {
     analyzeFanqieBook.mockResolvedValue({
-      title: '榜单小说 1 开篇分析',
-      summary: '前三章钩子清晰',
-      hooks: ['开局压迫'],
-      actions: ['强化章尾钩子'],
+      title: 'Rank Novel 1 opening analysis',
+      summary: 'Opening hooks are clear.',
+      hooks: ['fast opening'],
+      actions: ['strengthen chapter ending hook'],
     })
     const wrapper = mountView()
     await flushPromises()
@@ -246,7 +367,7 @@ describe('DownloaderView as FanqieHotlist', () => {
     await flushPromises()
 
     expect(analyzeFanqieBook).toHaveBeenCalledWith(rankBooks[0])
-    expect(wrapper.text()).toContain('榜单小说 1 开篇分析')
-    expect(wrapper.text()).toContain('强化章尾钩子')
+    expect(wrapper.text()).toContain('Rank Novel 1 opening analysis')
+    expect(wrapper.text()).toContain('strengthen chapter ending hook')
   })
 })

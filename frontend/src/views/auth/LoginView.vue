@@ -1,6 +1,12 @@
 <template>
   <AuthLayout>
     <div class="space-y-6">
+      <section class="login-workbench-card" data-test="login-workbench-card">
+        <span>WRITER PASS</span>
+        <strong>登录创作台，继续你的热榜拆解和下一稿</strong>
+        <p>番茄热榜、封面生成、拆书诊断、爆款对标和创作生成会在同一套作品流里接力。</p>
+      </section>
+
       <!-- Title -->
       <div class="text-center">
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
@@ -196,6 +202,57 @@
     @cancel="handle2FACancel"
   />
 </template>
+
+<style scoped>
+.login-workbench-card {
+  border: 1px solid rgba(232, 65, 46, 0.18);
+  border-radius: 1.15rem;
+  padding: 1rem;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(232, 65, 46, 0.14), transparent 9rem),
+    linear-gradient(135deg, #fff7f0, #fffdfb);
+  color: #241a16;
+  box-shadow: 0 16px 42px rgba(69, 31, 20, 0.08);
+}
+
+.login-workbench-card span {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.18rem 0.52rem;
+  background: #241a16;
+  color: #ffc8a5;
+  font-size: 0.7rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+}
+
+.login-workbench-card strong {
+  display: block;
+  margin-top: 0.55rem;
+  font-size: 1rem;
+  font-weight: 950;
+  line-height: 1.45;
+}
+
+.login-workbench-card p {
+  margin-top: 0.35rem;
+  color: #6c5a52;
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+.dark .login-workbench-card {
+  border-color: rgba(232, 65, 46, 0.26);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(232, 65, 46, 0.16), transparent 9rem),
+    #171311;
+  color: #fff7ed;
+}
+
+.dark .login-workbench-card p {
+  color: #cdbdb5;
+}
+</style>
 
 <script setup lang="ts">
 import { computed, ref, reactive, onMounted, watch } from 'vue'

@@ -3,9 +3,9 @@
     <div class="works-page mx-auto max-w-7xl" data-test="studio-workbench-shell">
       <header class="works-head">
         <div>
-          <span class="eyebrow">作品归档</span>
+          <span class="eyebrow">作品任务台</span>
           <h1>我的作品</h1>
-          <p>集中查看拆书、爆款对标、创作生成和封面历史；先筛选，再点开右侧详情继续加工。</p>
+          <p>把导入、诊断、对标、生成和封面历史收进同一个任务台；先看当前动作，再进入归档继续加工。</p>
         </div>
         <div class="quick-actions" aria-label="作品快捷入口">
           <router-link to="/studio/fanqie">查看热榜</router-link>
@@ -14,11 +14,26 @@
         </div>
       </header>
 
-      <section class="spine-band" aria-label="创作流水线">
-        <article v-for="step in spineSteps" :key="step.title">
-          <span>{{ step.index }}</span>
-          <strong>{{ step.title }}</strong>
-          <p>{{ step.desc }}</p>
+      <section class="mission-control mission-control-mobile-compact" data-test="works-mission-control" aria-label="作品任务台">
+        <article class="mission-panel queue-panel" data-test="works-queue-panel">
+          <span class="eyebrow small">Queue</span>
+          <strong>作品队列</strong>
+          <p>{{ works.length ? `当前归档 ${works.length} 个产出，默认打开最新一条。` : '还没有归档，先从热榜选样本或生成第一稿。' }}</p>
+        </article>
+        <article class="mission-panel status-panel" data-test="works-status-panel">
+          <span class="eyebrow small">Status</span>
+          <strong>当前作品状态</strong>
+          <p>{{ selected ? selectedStatusText : '选择一个作品后，这里会显示导入、诊断、对标或生成状态。' }}</p>
+        </article>
+        <article class="mission-panel action-panel" data-test="works-action-panel">
+          <span class="eyebrow small">Next Action</span>
+          <strong>下一步动作</strong>
+          <p>{{ selected ? selectedActionHint : '先创建素材，再把作品推进到拆书、对标或生成。' }}</p>
+          <div class="mission-actions">
+            <router-link to="/studio/fanqie">热榜选样本</router-link>
+            <router-link to="/studio/teardown">拆书诊断</router-link>
+            <router-link class="primary" to="/studio/generate">生成下一版</router-link>
+          </div>
         </article>
       </section>
 
@@ -81,7 +96,7 @@
         </aside>
       </section>
 
-      <section class="archive-section" aria-label="最近产出归档">
+      <section class="archive-section archive-section-mobile-stack" data-test="works-archive-section" aria-label="最近产出归档">
         <div class="archive-head">
           <div>
             <span class="eyebrow small">最近产出</span>
@@ -101,7 +116,7 @@
           </div>
         </div>
 
-        <div class="archive-grid">
+        <div class="archive-grid archive-grid-mobile-flow" data-test="works-archive-grid">
           <section class="archive-list">
             <div v-if="loading" class="archive-empty">加载中...</div>
             <div v-else-if="!works.length" class="archive-empty dashed">
@@ -184,11 +199,78 @@
               </div>
 
               <div v-else-if="selected.type === 'import'" class="detail-block">
-                <div class="chapter-summary">
-                  <article v-for="chapter in imported.chapters || []" :key="chapter.title + chapter.source">
-                    <strong>{{ chapter.title }}</strong>
-                    <span>{{ chapter.word_count || '-' }} 字</span>
-                    <small>{{ chapter.source || '粘贴内容' }}</small>
+                <div class="import-overview" data-test="import-overview">
+                  <article>
+                    <span>章节数</span>
+                    <strong>{{ importChapterStats.count }}</strong>
+                  </article>
+                  <article>
+                    <span>已统计字数</span>
+                    <strong>{{ importChapterStats.wordsLabel }}</strong>
+                  </article>
+                  <article>
+                    <span>展示策略</span>
+                    <strong>预览前 {{ visibleImportChapters.length }} 章</strong>
+                  </article>
+                </div>
+                <p v-if="hasHiddenImportChapters" class="import-note" data-test="import-note">
+                  {{ importChapterStats.chaptersWithContent > 0 ? '已导入章节正文' : '已记录完整目录数据' }}
+                  {{ importChapterStats.count }} 章。为避免作品页被全本目录撑爆，这里先展示前
+                  {{ importPreviewLimit }} 章；{{
+                    importChapterStats.chaptersWithContent > 0
+                      ? '后续拆书/对标/生成会优先使用已入库正文。'
+                      : '当前适合做结构浏览，如需正文级分析请重新导入授权 TXT。'
+                  }}
+                </p>
+                <p
+                  v-if="importChapterStats.missingWords > 0"
+                  class="import-note import-note-soft"
+                  data-test="import-missing-words-note"
+                >
+                  有 {{ importChapterStats.missingWords }} 章暂未采集到字数，{{
+                    importChapterStats.chaptersWithContent > 0
+                      ? '章节正文仍已导入，可继续用于拆书、对标和生成。'
+                      : '正文待采集，请导入授权 TXT 或等待采集完成后再做正文级分析。'
+                  }}
+                </p>
+                <div class="import-stage-rail" data-test="import-stage-rail" aria-label="导入阶段">
+                  <article class="done">
+                    <b>01</b>
+                    <strong>目录</strong>
+                    <span>{{ importChapterStats.count }} 章已记录</span>
+                  </article>
+                  <article :class="{ done: importChapterStats.chaptersWithContent > 0, warn: importChapterStats.chaptersWithContent === 0 }">
+                    <b>02</b>
+                    <strong>正文</strong>
+                    <span>{{ importChapterStats.chaptersWithContent > 0 ? `${importChapterStats.chaptersWithContent} 章可用` : '待采集或导入 TXT' }}</span>
+                  </article>
+                  <article :class="{ done: importChapterStats.chaptersWithContent > 0, warn: importChapterStats.chaptersWithContent === 0 }">
+                    <b>03</b>
+                    <strong>再加工</strong>
+                    <span>{{ importChapterStats.chaptersWithContent > 0 ? '可直接拆书/对标/生成' : '先做结构浏览' }}</span>
+                  </article>
+                </div>
+                <div class="import-action-strip" data-test="import-action-strip">
+                  <div>
+                    <span data-test="import-content-state" :class="importContentStatus.className">
+                      {{ importContentStatus.title }}
+                    </span>
+                    <strong>{{ importContentStatus.description }}</strong>
+                  </div>
+                  <button type="button" data-test="import-send-teardown" @click="sendImportTo('teardown')">送去拆书</button>
+                  <button type="button" data-test="import-send-hotspot" @click="sendImportTo('hotspot')">送去对标</button>
+                  <button type="button" data-test="import-send-generate" @click="sendImportTo('generate')">生成续写</button>
+                </div>
+                <div
+                  class="chapter-summary"
+                  :class="{ 'scrollable-preview': hasHiddenImportChapters }"
+                  data-test="import-chapter-summary"
+                >
+                  <article v-for="(chapter, index) in visibleImportChapters" :key="chapter.title + chapter.source">
+                    <strong>{{ displayChapterTitle(chapter, index) }}</strong>
+                    <span v-if="chapter.word_count" class="word-count">{{ formatNumber(chapter.word_count) }} 字</span>
+                    <span v-else class="word-count pending" data-test="import-chapter-word-count-pending">待采集</span>
+                    <small>{{ sourceLabel(chapter.source) }}</small>
                   </article>
                 </div>
                 <ListGroup title="下一步" :items="imported.next_actions || []" tone="success" />
@@ -212,6 +294,7 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import CoverImageViewer from '@/components/studio/CoverImageViewer.vue'
 import { getWork, listWorks, type CoverImage, type WorkDetail, type WorkItem } from '@/api/studio'
@@ -241,13 +324,6 @@ const tabs = [
   { value: 'generate', label: '生成' },
   { value: 'script', label: '剧本' },
   { value: 'cover', label: '封面' },
-]
-
-const spineSteps = [
-  { index: '01', title: '找样本', desc: '从番茄热榜挑选题材和结构参照' },
-  { index: '02', title: '诊断', desc: '拆节奏、爽点、人物和伏笔' },
-  { index: '03', title: '对标', desc: '比同题材样本，找爆款差距' },
-  { index: '04', title: '生成', desc: '产出大纲、正文、改写和脚本' },
 ]
 
 const projectMetrics = [
@@ -284,6 +360,15 @@ const selected = ref<WorkDetail | null>(null)
 const detailLoading = ref(false)
 const viewerOpen = ref(false)
 const viewerIndex = ref(0)
+const router = useRouter()
+const importPreviewLimit = 60
+
+type ImportedChapter = {
+  title: string
+  word_count: number
+  source?: string
+  content?: string
+}
 
 const typeLabelMap: Record<string, string> = {
   cover: '封面',
@@ -306,6 +391,45 @@ function fmtTime(s: string) {
   if (!s) return ''
   const d = new Date(s)
   return Number.isNaN(d.getTime()) ? s : d.toLocaleString()
+}
+
+const formatNumber = (value: number) => new Intl.NumberFormat('zh-CN').format(value)
+
+function normalizeChapterTitle(title: string, index: number) {
+  const normalized = title.replace(/^第\s*(\d+)\s*章/, (_match, chapterNo) => `第 ${String(chapterNo).padStart(2, '0')} 章`)
+  return normalized || `第 ${String(index + 1).padStart(2, '0')} 章`
+}
+
+function displayChapterTitle(chapter: ImportedChapter, index: number) {
+  if (chapter.source?.includes('fanqienovel.com')) return normalizeChapterTitle(chapter.title, index)
+  return chapter.title.replace(/^第\s*(\d+)\s*章/, (_match, chapterNo) => `第 ${chapterNo} 章`)
+}
+
+function sourceLabel(source?: string) {
+  if (!source) return '粘贴内容'
+  return source.includes('fanqienovel.com') ? '番茄来源' : '外部来源'
+}
+
+function buildImportContent() {
+  return importChapters.value
+    .map((chapter, index) => {
+      const title = chapter.title || `第${index + 1}章`
+      return chapter.content ? `${title}\n${chapter.content}` : title
+    })
+    .join('\n\n')
+}
+
+function sendImportTo(target: 'teardown' | 'hotspot' | 'generate') {
+  if (!selected.value) return
+  localStorage.setItem('studio_bridge_payload', JSON.stringify({
+    source: 'works',
+    target,
+    title: selected.value.title,
+    genre: '番茄导入',
+    content: buildImportContent(),
+    brief: `${selected.value.title}：${importChapterStats.value.count} 章，${importContentStatus.value.title}`,
+  }))
+  void router.push(`/studio/${target}`)
 }
 
 const out = computed<Record<string, unknown>>(() => (selected.value?.output as Record<string, unknown>) || {})
@@ -332,15 +456,61 @@ const creative = computed(() => out.value as {
   next_steps?: string[]
 })
 const imported = computed(() => out.value as {
-  chapters?: { title: string; word_count: number; source?: string }[]
+  chapters?: ImportedChapter[]
   next_actions?: string[]
 })
 const scriptScenes = computed(() => (out.value.scenes as { heading: string; content: string }[]) || [])
+const importChapters = computed(() => imported.value.chapters || [])
+const visibleImportChapters = computed(() => importChapters.value.slice(0, importPreviewLimit))
+const hasHiddenImportChapters = computed(() => importChapters.value.length > visibleImportChapters.value.length)
+const importChapterStats = computed(() => {
+  const chapters = importChapters.value
+  const words = chapters.reduce((sum, chapter) => sum + (Number(chapter.word_count) || 0), 0)
+  const chaptersWithContent = chapters.filter((chapter) => Boolean(chapter.content && chapter.content.trim())).length
+  const missingWords = chapters.filter((chapter) => !Number(chapter.word_count)).length
+  return {
+    count: chapters.length,
+    words,
+    wordsLabel: words > 0 ? `${formatNumber(words)} 字` : '待采集',
+    chaptersWithContent,
+    missingWords,
+  }
+})
+const importContentStatus = computed(() => {
+  if (importChapterStats.value.chaptersWithContent > 0) {
+    return {
+      className: 'content-ready',
+      title: '全本内容已入库',
+      description: `已有 ${importChapterStats.value.chaptersWithContent} 章正文，可继续拆书、对标和生成。`,
+    }
+  }
+  return {
+    className: 'catalog-only',
+    title: '目录已入库',
+    description: '正文待采集，当前适合先做结构浏览和章节规划。',
+  }
+})
+const selectedStatusText = computed(() => {
+  if (!selected.value) return ''
+  if (selected.value.type === 'import') {
+    return `${importContentStatus.value.title}，${importChapterStats.value.count} 章，${importChapterStats.value.wordsLabel}。`
+  }
+  return `${typeLabel(selected.value.type)}结果已归档，可继续复盘或送入下一步。`
+})
+const selectedActionHint = computed(() => {
+  if (!selected.value) return ''
+  if (selected.value.type === 'import') return '把导入作品送去拆书诊断、爆款对标或创作生成。'
+  if (selected.value.type === 'cover') return '封面可放入作品档案，下一步补齐简介和卖点。'
+  return '回到热榜选样本，或把当前结论推进到下一版正文。'
+})
 
 async function load() {
   loading.value = true
   try {
     works.value = await listWorks(activeType.value === 'all' ? undefined : activeType.value)
+    if (works.value.length) {
+      await select(works.value[0])
+    }
   } catch {
     works.value = []
   } finally {
@@ -448,14 +618,15 @@ onBeforeUnmount(closeCoverViewer)
   color: #fff;
 }
 
-.spine-band {
-  order: 2;
+.mission-control {
+  order: 1;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 0.9fr 1fr 1.15fr;
   gap: 0.75rem;
   margin: 1rem 0;
 }
 
+.mission-panel,
 .spine-band article,
 .panel,
 .archive-section {
@@ -463,6 +634,46 @@ onBeforeUnmount(closeCoverViewer)
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 18px 50px rgba(54, 32, 24, 0.08);
+}
+
+.mission-panel {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.9rem;
+  box-shadow: none;
+}
+
+.mission-panel strong {
+  color: #241a16;
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.mission-panel p {
+  color: #665854;
+  line-height: 1.65;
+}
+
+.mission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.mission-actions a {
+  border: 1px solid #eaded8;
+  border-radius: 999px;
+  padding: 0.45rem 0.65rem;
+  background: #fffdfb;
+  color: #493a35;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.mission-actions a.primary {
+  border-color: #e8412e;
+  background: #e8412e;
+  color: #fff;
 }
 
 .spine-band article {
@@ -489,7 +700,7 @@ onBeforeUnmount(closeCoverViewer)
 }
 
 .workbench-grid {
-  order: 3;
+  order: 2;
   display: grid;
   grid-template-columns: minmax(220px, 0.78fr) minmax(0, 1.44fr) minmax(220px, 0.78fr);
   gap: 1rem;
@@ -622,8 +833,8 @@ onBeforeUnmount(closeCoverViewer)
 }
 
 .archive-section {
-  order: 1;
-  margin-top: 0;
+  order: 3;
+  margin-top: 1rem;
   padding: 1rem;
 }
 
@@ -656,7 +867,7 @@ onBeforeUnmount(closeCoverViewer)
 
 .archive-grid {
   display: grid;
-  grid-template-columns: minmax(260px, 0.75fr) minmax(0, 1.25fr);
+  grid-template-columns: minmax(280px, 0.58fr) minmax(0, 1.62fr);
   gap: 1rem;
 }
 
@@ -856,6 +1067,170 @@ onBeforeUnmount(closeCoverViewer)
   gap: 0.55rem;
 }
 
+.chapter-summary.scrollable-preview {
+  max-height: 34rem;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 1.6rem), transparent 100%);
+}
+
+.chapter-summary.scrollable-preview::-webkit-scrollbar {
+  width: 0.45rem;
+}
+
+.chapter-summary.scrollable-preview::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(232, 65, 46, 0.28);
+}
+
+.import-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.import-overview article,
+.import-stage-rail article {
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fffdfb;
+}
+
+.import-overview span {
+  display: block;
+  color: #9f7a6d;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.import-overview strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: #241a16;
+  font-weight: 950;
+}
+
+.import-note {
+  border: 1px solid rgba(28, 117, 91, 0.22);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #f6fffa;
+  color: #476257;
+  line-height: 1.75;
+}
+
+.import-note-soft {
+  border-color: rgba(232, 65, 46, 0.18);
+  background: #fff7f3;
+  color: #7d4b40;
+}
+
+.import-stage-rail {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.import-stage-rail article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.45rem 0.65rem;
+  align-items: center;
+}
+
+.import-stage-rail b {
+  grid-row: span 2;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #241a16;
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 950;
+}
+
+.import-stage-rail strong {
+  color: #241a16;
+  font-weight: 950;
+}
+
+.import-stage-rail span {
+  color: #7d625a;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.import-stage-rail article.done {
+  border-color: rgba(28, 117, 91, 0.24);
+  background: #f6fffa;
+}
+
+.import-stage-rail article.done b {
+  background: #1c755b;
+}
+
+.import-stage-rail article.warn {
+  border-color: rgba(232, 65, 46, 0.2);
+  background: #fff7f3;
+}
+
+.import-stage-rail article.warn b {
+  background: #e8412e;
+}
+
+.import-action-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #eaded8;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fffdfb;
+}
+
+.import-action-strip div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.import-action-strip span {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.import-action-strip .content-ready {
+  background: #1c755b;
+}
+
+.import-action-strip .catalog-only {
+  background: #e8412e;
+}
+
+.import-action-strip strong {
+  color: #241a16;
+  font-weight: 900;
+}
+
+.import-action-strip button {
+  border: 1px solid #eaded8;
+  border-radius: 999px;
+  padding: 0.48rem 0.72rem;
+  background: #fff;
+  color: #493a35;
+  font-weight: 900;
+}
+
 .chapter-summary article {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 12rem);
@@ -875,6 +1250,10 @@ onBeforeUnmount(closeCoverViewer)
   font-weight: 850;
 }
 
+.chapter-summary span.pending {
+  color: #9f7a6d;
+}
+
 .chapter-summary small {
   color: #8b7a74;
 }
@@ -888,12 +1267,21 @@ onBeforeUnmount(closeCoverViewer)
 .dark .works-head p,
 .dark .archive-head p,
 .dark .spine-band p,
+.dark .mission-panel p,
 .dark .chapter-panel p,
 .dark .metric-grid p {
   color: #cdbdb5;
 }
 
+.dark .mission-panel strong,
+.dark .import-overview strong,
+.dark .import-stage-rail strong,
+.dark .import-action-strip strong {
+  color: #fff7ed;
+}
+
 .dark .spine-band article,
+.dark .mission-panel,
 .dark .panel,
 .dark .archive-section,
 .dark .work-card,
@@ -902,13 +1290,21 @@ onBeforeUnmount(closeCoverViewer)
 .dark .setting-list article,
 .dark .list-group,
 .dark .section-output,
+.dark .import-overview article,
+.dark .import-stage-rail article,
+.dark .import-action-strip,
 .dark .chapter-summary article {
   border-color: #312720;
   background: #171311;
 }
 
+.dark .import-stage-rail span {
+  color: #cdbdb5;
+}
+
 @media (max-width: 1080px) {
   .workbench-grid,
+  .mission-control,
   .archive-grid {
     grid-template-columns: 1fr;
   }
@@ -918,6 +1314,8 @@ onBeforeUnmount(closeCoverViewer)
   .works-head,
   .archive-head,
   .spine-band,
+  .import-overview,
+  .import-stage-rail,
   .metric-grid {
     grid-template-columns: 1fr;
   }
@@ -933,6 +1331,139 @@ onBeforeUnmount(closeCoverViewer)
 }
 
 @media (max-width: 640px) {
+  .works-page {
+    padding: 0.25rem 0 1.25rem;
+  }
+
+  .works-head {
+    gap: 0.65rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .works-head h1 {
+    font-size: 1.55rem;
+  }
+
+  .works-head p,
+  .archive-head p {
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+
+  .quick-actions,
+  .mission-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .quick-actions a,
+  .mission-actions a {
+    padding: 0.48rem 0.35rem;
+    text-align: center;
+    font-size: 0.76rem;
+  }
+
+  .mission-control-mobile-compact {
+    gap: 0.55rem;
+    margin: 0.7rem 0;
+  }
+
+  .mission-control-mobile-compact .mission-panel {
+    gap: 0.25rem;
+    padding: 0.72rem;
+  }
+
+  .mission-control-mobile-compact .mission-panel p {
+    font-size: 0.84rem;
+    line-height: 1.48;
+  }
+
+  .workbench-grid,
+  .archive-grid-mobile-flow {
+    gap: 0.75rem;
+  }
+
+  .panel,
+  .archive-section-mobile-stack {
+    border-radius: 10px;
+    padding: 0.75rem;
+  }
+
+  .chapter-panel ol,
+  .archive-list ul {
+    gap: 0.5rem;
+  }
+
+  .chapter-panel li {
+    grid-template-columns: 1.75rem 1fr;
+    padding: 0.55rem;
+  }
+
+  .chapter-panel b {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.72rem;
+  }
+
+  .metric-grid article,
+  .todo-panel,
+  .setting-list article {
+    padding: 0.62rem;
+  }
+
+  .archive-head {
+    gap: 0.55rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .archive-head h2 {
+    font-size: 1.15rem;
+  }
+
+  .type-tabs {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .type-tabs button {
+    padding: 0.42rem 0.3rem;
+    font-size: 0.76rem;
+  }
+
+  .archive-list ul {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    scroll-snap-type: x mandatory;
+  }
+
+  .archive-list li {
+    min-width: 78%;
+    scroll-snap-align: start;
+  }
+
+  .archive-list .work-card {
+    min-height: 5rem;
+  }
+
+  .detail-head {
+    padding: 0.75rem;
+  }
+
+  .import-action-strip {
+    display: grid;
+  }
+
+  .import-action-strip button {
+    width: 100%;
+  }
+
+  .chapter-summary.scrollable-preview {
+    max-height: 24rem;
+  }
+
   .work-card,
   .chapter-summary article,
   .cover-grid {

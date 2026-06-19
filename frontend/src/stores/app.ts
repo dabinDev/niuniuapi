@@ -14,6 +14,18 @@ import {
 } from '@/api/admin/system'
 import { getPublicSettings as fetchPublicSettingsAPI } from '@/api/auth'
 
+const ADMIN_COMPLIANCE_GATE_MESSAGES = [
+  'administrator compliance acknowledgement is required',
+  '管理员合规确认尚未完成'
+]
+
+function isAdminComplianceGateMessage(message: string): boolean {
+  const normalized = message.trim().toLowerCase()
+  return ADMIN_COMPLIANCE_GATE_MESSAGES.some((gateMessage) =>
+    normalized.includes(gateMessage.toLowerCase())
+  )
+}
+
 export const useAppStore = defineStore('app', () => {
   // ==================== State ====================
 
@@ -141,6 +153,9 @@ export const useAppStore = defineStore('app', () => {
    * @param duration - Auto-dismiss duration in ms (default: 5000)
    */
   function showError(message: string, duration: number = 5000): string {
+    if (isAdminComplianceGateMessage(message)) {
+      return ''
+    }
     return showToast('error', message, duration)
   }
 
@@ -267,6 +282,10 @@ export const useAppStore = defineStore('app', () => {
       versionLoaded.value = true
       return data
     } catch (error) {
+      const err = error as { status?: number; code?: string }
+      if (err.status === 423 && err.code === 'ADMIN_COMPLIANCE_ACK_REQUIRED') {
+        return null
+      }
       console.error('Failed to fetch version:', error)
       return null
     } finally {

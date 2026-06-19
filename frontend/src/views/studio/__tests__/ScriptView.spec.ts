@@ -35,6 +35,71 @@ describe('ScriptView', () => {
     expect(wrapper.text()).toContain('大纲')
     expect(wrapper.text()).toContain('正文续写')
     expect(wrapper.text()).toContain('改写')
+    const action = wrapper.findAll('a').find((link) => link.text() === '查看我的作品')
+    expect(action?.classes()).toContain('studio-action-link')
+  })
+
+  it('fills a rewrite template and switches to rewrite mode', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-test="creative-template-rewrite"]').trigger('click')
+
+    expect((wrapper.find('#sc-content').element as HTMLTextAreaElement).value).toContain('原章节')
+    expect((wrapper.find('input[placeholder*="把第 2 章"]').element as HTMLInputElement).value).toContain('低成本胜利')
+    expect(wrapper.find('.submit-btn').attributes('disabled')).toBeUndefined()
+    await wrapper.find('.submit-btn').trigger('click')
+    await flushPromises()
+    expect(generateCreative).toHaveBeenCalledWith(expect.objectContaining({ mode: 'rewrite' }))
+  })
+
+  it('offers an empty-state shortcut that loads a rewrite sample', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('先定生成模式')
+    expect(wrapper.text()).toContain('输出能复制、能归档、能继续加工')
+
+    await wrapper.find('[data-test="creative-empty-sample"]').trigger('click')
+
+    expect((wrapper.find('#sc-content').element as HTMLTextAreaElement).value.length).toBeGreaterThanOrEqual(50)
+    expect((wrapper.find('[data-test="creative-genre"]').element as HTMLInputElement).value.length).toBeGreaterThan(0)
+    expect(wrapper.find('.submit-btn').attributes('disabled')).toBeUndefined()
+  })
+
+  it('shows an output contract for the selected generation mode', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const contract = wrapper.find('[data-test="creative-output-contract"]')
+    expect(contract.exists()).toBe(true)
+    expect(contract.text()).toContain('输出承诺')
+    expect(contract.text()).toContain('强冲突分集')
+    expect(contract.text()).toContain('生成后检查')
+
+    await wrapper.find('[data-test="creative-mode-outline"]').trigger('click')
+    expect(contract.text()).toContain('卷纲')
+    expect(contract.text()).toContain('章节钩子')
+  })
+
+  it('prefills from a fanqie hotlist bridge payload', async () => {
+    localStorage.setItem('studio_bridge_payload', JSON.stringify({
+      source: 'fanqie',
+      target: 'generate',
+      title: '十日终焉',
+      genre: '悬疑脑洞',
+      content: '热榜样本：十日终焉\n简介：死亡游戏与规则怪谈。',
+      benchmark: '书名：十日终焉',
+      brief: '参考热榜样本生成新书方向',
+    }))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect((wrapper.find('#sc-content').element as HTMLTextAreaElement).value).toContain('热榜样本：十日终焉')
+    expect((wrapper.find('[data-test="creative-genre"]').element as HTMLInputElement).value).toBe('悬疑脑洞')
+    expect(wrapper.find('[data-test="creative-bridge-notice"]').text()).toContain('已从番茄热榜带入素材')
+    expect(localStorage.getItem('studio_bridge_payload')).toBeNull()
   })
 
   it('disables submit until content reaches the minimum length', async () => {
@@ -56,7 +121,9 @@ describe('ScriptView', () => {
 
     await wrapper.find('#sc-content').setValue(longText)
     expect(wrapper.find('.submit-btn').attributes('disabled')).toBeDefined()
-    expect(wrapper.text()).toContain('还没配置文案模型')
+    expect(wrapper.find('[data-test="model-auto-config-strip"]').classes()).toContain('model-strip-compact')
+    expect(wrapper.find('[data-test="model-auto-config-strip"] p').classes()).toContain('model-strip-copy')
+    expect(wrapper.text()).toContain('系统会优先自动选择第一把密钥')
   })
 
   it('submits the script request and renders the scenes', async () => {

@@ -16,7 +16,12 @@
       <section class="auth-brand-panel">
         <template v-if="settingsLoaded">
           <div class="auth-seal">
-            <img :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
+            <img v-if="siteLogo" :src="siteLogo" alt="Logo" class="auth-logo" />
+            <div v-else class="auth-tomato-mark" aria-label="烂番茄创作质检台">
+              <span class="auth-tomato-leaf"></span>
+              <strong>烂</strong>
+              <span class="auth-seal-text">LANFANQIE</span>
+            </div>
           </div>
           <p class="auth-kicker">LANFANQIE STUDIO</p>
           <h1>{{ siteName }}</h1>
@@ -65,9 +70,22 @@ import { sanitizeUrl } from '@/utils/url'
 
 const appStore = useAppStore()
 
+const DEFAULT_AUTH_SUBTITLE = '热榜、拆书、封面与创作生成一体化工作台'
+const LEGACY_AUTH_SUBTITLES = new Set([
+  'Subscription to API Conversion Platform',
+])
+
+function normalizeAuthSubtitle(value?: string) {
+  const subtitle = value?.trim()
+  if (!subtitle || LEGACY_AUTH_SUBTITLES.has(subtitle)) {
+    return DEFAULT_AUTH_SUBTITLE
+  }
+  return subtitle
+}
+
 const siteName = computed(() => appStore.siteName || '烂番茄')
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
-const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'Subscription to API Conversion Platform')
+const siteSubtitle = computed(() => normalizeAuthSubtitle(appStore.cachedPublicSettings?.site_subtitle))
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
 
 const currentYear = computed(() => new Date().getFullYear())
@@ -177,6 +195,66 @@ onMounted(() => {
   border-radius: 1.45rem;
   background: rgba(255, 255, 255, 0.12);
   box-shadow: 0 20px 42px rgba(0, 0, 0, 0.24);
+}
+
+.auth-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.auth-tomato-mark {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 196, 120, 0.9), transparent 0.7rem),
+    radial-gradient(circle at 50% 57%, #f0492e 0%, #d73421 62%, #9b2117 100%);
+}
+
+.auth-tomato-mark::after {
+  content: '';
+  position: absolute;
+  inset: 0.45rem;
+  border: 1px solid rgba(255, 241, 218, 0.45);
+  border-radius: 1rem;
+}
+
+.auth-tomato-leaf {
+  position: absolute;
+  top: 0.54rem;
+  width: 1.25rem;
+  height: 0.62rem;
+  border-radius: 100% 0 100% 0;
+  background: #2f7a4e;
+  transform: rotate(-22deg);
+  box-shadow: 0.62rem 0.08rem 0 #4a9a5e;
+}
+
+.auth-tomato-mark strong {
+  position: relative;
+  z-index: 1;
+  margin-top: 0.3rem;
+  color: #fff7ed;
+  font-size: 2.25rem;
+  font-weight: 950;
+  line-height: 1;
+  text-shadow: 0 3px 12px rgba(76, 18, 12, 0.35);
+}
+
+.auth-seal-text {
+  position: absolute;
+  z-index: 1;
+  right: 0.48rem;
+  bottom: 0.45rem;
+  color: rgba(255, 247, 237, 0.78);
+  font-size: 0.48rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
 }
 
 .auth-kicker {

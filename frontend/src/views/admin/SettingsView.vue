@@ -4432,6 +4432,52 @@
 
         <!-- Tab: General -->
         <div v-show="activeTab === 'general'" class="space-y-6">
+          <section
+            class="version-channel-card"
+            data-testid="maintained-version-channel-card"
+          >
+            <div class="version-channel-card__header">
+              <div>
+                <span class="version-channel-card__kicker">Release Channel</span>
+                <h2>版本更新 / 维护渠道</h2>
+                <p>
+                  当前实例只检查我们维护的灵犀文创发布源，不再展示或跳转到上游 Sub2 更新渠道。
+                </p>
+              </div>
+              <a
+                class="version-channel-card__repo"
+                href="https://github.com/dabinDev/niuniuapi/releases"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                dabinDev/niuniuapi
+              </a>
+            </div>
+
+            <div class="version-channel-card__grid">
+              <article>
+                <span>当前版本</span>
+                <strong>{{ maintainedCurrentVersion }}</strong>
+              </article>
+              <article>
+                <span>最新版本</span>
+                <strong>{{ maintainedLatestVersion }}</strong>
+              </article>
+              <article>
+                <span>更新状态</span>
+                <strong>{{ maintainedUpdateStatus }}</strong>
+              </article>
+            </div>
+
+            <div class="version-channel-card__guardrail">
+              <strong>发布纪律</strong>
+              <p>
+                线上发布必须先完成本机 Docker 构建镜像，再上传镜像到服务器加载；生产环境只允许
+                <code>docker compose up -d --no-build</code> 重启，禁止在服务器完整构建，避免卡死线上服务。
+              </p>
+            </div>
+          </section>
+
           <!-- Site Settings -->
           <div class="card">
             <div
@@ -6763,15 +6809,27 @@ function localText(zh: string, en: string): string {
 
 const paymentGuideHref = computed(() =>
   locale.value.startsWith("zh")
-    ? "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md"
-    : "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT.md",
+    ? "https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/PAYMENT_CN.md"
+    : "https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/PAYMENT.md",
 );
 
 const paymentMethodsHref = computed(() =>
   locale.value.startsWith("zh")
-    ? "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md#支持的支付方式"
-    : "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT.md#supported-payment-methods",
+    ? "https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/PAYMENT_CN.md#支持的支付方式"
+    : "https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/PAYMENT.md#supported-payment-methods",
 );
+
+const maintainedCurrentVersion = computed(() =>
+  appStore.currentVersion ? `v${appStore.currentVersion}` : "待检测",
+);
+const maintainedLatestVersion = computed(() =>
+  appStore.latestVersion ? `v${appStore.latestVersion}` : "待检测",
+);
+const maintainedUpdateStatus = computed(() => {
+  if (appStore.versionLoading) return "检测中";
+  if (appStore.hasUpdate) return "有新版本";
+  return "已使用维护渠道";
+});
 
 type SettingsTab =
   | "general"
@@ -9275,6 +9333,7 @@ async function handleDeleteProvider() {
 
 onMounted(() => {
   loadSettings();
+  appStore.fetchVersion(false);
   loadSubscriptionGroups();
   loadAdminApiKey();
   loadOverloadCooldownSettings();
@@ -9655,6 +9714,162 @@ watch(
 </script>
 
 <style scoped>
+.version-channel-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(232, 65, 46, 0.2);
+  border-radius: 20px;
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(232, 65, 46, 0.16), transparent 18rem),
+    linear-gradient(135deg, #fffaf6, #fff);
+  box-shadow:
+    0 20px 54px rgba(54, 32, 24, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.version-channel-card::before {
+  position: absolute;
+  inset: auto 1rem 1rem auto;
+  width: 8rem;
+  height: 8rem;
+  border: 1px solid rgba(232, 65, 46, 0.1);
+  border-radius: 999px;
+  content: "";
+  transform: rotate(-8deg);
+}
+
+.version-channel-card__header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.version-channel-card__kicker {
+  display: inline-flex;
+  border: 1px solid rgba(232, 65, 46, 0.24);
+  border-radius: 999px;
+  padding: 0.18rem 0.58rem;
+  color: #c8351f;
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.version-channel-card h2 {
+  margin-top: 0.45rem;
+  color: #221a18;
+  font-size: 1.2rem;
+  font-weight: 950;
+}
+
+.version-channel-card p {
+  margin-top: 0.35rem;
+  max-width: 48rem;
+  color: #6c5a52;
+  line-height: 1.7;
+}
+
+.version-channel-card__repo {
+  border: 1px solid #241a16;
+  border-radius: 999px;
+  padding: 0.45rem 0.82rem;
+  background: #241a16;
+  color: #fff7ed;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: 0 12px 28px rgba(36, 26, 22, 0.16);
+}
+
+.version-channel-card__grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.version-channel-card__grid article,
+.version-channel-card__guardrail {
+  border: 1px solid #f0e5df;
+  border-radius: 14px;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.version-channel-card__grid span {
+  color: #9f7a6d;
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.version-channel-card__grid strong {
+  display: block;
+  margin-top: 0.18rem;
+  color: #241a16;
+  font-weight: 950;
+}
+
+.version-channel-card__guardrail {
+  position: relative;
+  z-index: 1;
+  margin-top: 0.7rem;
+  background:
+    linear-gradient(90deg, rgba(232, 65, 46, 0.09), transparent),
+    rgba(255, 255, 255, 0.78);
+}
+
+.version-channel-card__guardrail strong {
+  color: #c8351f;
+  font-weight: 950;
+}
+
+.version-channel-card code {
+  border-radius: 0.45rem;
+  padding: 0.08rem 0.3rem;
+  background: #241a16;
+  color: #fff7ed;
+  font-size: 0.85em;
+}
+
+.dark .version-channel-card {
+  border-color: rgba(232, 65, 46, 0.24);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(232, 65, 46, 0.12), transparent 18rem),
+    #171311;
+  box-shadow:
+    0 20px 54px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.dark .version-channel-card h2,
+.dark .version-channel-card__grid strong {
+  color: #fff7ed;
+}
+
+.dark .version-channel-card p {
+  color: #cdbdb5;
+}
+
+.dark .version-channel-card__grid article,
+.dark .version-channel-card__guardrail {
+  border-color: #312720;
+  background: rgba(33, 25, 22, 0.78);
+}
+
+@media (max-width: 760px) {
+  .version-channel-card__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .default-sub-group-select :deep(.select-trigger) {
   @apply h-[42px];
 }

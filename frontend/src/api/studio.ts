@@ -375,6 +375,7 @@ export interface StudioImportChapter {
   title: string
   word_count: number
   source?: string
+  content?: string
 }
 
 export interface StudioImportResult {

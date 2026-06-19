@@ -89,6 +89,14 @@ vi.mock("@/stores", () => ({
     showWarning: vi.fn(),
     showInfo: vi.fn(),
     fetchPublicSettings,
+    fetchVersion: vi.fn(),
+    currentVersion: "0.1.136",
+    latestVersion: "0.1.136",
+    hasUpdate: false,
+    buildType: "release",
+    releaseInfo: {
+      html_url: "https://github.com/dabinDev/niuniuapi/releases/tag/v0.1.136",
+    },
   }),
 }));
 
@@ -576,14 +584,27 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(paymentLinks).toHaveLength(2);
     expect(paymentLinks[0]?.attributes("href")).toBe(
-      "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md",
+      "https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/PAYMENT_CN.md",
     );
     expect(paymentLinks[1]?.attributes("href")).toBe(
-      "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md#支持的支付方式",
+      "https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/PAYMENT_CN.md#支持的支付方式",
     );
     for (const link of paymentLinks) {
       expect(link.attributes("href")).toContain("docs/PAYMENT");
+      expect(link.attributes("href")).not.toContain("Wei-Shaw/sub2api");
     }
+  });
+
+  it("renders our maintained version update channel and local docker release guardrails", async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("版本更新 / 维护渠道");
+    expect(wrapper.text()).toContain("dabinDev/niuniuapi");
+    expect(wrapper.text()).toContain("本机 Docker 构建");
+    expect(wrapper.text()).toContain("--no-build");
+    expect(wrapper.html()).not.toContain("Wei-Shaw/sub2api");
   });
 
   it("does not submit legacy visible payment method settings", async () => {

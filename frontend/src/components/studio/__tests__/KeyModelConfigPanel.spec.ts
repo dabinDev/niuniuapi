@@ -102,7 +102,10 @@ describe('KeyModelConfigPanel', () => {
     })
     expect(w.find('[data-test=slot-image]').text()).toContain('gpt-image-2')
     expect(w.find('[data-test=slot-text]').text()).toContain('gpt-5.1')
+    expect(w.text()).toContain('最新生图模型')
+    expect(w.text()).toContain('最新文案模型')
     expect(w.text()).toContain('已根据第一把密钥自动配置模型')
+    expect(w.find('[data-test=auto-config-status]').text()).toContain('已准备好创作模型')
   })
 
   it('keeps saved manual config instead of auto-overwriting it', async () => {
@@ -128,6 +131,27 @@ describe('KeyModelConfigPanel', () => {
     await flushPromises()
 
     expect(w.find('[data-test=save]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('waits for the first key before auto configuring models', async () => {
+    api.list.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 100, pages: 0 })
+    const w = mount(KeyModelConfigPanel)
+    await flushPromises()
+
+    expect(api.getKeyModels).not.toHaveBeenCalled()
+    expect(api.saveModelConfig).not.toHaveBeenCalled()
+    expect(w.find('[data-test=auto-config-status]').text()).toContain('创建第一把密钥后自动配置')
+  })
+
+  it('shows an actionable empty-key guide before the first key exists', async () => {
+    api.list.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 100, pages: 0 })
+    const w = mount(KeyModelConfigPanel)
+    await flushPromises()
+
+    expect(w.find('[data-test=empty-key-guide]').exists()).toBe(true)
+    expect(w.find('[data-test=empty-key-guide]').text()).toContain('创建第一把密钥')
+    expect(w.find('[data-test=key]').attributes('disabled')).toBeDefined()
+    expect(w.find('[data-test=fetch]').attributes('disabled')).toBeDefined()
   })
 
   it('shows backend model test failure details', async () => {

@@ -63,6 +63,10 @@ func TestAdminComplianceStatusRequiresAckWhenMissing(t *testing.T) {
 	require.Equal(t, AdminComplianceVersion, status.Version)
 	require.Equal(t, AdminComplianceAckPhraseZH, status.AckPhraseZH)
 	require.Equal(t, AdminComplianceDocumentPathZH, status.DocumentPathZH)
+	require.Equal(t, "https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/legal/admin-compliance.zh.md", status.DocumentURLZH)
+	require.NotContains(t, status.DocumentURLZH, "Wei-Shaw/sub2api")
+	require.Contains(t, status.AckPhraseZH, "烂番茄")
+	require.NotContains(t, status.AckPhraseZH, "Sub2API")
 }
 
 func TestAcceptAdminComplianceRejectsWrongPhrase(t *testing.T) {

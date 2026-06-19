@@ -196,6 +196,15 @@ docs/LOCAL_DOCKER_RELEASE_CN.md
 - 发布、回滚、排障都只操作 `/opt/niuniuapi`、`18089`、`niuniuapi*` 资源；不要操作 `/opt/sub2api`、`18080`、`sub2api*` 旧服务资源。
 ```
 
+重启 Codex 后也必须继续遵守的发布记忆（2026-06-19 再次确认）：
+
+```text
+- 任何时候都不要为了省事直接在生产服务器构建或发布新代码；这会抢占 CPU/IO，可能把同机旧 Sub2 服务卡慢。
+- 线上发布的唯一允许路径是：先在本机 `E:\ForkProject\niuniuapi` 完成 Docker 镜像构建并确认成功，再 `docker save` 上传镜像包到服务器。
+- 服务器只允许 `docker load` 已上传镜像，并在 `/opt/niuniuapi/deploy` 使用 `docker compose ... up -d --no-build` 重启新服务。
+- 如果本机 Docker Desktop 无法启动或 `docker build` 失败，就停止发布流程，只继续本地代码/前端/测试修复；不要登录服务器绕过本地构建门禁。
+- 旧 Sub2 服务是隔离保护对象：不要重启、down、删除、覆盖或迁移 `/opt/sub2api`、`sub2api*` 容器、`18080` 端口相关资源。
+```
 详细步骤见：
 
 ```text

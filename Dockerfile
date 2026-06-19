@@ -82,9 +82,9 @@ FROM ${POSTGRES_IMAGE} AS pg-client
 FROM ${ALPINE_IMAGE}
 
 # Labels
-LABEL maintainer="Wei-Shaw <github.com/Wei-Shaw>"
-LABEL description="Sub2API - AI API Gateway Platform"
-LABEL org.opencontainers.image.source="https://github.com/Wei-Shaw/sub2api"
+LABEL maintainer="dabinDev <github.com/dabinDev>"
+LABEL description="LANFANQIE / Niuniu API - AI creator workbench and gateway"
+LABEL org.opencontainers.image.source="https://github.com/dabinDev/niuniuapi"
 
 # Install runtime dependencies
 RUN apk add --no-cache \

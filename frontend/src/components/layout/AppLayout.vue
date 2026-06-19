@@ -38,7 +38,9 @@ const authStore = useAuthStore()
 const route = useRoute()
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const isAdmin = computed(() => authStore.user?.role === 'admin')
-const shouldAutoStartOnboarding = () => !route.path.startsWith('/studio')
+const autoStartBlockedPrefixes = ['/studio', '/keys', '/admin/settings', '/admin/accounts']
+const shouldAutoStartOnboarding = () =>
+  !autoStartBlockedPrefixes.some((prefix) => route.path.startsWith(prefix))
 
 const { replayTour } = useOnboardingTour({
   storageKey: isAdmin.value ? 'admin_guide' : 'user_guide',

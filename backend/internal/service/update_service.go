@@ -29,6 +29,7 @@ const (
 	updateCacheKey          = "update_check_cache"
 	updateCacheTTL          = 1200 // 20 minutes
 	defaultUpdateRepository = "dabinDev/niuniuapi"
+	updateBinaryName        = "niuniuapi"
 
 	// Security: allowed download domains for updates
 	allowedDownloadHost = "github.com"
@@ -203,7 +204,7 @@ func (s *UpdateService) PerformUpdate(ctx context.Context) error {
 
 	// Create temp directory in the SAME directory as executable
 	// This ensures os.Rename is atomic (same filesystem)
-	tempDir, err := os.MkdirTemp(exeDir, ".sub2api-update-*")
+	tempDir, err := os.MkdirTemp(exeDir, s.tempDirPattern())
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
@@ -223,7 +224,7 @@ func (s *UpdateService) PerformUpdate(ctx context.Context) error {
 	}
 
 	// Extract binary from archive
-	newBinaryPath := filepath.Join(tempDir, "sub2api")
+	newBinaryPath := filepath.Join(tempDir, s.binaryName())
 	if err := s.extractBinary(archivePath, newBinaryPath); err != nil {
 		return fmt.Errorf("extraction failed: %w", err)
 	}
@@ -326,6 +327,14 @@ func (s *UpdateService) getArchiveName() string {
 	osName := runtime.GOOS
 	arch := runtime.GOARCH
 	return fmt.Sprintf("%s_%s", osName, arch)
+}
+
+func (s *UpdateService) binaryName() string {
+	return updateBinaryName
+}
+
+func (s *UpdateService) tempDirPattern() string {
+	return "." + s.binaryName() + "-update-*"
 }
 
 // validateDownloadURL checks if the URL is from an allowed domain
@@ -437,7 +446,7 @@ func (s *UpdateService) extractBinary(archivePath, destPath string) error {
 			}
 
 			// Only extract the specific binary we need
-			if baseName == "sub2api" || baseName == "sub2api.exe" {
+			if baseName == updateBinaryName || baseName == updateBinaryName+".exe" {
 				// Additional security: limit file size (max 500MB)
 				const maxBinarySize = 500 * 1024 * 1024
 				if hdr.Size > maxBinarySize {
@@ -461,7 +470,7 @@ func (s *UpdateService) extractBinary(archivePath, destPath string) error {
 				return nil
 			}
 		}
-		return fmt.Errorf("binary not found in archive")
+		return fmt.Errorf("%s binary not found in archive", updateBinaryName)
 	}
 
 	// Direct copy for non-tar files (with size limit)

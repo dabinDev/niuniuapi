@@ -77,6 +77,17 @@
 
             <!-- Content -->
             <template v-else>
+              <div
+                class="mb-3 rounded-lg border border-primary-200 bg-primary-50 p-3 text-xs text-primary-700 dark:border-primary-800/50 dark:bg-primary-900/20 dark:text-primary-300"
+                data-test="niuniu-release-channel-note"
+              >
+                <p class="font-semibold">Niuniu API 维护渠道</p>
+                <p class="mt-1 leading-5">
+                  仅检查 <span class="font-semibold">dabinDev/niuniuapi</span> 发布；生产更新必须先完成本地 Docker 镜像构建，再上传镜像并使用
+                  <code>--no-build</code> 重启。
+                </p>
+              </div>
+
               <!-- Version display - centered and prominent -->
               <div class="mb-4 text-center">
                 <div class="inline-flex items-center gap-2">
@@ -286,58 +297,41 @@
                 </div>
               </div>
 
-              <!-- Priority 4: Update available for release build - show update button -->
+              <!-- Priority 4: Update available for release build - keep Docker release discipline -->
               <div v-else-if="hasUpdate && isReleaseBuild" class="space-y-2">
-                <!-- Update info card -->
                 <div
-                  class="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/50 dark:bg-amber-900/20"
+                  class="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/50 dark:bg-amber-900/20"
                 >
-                <div
-                  class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50"
-                >
-                  <Icon
-                    name="download"
-                    size="sm"
-                    :stroke-width="2"
-                    class="text-amber-600 dark:text-amber-400"
-                  />
-                </div>
-                  <div class="min-w-0 flex-1">
-                    <p class="text-sm font-medium text-amber-700 dark:text-amber-300">
-                      {{ t('version.updateAvailable') }}
-                    </p>
-                    <p class="text-xs text-amber-600/70 dark:text-amber-400/70">
-                      v{{ latestVersion }}
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50"
+                    >
+                      <Icon
+                        name="download"
+                        size="sm"
+                        :stroke-width="2"
+                        class="text-amber-600 dark:text-amber-400"
+                      />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium text-amber-700 dark:text-amber-300">
+                        {{ t('version.updateAvailable') }}
+                      </p>
+                      <p class="text-xs text-amber-600/70 dark:text-amber-400/70">
+                        v{{ latestVersion }}
+                      </p>
+                    </div>
+                  </div>
+                  <div class="mt-3 rounded-md bg-white/70 p-2 text-xs leading-5 text-amber-700 dark:bg-dark-900/30 dark:text-amber-300">
+                    <p class="font-semibold">生产发布请走本地 Docker 流程</p>
+                    <p>
+                      先在本机完成 <code>docker build -t niuniuapi:lingxi .</code>，
+                      再上传镜像包到服务器执行 <code>docker load</code>，最后使用
+                      <code>docker compose ... up -d --no-build</code> 重启新服务。
                     </p>
                   </div>
                 </div>
 
-                <!-- Update button -->
-                <button
-                  @click="handleUpdate"
-                  :disabled="updating"
-                  class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <svg v-if="updating" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle
-                      class="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      stroke-width="4"
-                    ></circle>
-                    <path
-                      class="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  <Icon v-else name="download" size="sm" :stroke-width="2" />
-                  {{ updating ? t('version.updating') : t('version.updateNow') }}
-                </button>
-
-                <!-- View release link -->
                 <a
                   v-if="releaseInfo?.html_url && releaseInfo.html_url !== '#'"
                   :href="releaseInfo.html_url"
@@ -406,7 +400,13 @@ const loading = computed(() => appStore.versionLoading)
 const currentVersion = computed(() => appStore.currentVersion || props.version || '')
 const latestVersion = computed(() => appStore.latestVersion)
 const hasUpdate = computed(() => appStore.hasUpdate)
-const releaseInfo = computed(() => appStore.releaseInfo)
+const releaseInfo = computed(() => {
+  const info = appStore.releaseInfo
+  if (!info?.html_url) return info
+  return info.html_url.includes('github.com/dabinDev/niuniuapi')
+    ? info
+    : { ...info, html_url: '#' }
+})
 const buildType = computed(() => appStore.buildType)
 
 // Update process states (local to this component)

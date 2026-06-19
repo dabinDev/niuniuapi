@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAppStore } from '@/stores/app'
 import { getPublicSettings } from '@/api/auth'
+import { checkUpdates } from '@/api/admin/system'
 
 // Mock API 模块
 vi.mock('@/api/admin/system', () => ({
@@ -46,6 +47,15 @@ describe('useAppStore', () => {
       expect(store.toasts).toHaveLength(1)
       expect(store.toasts[0].type).toBe('error')
       expect(store.toasts[0].message).toBe('出错了')
+    })
+
+    it('showError 静默管理员合规门禁错误，避免弹窗背后堆叠 toast', () => {
+      const store = useAppStore()
+
+      store.showError('administrator compliance acknowledgement is required')
+      store.showError('管理员合规确认尚未完成')
+
+      expect(store.toasts).toHaveLength(0)
     })
 
     it('showWarning 创建 warning 类型 toast', () => {
@@ -333,4 +343,22 @@ describe('useAppStore', () => {
       expect(localStorage.getItem('table-page-size-source')).toBeNull()
     })
   })
+  describe('version checks', () => {
+    it('treats admin compliance acknowledgement as a gated state, not a console error', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.mocked(checkUpdates).mockRejectedValue({
+        status: 423,
+        code: 'ADMIN_COMPLIANCE_ACK_REQUIRED',
+        message: 'administrator compliance acknowledgement is required',
+      })
+
+      const store = useAppStore()
+      const result = await store.fetchVersion(true)
+
+      expect(result).toBeNull()
+      expect(consoleError).not.toHaveBeenCalled()
+      consoleError.mockRestore()
+    })
+  })
+
 })

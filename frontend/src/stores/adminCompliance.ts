@@ -1,10 +1,12 @@
-import { defineStore } from 'pinia'
+﻿import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import adminComplianceAPI, { type AdminComplianceStatus } from '@/api/admin/compliance'
 import { getLocale } from '@/i18n'
 
-const FALLBACK_ZH_PHRASE = '我已阅读、理解并同意 Sub2API 部署与运营合规承诺'
-const FALLBACK_EN_PHRASE = 'I have read, understood, and agree to the Sub2API Deployment and Operation Compliance Commitment'
+const COMPLIANCE_DOC_ZH_URL = 'https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/legal/admin-compliance.zh.md'
+const COMPLIANCE_DOC_EN_URL = 'https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/legal/admin-compliance.en.md'
+const FALLBACK_ZH_PHRASE = '我已阅读、理解并同意烂番茄 / Niuniu API 部署与运营合规承诺'
+const FALLBACK_EN_PHRASE = 'I have read, understood, and agree to the LANFANQIE / Niuniu API Deployment and Operation Compliance Commitment'
 
 export const useAdminComplianceStore = defineStore('adminCompliance', () => {
   const status = ref<AdminComplianceStatus | null>(null)
@@ -54,11 +56,11 @@ export const useAdminComplianceStore = defineStore('adminCompliance', () => {
   function requireAcknowledgement(partialStatus?: Partial<AdminComplianceStatus>): void {
     status.value = {
       required: true,
-      version: partialStatus?.version || status.value?.version || 'v2026.06.10',
+      version: partialStatus?.version || status.value?.version || 'v2026.06.19',
       document_path_zh: partialStatus?.document_path_zh || status.value?.document_path_zh || 'docs/legal/admin-compliance.zh.md',
       document_path_en: partialStatus?.document_path_en || status.value?.document_path_en || 'docs/legal/admin-compliance.en.md',
-      document_url_zh: partialStatus?.document_url_zh || status.value?.document_url_zh || 'https://github.com/Wei-Shaw/sub2api/blob/main/docs/legal/admin-compliance.zh.md',
-      document_url_en: partialStatus?.document_url_en || status.value?.document_url_en || 'https://github.com/Wei-Shaw/sub2api/blob/main/docs/legal/admin-compliance.en.md',
+      document_url_zh: partialStatus?.document_url_zh || status.value?.document_url_zh || COMPLIANCE_DOC_ZH_URL,
+      document_url_en: partialStatus?.document_url_en || status.value?.document_url_en || COMPLIANCE_DOC_EN_URL,
       ack_phrase_zh: partialStatus?.ack_phrase_zh || status.value?.ack_phrase_zh || FALLBACK_ZH_PHRASE,
       ack_phrase_en: partialStatus?.ack_phrase_en || status.value?.ack_phrase_en || FALLBACK_EN_PHRASE,
       acknowledgement: status.value?.acknowledgement

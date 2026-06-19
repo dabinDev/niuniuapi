@@ -7,11 +7,24 @@
           <h1>封面生成</h1>
           <p>把书名、人物、题材和关键意象整理成可执行的封面 brief，直接生成竖版网文封面候选。</p>
         </div>
-        <div class="cover-hero-card">
-          <strong>{{ configured ? imageModel : '等待配置生图模型' }}</strong>
-          <span>{{ configured ? '模型已就绪，可开始出图' : '去 API 密钥页创建密钥后会自动预设模型' }}</span>
+        <div class="cover-hero-card cover-hero-card-compact" data-test="model-auto-config-strip">
+          <span>{{ configured ? '生图模型已就绪' : '自动配置流程' }}</span>
+          <strong>{{ configured ? imageModel : '创建第一把密钥后，系统会优先自动选择第一把密钥的最新生图模型' }}</strong>
+          <p class="cover-hero-copy">{{ configured ? '需要覆盖默认值时，在 API 密钥页手动测试后保存即可。' : '自动选择最新生图模型；手动测试后保存会记住你的选择，不手动修改时封面生成继续使用自动配置。' }}</p>
         </div>
       </header>
+
+      <section class="cover-flow cover-flow-mobile-readable" data-test="cover-workflow-guide" aria-label="封面生成工作流">
+        <article v-for="step in coverWorkflow" :key="step.kicker">
+          <span>{{ step.kicker }}</span>
+          <strong>{{ step.title }}</strong>
+          <p class="cover-hero-copy">{{ step.desc }}</p>
+        </article>
+        <aside>
+          <b>输入书名与题材</b>
+          <p>再补主角气质、关键场景和封面标题，系统会把它们整理成竖版网文封面 brief。</p>
+        </aside>
+      </section>
 
       <!-- 生图模型状态：在「API 密钥」页配置 -->
       <div
@@ -25,11 +38,20 @@
           <router-link to="/keys" class="ml-2 font-semibold text-primary-600 hover:underline dark:text-primary-300">在「API 密钥」页修改</router-link>
         </template>
         <template v-else>
-          还没配置生图模型。请先到
+          系统会优先自动选择第一把密钥的最新生图模型。若这里仍未就绪，请到
           <router-link to="/keys" class="font-semibold underline">API 密钥页</router-link>
-          选密钥 → 获取模型 → 设为生图模型 → 测试保存。
+          创建密钥，或在需要覆盖默认值时手动获取模型、测试并保存。
         </template>
       </div>
+
+      <section v-if="!configured" class="cover-key-setup-card" data-test="cover-key-setup-card">
+        <div>
+          <span>KEY FIRST</span>
+          <strong>先配置第一把 API 密钥，封面生成会自动接上最新生图模型。</strong>
+          <p>系统会预先读取你的第一把密钥并选择最新图片模型；只有你手动测试并保存后，才会覆盖自动配置。</p>
+        </div>
+        <router-link to="/keys">去 API 密钥配置</router-link>
+      </section>
 
       <!-- 入口切换 -->
       <div class="mb-4 inline-flex rounded-lg border border-gray-200 bg-white p-1 dark:border-dark-700 dark:bg-dark-900">
@@ -136,9 +158,22 @@
               </button>
             </figure>
           </div>
-          <div v-else class="flex min-h-[280px] flex-col items-center justify-center gap-3 text-center text-gray-400">
-            <div class="text-5xl">🖼️</div>
-            <p>填好左侧，点「生成封面」，候选会出现在这里。</p>
+          <div v-else class="cover-empty-brief" data-test="cover-empty-brief">
+            <div class="empty-cover-stack" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <strong>封</strong>
+            </div>
+            <div>
+              <span>EMPTY BRIEF</span>
+              <h2>先定点击承诺，再生成封面</h2>
+              <p>把“读者为什么点进来”写成一句话，再补主角气质、关键意象和封面标题。候选图会在这里变成可放大、可下载、可归档的封面组。</p>
+              <ol>
+                <li>书名/题材负责识别赛道</li>
+                <li>主角和意象负责第一眼记忆点</li>
+                <li>标题文字负责移动端点击承诺</li>
+              </ol>
+            </div>
           </div>
         </section>
       </div>
@@ -245,6 +280,11 @@ interface StoredActiveCoverJob {
 const modes = [
   { value: 'custom' as const, label: '自定义' },
   { value: 'novel' as const, label: '小说驱动' },
+]
+const coverWorkflow = [
+  { kicker: 'Brief', title: '整理卖点', desc: '书名、题材、人物气质和关键意象先变成封面 brief。' },
+  { kicker: 'Model', title: '自动用模型', desc: '优先读取你的生图模型配置，无需每次手动切换。' },
+  { kicker: 'Result', title: '候选归档', desc: '生成结果可预览、放大、下载，并进入创作时间轴。' },
 ]
 const mode = ref<CoverMode>(readStoredMode())
 
@@ -683,6 +723,8 @@ async function submit() {
 
 <style scoped>
 .cover-lab {
+  width: min(100%, 96rem);
+  max-width: calc(100vw - 2rem);
   padding-bottom: 2.5rem;
   color: #201714;
   font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
@@ -739,25 +781,112 @@ async function submit() {
 }
 
 .cover-hero-card strong,
-.cover-hero-card span {
+.cover-hero-card span,
+.cover-hero-card p {
   display: block;
 }
 
-.cover-hero-card strong {
+.cover-hero-card span {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffc8a5;
+  font-size: 0.76rem;
   font-weight: 950;
 }
 
-.cover-hero-card span {
+.cover-hero-card strong {
+  margin-top: 0.45rem;
+  font-weight: 950;
+}
+
+.cover-hero-card p {
   margin-top: 0.25rem;
   color: #f0c7bd;
   font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.cover-hero-card-compact {
+  align-self: center;
+  max-width: 24rem;
+  padding: 0.86rem 0.96rem;
+  border-radius: 16px;
+}
+
+.cover-hero-card-compact strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cover-hero-card-compact .cover-hero-copy {
+  margin-top: 0.18rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
 }
 
 .cover-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(28rem, 0.92fr) minmax(0, 1.08fr);
   gap: 1rem;
   align-items: start;
+}
+
+.cover-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(16rem, 0.9fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.cover-flow article,
+.cover-flow aside {
+  border: 1px solid #eaded8;
+  border-radius: 16px;
+  padding: 0.9rem;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 14px 38px rgba(54, 32, 24, 0.07);
+}
+
+.cover-flow article span {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.18rem 0.48rem;
+  background: #241a16;
+  color: #fff7ed;
+  font-size: 0.68rem;
+  font-weight: 950;
+}
+
+.cover-flow strong,
+.cover-flow b {
+  display: block;
+  margin-top: 0.38rem;
+  color: #201714;
+  font-weight: 950;
+}
+
+.cover-flow p {
+  margin-top: 0.28rem;
+  color: #6c5a52;
+  font-size: 0.82rem;
+  line-height: 1.62;
+}
+
+.cover-flow aside {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(232, 65, 46, 0.16), transparent 9rem),
+    #241a16;
+}
+
+.cover-flow aside b,
+.cover-flow aside p {
+  color: #fff7ed;
+}
+
+.cover-flow aside p {
+  color: #f0c7bd;
 }
 
 .cover-form-card,
@@ -771,6 +900,144 @@ async function submit() {
 
 .cover-preview-card {
   min-height: 31rem;
+}
+
+.cover-key-setup-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(232, 65, 46, 0.22);
+  border-radius: 18px;
+  padding: 1rem 1.1rem;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(232, 65, 46, 0.16), transparent 12rem),
+    linear-gradient(135deg, #fff7f1, #fffdf9);
+  box-shadow: 0 18px 42px rgba(54, 32, 24, 0.08);
+}
+
+.cover-key-setup-card span {
+  display: inline-flex;
+  margin-bottom: 0.35rem;
+  color: #c8351f;
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.cover-key-setup-card strong {
+  display: block;
+  color: #2f211c;
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.cover-key-setup-card p {
+  margin: 0.28rem 0 0;
+  color: #6b5b55;
+  line-height: 1.6;
+}
+
+.cover-key-setup-card a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #241a16;
+  padding: 0.72rem 1rem;
+  color: #fff7ed;
+  font-weight: 950;
+  white-space: nowrap;
+  box-shadow: 0 14px 28px rgba(36, 26, 22, 0.18);
+}
+
+.cover-empty-brief {
+  min-height: 28rem;
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.45fr) minmax(0, 1fr);
+  gap: 1.2rem;
+  align-items: center;
+  border: 1px dashed rgba(232, 65, 46, 0.24);
+  border-radius: 18px;
+  padding: 1.2rem;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(232, 65, 46, 0.12), transparent 12rem),
+    repeating-linear-gradient(135deg, rgba(232, 65, 46, 0.05) 0 1px, transparent 1px 18px),
+    #fffaf6;
+}
+
+.empty-cover-stack {
+  position: relative;
+  width: min(13rem, 100%);
+  aspect-ratio: 3 / 4;
+  justify-self: center;
+}
+
+.empty-cover-stack span,
+.empty-cover-stack strong {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+}
+
+.empty-cover-stack span:first-child {
+  transform: translate(-0.8rem, 0.75rem) rotate(-7deg);
+  background: #f5d8cc;
+}
+
+.empty-cover-stack span:nth-child(2) {
+  transform: translate(0.75rem, 0.55rem) rotate(6deg);
+  background: #efb49f;
+}
+
+.empty-cover-stack strong {
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255, 226, 181, 0.9), transparent 2rem),
+    linear-gradient(145deg, #241a16, #e8412e);
+  color: #fff7ed;
+  font-size: clamp(2.8rem, 8vw, 5rem);
+  font-weight: 950;
+  box-shadow: 0 24px 60px rgba(54, 32, 24, 0.22);
+}
+
+.cover-empty-brief span {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.18rem 0.52rem;
+  background: #241a16;
+  color: #ffc8a5;
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+}
+
+.cover-empty-brief h2 {
+  margin-top: 0.65rem;
+  color: #201714;
+  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  font-weight: 950;
+  letter-spacing: -0.04em;
+}
+
+.cover-empty-brief p,
+.cover-empty-brief li {
+  color: #6c5a52;
+  line-height: 1.75;
+}
+
+.cover-empty-brief p {
+  margin-top: 0.55rem;
+}
+
+.cover-empty-brief ol {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+  padding-left: 1.2rem;
 }
 
 .form-label {
@@ -1055,10 +1322,91 @@ async function submit() {
   background: #171311;
 }
 
+.dark .cover-key-setup-card {
+  border-color: rgba(232, 65, 46, 0.24);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(232, 65, 46, 0.18), transparent 12rem),
+    #171311;
+}
+
+.dark .cover-key-setup-card strong {
+  color: #fff7ed;
+}
+
+.dark .cover-key-setup-card p {
+  color: #cdbdb5;
+}
+
+.dark .cover-key-setup-card a {
+  background: #e8412e;
+  color: #fff7ed;
+}
+
+.dark .cover-empty-brief {
+  border-color: rgba(232, 65, 46, 0.28);
+  background:
+    radial-gradient(circle at 18% 18%, rgba(232, 65, 46, 0.12), transparent 12rem),
+    #171311;
+}
+
+.dark .cover-empty-brief h2 {
+  color: #fff7ed;
+}
+
+.dark .cover-empty-brief p,
+.dark .cover-empty-brief li {
+  color: #cdbdb5;
+}
+
 @media (max-width: 1040px) {
   .cover-hero,
-  .cover-workbench {
+  .cover-workbench,
+  .cover-empty-brief {
     grid-template-columns: 1fr;
+  }
+
+  .empty-cover-stack {
+    width: min(9rem, 70vw);
+  }
+}
+
+@media (max-width: 760px) {
+  .cover-flow-mobile-readable {
+    grid-template-columns: 1fr;
+  }
+
+  .cover-flow-mobile-readable article {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.45rem 0.7rem;
+    align-items: start;
+  }
+
+  .cover-flow-mobile-readable article span {
+    grid-row: span 2;
+    align-self: start;
+    min-width: 3.6rem;
+    justify-content: center;
+  }
+
+  .cover-flow-mobile-readable article strong {
+    margin-top: 0;
+  }
+
+  .cover-flow-mobile-readable article p {
+    margin-top: 0;
+  }
+
+  .cover-flow-mobile-readable aside {
+    min-height: 8.6rem;
+  }
+
+  .cover-key-setup-card {
+    grid-template-columns: 1fr;
+  }
+
+  .cover-key-setup-card a {
+    width: 100%;
   }
 }
 </style>

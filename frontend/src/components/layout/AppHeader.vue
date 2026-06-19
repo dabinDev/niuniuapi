@@ -128,7 +128,7 @@
 
                 <a
                   v-if="authStore.isAdmin"
-                  href="https://github.com/Wei-Shaw/sub2api"
+                  href="https://github.com/dabinDev/niuniuapi"
                   target="_blank"
                   rel="noopener noreferrer"
                   @click="closeDropdown"

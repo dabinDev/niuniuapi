@@ -23,6 +23,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/creationtask"
 	"github.com/Wei-Shaw/sub2api/ent/enttest"
+	"github.com/Wei-Shaw/sub2api/ent/studiomodelconfig"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -65,7 +66,8 @@ func (s *studioModelAccountRepoStub) GetByID(ctx context.Context, id int64) (*se
 }
 
 type studioModelsHTTPUpstream struct {
-	lastReq *http.Request
+	lastReq       *http.Request
+	modelsPayload string
 }
 
 func (u *studioModelsHTTPUpstream) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
@@ -80,8 +82,15 @@ func (u *studioModelsHTTPUpstream) Do(req *http.Request, proxyURL string, accoun
 	return &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body:       io.NopCloser(strings.NewReader(`{"data":[{"id":"gpt-5.4"},{"id":"gpt-image-2"}]}`)),
+		Body:       io.NopCloser(strings.NewReader(u.modelsResponse())),
 	}, nil
+}
+
+func (u *studioModelsHTTPUpstream) modelsResponse() string {
+	if strings.TrimSpace(u.modelsPayload) != "" {
+		return u.modelsPayload
+	}
+	return `{"data":[{"id":"gpt-5.4"},{"id":"gpt-image-2"}]}`
 }
 
 func (u *studioModelsHTTPUpstream) DoWithTLS(req *http.Request, proxyURL string, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile) (*http.Response, error) {
@@ -518,6 +527,178 @@ func TestStudioModelTestUsesUpstreamAccountDirectly(t *testing.T) {
 	require.Equal(t, "b64_json", payload["response_format"])
 }
 
+func TestGetModelConfigAutoConfiguresFirstKeyWhenMissing(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_model_config_auto_first_key")
+
+	user, err := client.User.Create().
+		SetEmail("studio-auto-config@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+	group, err := client.Group.Create().
+		SetName("openai-auto-config").
+		SetPlatform(service.PlatformOpenAI).
+		Save(ctx)
+	require.NoError(t, err)
+	apiKey, err := client.APIKey.Create().
+		SetUserID(user.ID).
+		SetName("first-key").
+		SetKey("sk-auto-config").
+		SetGroupID(group.ID).
+		Save(ctx)
+	require.NoError(t, err)
+
+	upstream := &studioModelsHTTPUpstream{}
+	repo := &studioModelAccountRepoStub{byGroupPlatform: map[int64]map[string][]service.Account{
+		group.ID: {
+			service.PlatformOpenAI: {
+				{
+					ID:       11,
+					Name:     "auto-config-account",
+					Platform: service.PlatformOpenAI,
+					Type:     service.AccountTypeAPIKey,
+					Credentials: map[string]any{
+						"api_key":  "upstream-secret",
+						"base_url": "https://upstream.example.com/v1",
+					},
+					Concurrency: 1,
+				},
+			},
+		},
+	}}
+	h := &StudioHandler{
+		client:      client,
+		accountRepo: repo,
+		accountTestService: service.NewAccountTestService(
+			repo,
+			nil,
+			nil,
+			nil,
+			upstream,
+			&config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+			nil,
+		),
+	}
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/studio/model-config", nil)
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: user.ID})
+
+	h.GetModelConfig(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Code int                  `json:"code"`
+		Data studioModelConfigDTO `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.NotNil(t, resp.Data.Image)
+	require.NotNil(t, resp.Data.Text)
+	require.Equal(t, apiKey.ID, resp.Data.Image.APIKeyID)
+	require.Equal(t, apiKey.ID, resp.Data.Text.APIKeyID)
+	require.Equal(t, "gpt-image-2", resp.Data.Image.Model)
+	require.Equal(t, "gpt-5.4", resp.Data.Text.Model)
+
+	row, err := client.StudioModelConfig.Query().
+		Where(studiomodelconfig.UserIDEQ(user.ID)).
+		Only(ctx)
+	require.NoError(t, err)
+	require.Contains(t, row.Config, "gpt-image-2")
+	require.Contains(t, row.Config, "gpt-5.4")
+}
+
+func TestGetModelConfigAutoConfiguresOpenAIImageFallbackWhenModelsEndpointOmitsImages(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_model_config_auto_openai_image_fallback")
+
+	user, err := client.User.Create().
+		SetEmail("studio-auto-image-fallback@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+	group, err := client.Group.Create().
+		SetName("openai-auto-image-fallback").
+		SetPlatform(service.PlatformOpenAI).
+		Save(ctx)
+	require.NoError(t, err)
+	apiKey, err := client.APIKey.Create().
+		SetUserID(user.ID).
+		SetName("first-key").
+		SetKey("sk-auto-image-fallback").
+		SetGroupID(group.ID).
+		Save(ctx)
+	require.NoError(t, err)
+
+	existing, err := json.Marshal(studioModelConfigDTO{
+		Text: &studioModelSlot{APIKeyID: apiKey.ID, Model: "gpt-5.5"},
+	})
+	require.NoError(t, err)
+	_, err = client.StudioModelConfig.Create().
+		SetUserID(user.ID).
+		SetConfig(string(existing)).
+		Save(ctx)
+	require.NoError(t, err)
+
+	upstream := &studioModelsHTTPUpstream{
+		modelsPayload: `{"data":[{"id":"gpt-5.4"},{"id":"gpt-5.5"}]}`,
+	}
+	repo := &studioModelAccountRepoStub{byGroupPlatform: map[int64]map[string][]service.Account{
+		group.ID: {
+			service.PlatformOpenAI: {
+				{
+					ID:       12,
+					Name:     "openai-text-only-model-list",
+					Platform: service.PlatformOpenAI,
+					Type:     service.AccountTypeAPIKey,
+					Credentials: map[string]any{
+						"api_key":  "upstream-secret",
+						"base_url": "https://upstream.example.com/v1",
+					},
+					Concurrency: 1,
+				},
+			},
+		},
+	}}
+	h := &StudioHandler{
+		client:      client,
+		accountRepo: repo,
+		accountTestService: service.NewAccountTestService(
+			repo,
+			nil,
+			nil,
+			nil,
+			upstream,
+			&config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+			nil,
+		),
+	}
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/studio/model-config", nil)
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: user.ID})
+
+	h.GetModelConfig(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Code int                  `json:"code"`
+		Data studioModelConfigDTO `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.NotNil(t, resp.Data.Image)
+	require.NotNil(t, resp.Data.Text)
+	require.Equal(t, apiKey.ID, resp.Data.Image.APIKeyID)
+	require.Equal(t, "gpt-image-2", resp.Data.Image.Model)
+	require.Equal(t, "gpt-5.5", resp.Data.Text.Model)
+}
+
 func TestGenerateCoverQueuesGPTImageRequestsAsSingleImageJobs(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := startStudioCoverGatewayRecorder(t)
@@ -763,6 +944,8 @@ func TestImportStudioContentRecordsManualChapters(t *testing.T) {
 	require.Len(t, tasks, 1)
 	require.Equal(t, "北境书塔导入", tasks[0].Title)
 	require.Equal(t, "local-importer", tasks[0].Model)
+	require.Contains(t, tasks[0].Output, `"content":"正文一"`)
+	require.Contains(t, tasks[0].Output, `"content":"正文二"`)
 }
 
 func TestStudioFanqieRankReturnsThirtyBooks(t *testing.T) {
@@ -797,6 +980,28 @@ func TestStudioFanqieRankReturnsThirtyBooks(t *testing.T) {
 	require.NotEmpty(t, resp.Data.Books[0].Title)
 }
 
+func TestLiveFanqieRankBooksFallsBackWhenOfficialSourceIsSlow(t *testing.T) {
+	oldFetcher := fetchFanqieRankBooksFromOfficialFunc
+	fetchFanqieRankBooksFromOfficialFunc = func(ctx context.Context, _ fanqieRankChannel) ([]fanqieBook, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	t.Cleanup(func() {
+		fetchFanqieRankBooksFromOfficialFunc = oldFetcher
+	})
+
+	fanqieRankCache.Lock()
+	fanqieRankCache.entries = map[fanqieRankChannel]fanqieRankCacheEntry{}
+	fanqieRankCache.Unlock()
+
+	started := time.Now()
+	books, source, _ := liveFanqieRankBooks(context.Background(), fanqieRankHot)
+
+	require.Less(t, time.Since(started), 2*time.Second)
+	require.Equal(t, "fanqie-rank-cache", source)
+	require.Len(t, books, 30)
+}
+
 func TestParseFanqieRankHTMLReturnsOfficialBooks(t *testing.T) {
 	html := `<script>window.__INITIAL_STATE__={"rank":{"book_list":[{"bookId":"1001","bookName":"新鲜热榜书","author":"作者A","abstract":"开篇强钩子","categoryV2":"都市脑洞","creationStatus":"1","wordNumber":"880000","thumbUri":"https:\/\/img.example.com\/cover.jpg","currentPos":1,"read_count":"12345"},{"bookId":"1002","bookName":"第二本","author":"作者B","abstract":"反转密集","categoryV2":"悬疑脑洞","creationStatus":"0","wordNumber":"1200000","currentPos":2,"read_count":"999"}]}};</script>`
 
@@ -829,6 +1034,78 @@ func TestParseFanqieRankAPIResponseReturnsLiveBooks(t *testing.T) {
 	require.Equal(t, "Urban", books[1].Category)
 }
 
+func TestEnrichFanqieObfuscatedRankBooksUsesBookSummary(t *testing.T) {
+	oldSummary := fetchFanqieBookSummary
+	fetchFanqieBookSummary = func(_ context.Context, book fanqieBook) (fanqieBook, error) {
+		require.Equal(t, "7143038691944959011", book.ID)
+		return fanqieBook{
+			ID:          book.ID,
+			Title:       "十日终焉",
+			Author:      "杀虫队队员",
+			Category:    "悬疑脑洞 / 推理",
+			Status:      "已完结",
+			WordCount:   "320万字",
+			Score:       "官方详情",
+			Description: "死亡游戏与规则怪谈。",
+			CoverURL:    "https://example.com/cover.jpg",
+			SourceURL:   "https://fanqienovel.com/page/" + book.ID,
+			Tags:        []string{"官方详情", "悬疑脑洞"},
+		}, nil
+	}
+	t.Cleanup(func() { fetchFanqieBookSummary = oldSummary })
+
+	books := enrichFanqieObfuscatedRankBooks(context.Background(), []fanqieBook{{
+		ID:          "7143038691944959011",
+		Rank:        7,
+		Title:       "\ue41f\ue475终焉",
+		Author:      "杀虫队队\ue4d9",
+		Category:    "悬疑脑洞",
+		Status:      "连载中",
+		WordCount:   "320万字",
+		Score:       "在读 2164597",
+		Description: "\ue246\ue3f1年度榜单作品",
+		SourceURL:   "https://fanqienovel.com/page/7143038691944959011",
+		Tags:        []string{"热榜", "官方实时榜"},
+	}})
+
+	require.Len(t, books, 1)
+	require.Equal(t, 7, books[0].Rank)
+	require.Equal(t, "在读 2164597", books[0].Score)
+	require.Equal(t, "十日终焉", books[0].Title)
+	require.Equal(t, "杀虫队队员", books[0].Author)
+	require.Equal(t, "死亡游戏与规则怪谈。", books[0].Description)
+	require.False(t, containsPrivateUseRune(books[0].Title+books[0].Author+books[0].Description))
+}
+
+func TestEnrichFanqieObfuscatedRankBooksRemovesPrivateUseTextWhenSummaryFails(t *testing.T) {
+	oldSummary := fetchFanqieBookSummary
+	fetchFanqieBookSummary = func(_ context.Context, book fanqieBook) (fanqieBook, error) {
+		return fanqieBook{}, fmt.Errorf("official detail unavailable")
+	}
+	t.Cleanup(func() { fetchFanqieBookSummary = oldSummary })
+
+	books := enrichFanqieObfuscatedRankBooks(context.Background(), []fanqieBook{{
+		ID:          "7143038691944959011",
+		Rank:        28,
+		Title:       "糟糕！\ue121\ue42c\ue44d鬼包围\ue436",
+		Author:      "\ue3fc\ue166\ue417巴",
+		Category:    "悬疑脑洞",
+		Status:      "连载中",
+		WordCount:   "-",
+		Score:       "在读 358634",
+		Description: "\ue246\ue3f1官方摘要",
+		SourceURL:   "https://fanqienovel.com/page/7143038691944959011",
+		Tags:        []string{"热榜", "\ue123官方实时榜"},
+	}})
+
+	require.Len(t, books, 1)
+	require.Equal(t, 28, books[0].Rank)
+	require.Equal(t, "番茄作品 7143038691944959011", books[0].Title)
+	require.Equal(t, "番茄小说", books[0].Author)
+	require.Equal(t, "悬疑脑洞", books[0].Category)
+	require.Equal(t, "官方详情暂时不可用，已隐藏番茄加密字体字段；可打开作品页或稍后刷新获取完整信息。", books[0].Description)
+	require.False(t, fanqieBookHasPrivateUseText(books[0]))
+}
 func TestParseFanqieBookInfoAPIResponseParsesStringifiedCategoryList(t *testing.T) {
 	body := []byte(`{"code":0,"data":{"bookId":"7143038691944959011","bookName":"十日终焉","author":"杀虫队队员","abstract":"死亡游戏与规则怪谈。","categoryV2":"[{\"Name\":\"悬疑脑洞\",\"MainCategory\":true},{\"Name\":\"推理\"}]","creationStatus":"0","wordNumber":"3201288","thumbUrl":"https://example.com/cover.jpg","readCount":"2175190"}}`)
 
@@ -986,6 +1263,8 @@ func TestPopulateFanqieChapterContentsFetchesReaderPages(t *testing.T) {
 	require.Contains(t, download.Text, "First body")
 	require.Contains(t, download.Text, "Second body")
 	require.Equal(t, 10, download.Chapters[0].WordCount)
+	require.Equal(t, "First body", download.Chapters[0].Content)
+	require.Equal(t, "Second body", download.Chapters[1].Content)
 }
 
 func TestPopulateFanqieChapterContentsMarksLockedPreviewContent(t *testing.T) {
@@ -1052,6 +1331,43 @@ func TestStudioFanqieSearchFindsNamedNovel(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	require.NotEmpty(t, resp.Data.Books)
+}
+
+func TestStudioFanqieSearchFallsBackWhenOfficialSearchFails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_fanqie_search_fallback")
+	user, err := client.User.Create().
+		SetEmail("studio-fanqie-search-fallback@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+	h := &StudioHandler{client: client}
+
+	oldSearch := fetchFanqieSearchBooks
+	fetchFanqieSearchBooks = func(_ context.Context, query string) ([]fanqieBook, error) {
+		require.Equal(t, "十日终焉", query)
+		return nil, errors.New("official fanqie search unavailable")
+	}
+	t.Cleanup(func() { fetchFanqieSearchBooks = oldSearch })
+
+	rec := performStudioFanqieSearchRequest(t, h, user.ID, "十日终焉")
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Data struct {
+			Books []struct {
+				Title     string `json:"title"`
+				SourceURL string `json:"source_url"`
+				Score     string `json:"score"`
+			} `json:"books"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.NotEmpty(t, resp.Data.Books)
+	require.Equal(t, "十日终焉", resp.Data.Books[0].Title)
+	require.Contains(t, resp.Data.Books[0].SourceURL, "fanqienovel.com")
+	require.Equal(t, "搜索命中", resp.Data.Books[0].Score)
 }
 
 func TestSearchLiveFanqieBooksEnrichesDirectPageQuery(t *testing.T) {
@@ -1155,11 +1471,13 @@ func TestStudioFanqieDownloadBuildsAuthorizedImportPackage(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "十日终焉.txt")
 	require.Contains(t, rec.Body.String(), "第1章 空屋")
+	require.Contains(t, rec.Body.String(), "封闭房间里醒来。")
 	require.Contains(t, rec.Body.String(), "仅限个人备份")
 	tasks, err := client.CreationTask.Query().Where(creationtask.UserIDEQ(user.ID), creationtask.TypeEQ("import")).All(ctx)
 	require.NoError(t, err)
 	require.Len(t, tasks, 1)
 	require.Equal(t, "十日终焉导入", tasks[0].Title)
+	require.Contains(t, tasks[0].Output, `"content":"封闭房间里醒来。"`)
 }
 
 func TestStudioFanqieAnalyzeUsesIntroAndFirstTenChapters(t *testing.T) {

@@ -78,7 +78,36 @@ describe('CoverView', () => {
     await wrapper.find('#cv-synopsis').setValue('每本书都是一座城')
     await wrapper.find('#cv-protagonist').setValue('林见微')
     expect(wrapper.find('.submit-btn').attributes('disabled')).toBeDefined()
-    expect(wrapper.text()).toContain('还没配置生图模型')
+    expect(wrapper.find('[data-test="model-auto-config-strip"]').classes()).toContain('cover-hero-card-compact')
+    expect(wrapper.find('[data-test="model-auto-config-strip"] p').classes()).toContain('cover-hero-copy')
+    expect(wrapper.find('[data-test="cover-key-setup-card"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="cover-key-setup-card"]').text()).toContain('去 API 密钥配置')
+    expect(wrapper.text()).toContain('系统会优先自动选择第一把密钥')
+  })
+
+  it('loads the image model even when cover history fails', async () => {
+    listWorks.mockRejectedValue(new Error('history unavailable'))
+    getModelConfig.mockResolvedValue({ image: { api_key_id: 1, model: 'gpt-image-2' } })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('gpt-image-2')
+    expect(wrapper.text()).not.toContain('系统会优先自动选择第一把密钥')
+  })
+
+  it('shows a three-step cover workflow and practical input checklist', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="cover-workflow-guide"]').classes()).toContain('cover-flow-mobile-readable')
+    expect(wrapper.text()).toContain('Brief')
+    expect(wrapper.text()).toContain('Model')
+    expect(wrapper.text()).toContain('Result')
+    expect(wrapper.text()).toContain('输入书名与题材')
+    expect(wrapper.find('[data-test="cover-workflow-guide"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="cover-empty-brief"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="cover-empty-brief"]').text()).toContain('先定点击承诺')
   })
 
   it('submits a novel-mode cover request and renders covers', async () => {
