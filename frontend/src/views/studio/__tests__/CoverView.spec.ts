@@ -380,4 +380,18 @@ describe('CoverView', () => {
     expect(wrapper.text()).not.toContain('后端封面生成服务正在开发中')
     expect(wrapper.text()).toContain('生成耗时较长')
   })
+
+  it('localizes insufficient balance errors for cover generation', async () => {
+    startCoverJob.mockRejectedValue({ message: 'Insufficient account balance' })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('#cv-synopsis').setValue('balance synopsis')
+    await wrapper.find('#cv-protagonist').setValue('balance protagonist')
+    await wrapper.find('.submit-btn').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('账户余额不足，请先充值或联系管理员增加余额')
+    expect(wrapper.text()).not.toContain('Insufficient account balance')
+  })
 })

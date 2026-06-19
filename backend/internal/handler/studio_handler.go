@@ -520,11 +520,31 @@ func getStudioCoverJobSnapshot(id string) (studioCoverJobResponse, int64, bool) 
 	return snapshotStudioCoverJob(job), job.UserID, true
 }
 
+func normalizeStudioCoverErrorMessage(message string) string {
+	normalized := strings.TrimSpace(message)
+	if normalized == "" {
+		return ""
+	}
+	lower := strings.ToLower(normalized)
+	switch {
+	case strings.Contains(lower, "insufficient account balance") || strings.Contains(lower, "insufficient balance"):
+		return "账户余额不足，请先充值或联系管理员增加余额"
+	case strings.Contains(lower, "image generation is not enabled for this group"):
+		return "当前 API 密钥所属分组未启用生图，请在管理员后台为该分组开启图片生成"
+	case strings.Contains(lower, "upstream authentication failed") || strings.Contains(lower, "invalid api key"):
+		return "上游生图账号鉴权失败，请在管理员后台检查 OpenAI 账号 API Key"
+	case strings.Contains(lower, "no available accounts"):
+		return "当前分组没有可用的上游生图账号，请在管理员后台检查账号状态"
+	default:
+		return normalized
+	}
+}
+
 func studioCoverErrorMessage(err error) string {
 	var httpErr *studioCoverHTTPError
 	if errors.As(err, &httpErr) {
 		if httpErr.Message != "" {
-			return httpErr.Message
+			return normalizeStudioCoverErrorMessage(httpErr.Message)
 		}
 		var parsed struct {
 			Message string `json:"message"`
@@ -533,23 +553,23 @@ func studioCoverErrorMessage(err error) string {
 		}
 		if len(httpErr.Body) > 0 && json.Unmarshal(httpErr.Body, &parsed) == nil {
 			if parsed.Message != "" {
-				return parsed.Message
+				return normalizeStudioCoverErrorMessage(parsed.Message)
 			}
 			if parsed.Detail != "" {
-				return parsed.Detail
+				return normalizeStudioCoverErrorMessage(parsed.Detail)
 			}
 			switch v := parsed.Error.(type) {
 			case string:
-				return v
+				return normalizeStudioCoverErrorMessage(v)
 			case map[string]any:
 				if msg, _ := v["message"].(string); msg != "" {
-					return msg
+					return normalizeStudioCoverErrorMessage(msg)
 				}
 			}
 		}
 	}
 	if err != nil {
-		return err.Error()
+		return normalizeStudioCoverErrorMessage(err.Error())
 	}
 	return ""
 }

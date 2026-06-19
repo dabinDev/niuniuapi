@@ -936,6 +936,15 @@ func TestStartCoverJobReturnsRunningAndPollsUntilSucceeded(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 }
 
+func TestStudioCoverErrorMessageLocalizesGatewayBalanceError(t *testing.T) {
+	err := &studioCoverHTTPError{
+		StatusCode: http.StatusForbidden,
+		Body:       []byte(`{"error":{"message":"Insufficient account balance"}}`),
+	}
+
+	require.Equal(t, "账户余额不足，请先充值或联系管理员增加余额", studioCoverErrorMessage(err))
+}
+
 func TestBuildTeardownPromptIncludesContentAndTone(t *testing.T) {
 	system, user := buildTeardownPrompt(teardownRequest{
 		Content: "少年得到一座会生长城市的书塔",

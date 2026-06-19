@@ -340,13 +340,29 @@ function getRequestStatus(err: unknown): number | undefined {
   return e.response?.status ?? e.status
 }
 
+function normalizeCoverErrorMessage(message: string): string {
+  const normalized = message.trim()
+  const lower = normalized.toLowerCase()
+  if (!normalized) return ''
+  if (lower.includes('insufficient account balance') || lower.includes('insufficient balance')) {
+    return '账户余额不足，请先充值或联系管理员增加余额'
+  }
+  if (lower.includes('image generation is not enabled for this group')) {
+    return '当前 API 密钥所属分组未启用生图，请在管理员后台为该分组开启图片生成'
+  }
+  if (lower.includes('upstream authentication failed') || lower.includes('invalid api key')) {
+    return '上游生图账号鉴权失败，请在管理员后台检查 OpenAI 账号 API Key'
+  }
+  return normalized
+}
+
 function getRequestMessage(err: unknown): string {
   const e = err as {
     message?: string
     response?: { data?: { message?: string; error?: { message?: string } } }
     error?: { message?: string }
   }
-  return e.response?.data?.error?.message || e.response?.data?.message || e.error?.message || e.message || ''
+  return normalizeCoverErrorMessage(e.response?.data?.error?.message || e.response?.data?.message || e.error?.message || e.message || '')
 }
 
 function isTimeoutError(err: unknown): boolean {
