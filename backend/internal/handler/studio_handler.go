@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -403,6 +404,15 @@ type coverRequest struct {
 	Count       int    `json:"count"`
 }
 
+type coverPromptPolishResponse struct {
+	Prompt      string `json:"prompt,omitempty"`
+	Protagonist string `json:"protagonist,omitempty"`
+	Genre       string `json:"genre,omitempty"`
+	Mood        string `json:"mood,omitempty"`
+	KeyScene    string `json:"key_scene,omitempty"`
+	CoverTitle  string `json:"cover_title,omitempty"`
+}
+
 const studioCoverJobTimeout = 15 * time.Minute
 
 type studioCoverJobStatus string
@@ -593,10 +603,26 @@ func writeStudioCoverGenerationError(c *gin.Context, err error) {
 
 func buildCoverPrompt(req coverRequest) string {
 	if req.Mode == "custom" {
-		return strings.TrimSpace(req.Prompt)
+		raw := strings.TrimSpace(req.Prompt)
+		if raw == "" {
+			return ""
+		}
+		var b strings.Builder
+		b.WriteString("为一本网络小说设计竖版小说封面。")
+		b.WriteString("创意 brief：" + raw + "。")
+		b.WriteString("这是小说封面，不是普通插画；构图需要适合移动端书城缩略图。")
+		b.WriteString("封面文字/书名区域要明确醒目，有主标题层级和版式设计；文字应清晰、有设计感，避免乱码、错别字、无意义字符。")
+		b.WriteString("如果无法稳定渲染准确中文，请预留干净醒目的书名标题区，不要生成随机文字。")
+		return b.String()
 	}
 	var b strings.Builder
-	b.WriteString("为一本小说设计一张精美的竖版书籍封面插画。")
+	b.WriteString("为一本网络小说设计一张精美的竖版小说封面。")
+	if req.Title != "" {
+		b.WriteString("书名：" + req.Title + "。")
+	}
+	if req.CoverTitle != "" {
+		b.WriteString("封面主标题文字：" + req.CoverTitle + "。")
+	}
 	if req.Genre != "" {
 		b.WriteString("题材与画风：" + req.Genre + "。")
 	}
@@ -612,8 +638,127 @@ func buildCoverPrompt(req coverRequest) string {
 	if req.Synopsis != "" {
 		b.WriteString("故事简介：" + req.Synopsis + "。")
 	}
-	b.WriteString("竖版书封构图，画面精致、细节丰富、有氛围感，画面中不要出现任何文字。")
+	b.WriteString("这是小说封面，不是普通插画；竖版书封构图，画面精致、细节丰富、有氛围感，适合移动端书城缩略图。")
+	b.WriteString("封面文字/书名区域要明确醒目，有主标题层级和版式设计；如提供封面标题或书名，优先作为主标题文字，文字应清晰、有设计感，避免乱码、错别字、无意义字符。")
+	b.WriteString("如果模型无法稳定渲染准确中文，请预留干净醒目的书名标题区，不要生成随机文字。")
 	return b.String()
+}
+
+func buildCoverPromptPolishPrompt(req coverRequest) (string, string) {
+	system := "你是「烂番茄」小说封面提示词导演，负责把作者的粗略想法整理成可直接用于生图的封面 brief。只输出一个 JSON 对象，不要解释，不要 markdown 代码块。"
+	var b strings.Builder
+	if req.Mode == "custom" {
+		b.WriteString("请完善下面的自定义封面提示词，输出字段：")
+		b.WriteString(`{"prompt":"可直接用于生图的中文提示词"}`)
+		b.WriteString("。要求：必须明确这是竖版网络小说封面，不是普通插画；保留原始创意，不改变题材；强化画面焦点、构图、氛围、光影、人物/场景细节；重点强调封面文字、书名区域、标题层级、移动端缩略图可读性；避免乱码、错别字、无意义字符；如果无法准确渲染中文，要求预留干净醒目的标题区。")
+		b.WriteString("\n原始提示词：\n")
+		b.WriteString(req.Prompt)
+		return system, b.String()
+	}
+
+	b.WriteString("请根据小说信息补全封面生成表单，输出字段：")
+	b.WriteString(`{"protagonist":"主角外貌/气质","genre":"题材/画风","mood":"情绪基调","key_scene":"关键场景/意象","cover_title":"封面标题文字"}`)
+	b.WriteString("。要求：字段要短、具体、可直接进入生图 brief；所有内容都服务于竖版网络小说封面；cover_title 优先使用用户提供的封面标题或书名；如果没有书名，根据简介提炼一个适合封面的短标题；重点考虑封面文字/书名区域、标题层级和移动端点击承诺，避免引导模型生成乱码或随机文字。")
+	if req.Title != "" {
+		b.WriteString("\n书名：" + req.Title)
+	}
+	if req.CoverTitle != "" {
+		b.WriteString("\n已有封面标题：" + req.CoverTitle)
+	}
+	if req.Genre != "" {
+		b.WriteString("\n已有题材/画风：" + req.Genre)
+	}
+	if req.Protagonist != "" {
+		b.WriteString("\n已有主角：" + req.Protagonist)
+	}
+	if req.Mood != "" {
+		b.WriteString("\n已有情绪基调：" + req.Mood)
+	}
+	if req.KeyScene != "" {
+		b.WriteString("\n已有关键场景/意象：" + req.KeyScene)
+	}
+	b.WriteString("\n简介：\n")
+	b.WriteString(req.Synopsis)
+	return system, b.String()
+}
+
+func trimCoverPromptPolishResponse(mode string, req coverRequest, result *coverPromptPolishResponse) {
+	result.Prompt = strings.TrimSpace(result.Prompt)
+	result.Protagonist = firstNonEmptyString(result.Protagonist, req.Protagonist)
+	result.Genre = firstNonEmptyString(result.Genre, req.Genre)
+	result.Mood = firstNonEmptyString(result.Mood, req.Mood)
+	result.KeyScene = firstNonEmptyString(result.KeyScene, req.KeyScene)
+	result.CoverTitle = firstNonEmptyString(result.CoverTitle, req.CoverTitle, req.Title)
+	if mode == "custom" {
+		result.Protagonist = ""
+		result.Genre = ""
+		result.Mood = ""
+		result.KeyScene = ""
+		result.CoverTitle = ""
+		return
+	}
+	result.Prompt = ""
+}
+
+// PolishCoverPrompt 用已配置的文案模型完善封面提示词或补全小说驱动字段。
+func (h *StudioHandler) PolishCoverPrompt(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	ak, model, ok := h.requireStudioTextModel(c, subject.UserID)
+	if !ok {
+		return
+	}
+	var req coverRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	req.Mode = strings.TrimSpace(req.Mode)
+	if req.Mode == "" {
+		req.Mode = "novel"
+	}
+	if req.Mode != "custom" && req.Mode != "novel" {
+		response.BadRequest(c, "不支持的封面生成模式")
+		return
+	}
+	if req.Mode == "custom" && strings.TrimSpace(req.Prompt) == "" {
+		response.BadRequest(c, "请先填写提示词")
+		return
+	}
+	if req.Mode == "novel" && strings.TrimSpace(req.Synopsis) == "" {
+		response.BadRequest(c, "请先填写简介")
+		return
+	}
+
+	system, user := buildCoverPromptPolishPrompt(req)
+	body, status, err := postStudioChatCompletion(c.Request.Context(), ak, model, system, user)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if status != http.StatusOK {
+		c.Data(status, "application/json; charset=utf-8", body)
+		return
+	}
+	content, err := extractStudioChatContent(body)
+	if err != nil {
+		response.ErrorFrom(c, fmt.Errorf("提示词完善失败：%w", err))
+		return
+	}
+	var result coverPromptPolishResponse
+	if err := json.Unmarshal([]byte(content), &result); err != nil {
+		response.ErrorFrom(c, fmt.Errorf("解析模型输出失败：%w", err))
+		return
+	}
+	trimCoverPromptPolishResponse(req.Mode, req, &result)
+	if req.Mode == "custom" && result.Prompt == "" {
+		response.Error(c, http.StatusBadGateway, "模型未返回可用提示词")
+		return
+	}
+	response.Success(c, result)
 }
 
 const studioCoverMaxReferenceImageBytes = 20 << 20
@@ -1787,6 +1932,17 @@ type fanqieRankCacheEntry struct {
 	UpdatedAt time.Time
 }
 
+type fanqieCoverSourceEntry struct {
+	RawURL    string
+	CreatedAt time.Time
+}
+
+type fanqieCoverCacheEntry struct {
+	ContentType string
+	Body        []byte
+	UpdatedAt   time.Time
+}
+
 type fanqieRankAPISource struct {
 	Gender     int
 	RankMold   int
@@ -1796,11 +1952,25 @@ type fanqieRankAPISource struct {
 }
 
 const fanqieRankOfficialFetchTimeout = 1500 * time.Millisecond
+const fanqieCoverCacheTTL = 24 * time.Hour
+const fanqieCoverSourceTTL = 7 * 24 * time.Hour
+const fanqieCoverFetchTimeout = 12 * time.Second
+const fanqieCoverMaxBytes = 4 << 20
 
 var fanqieRankCache = struct {
 	sync.Mutex
 	entries map[fanqieRankChannel]fanqieRankCacheEntry
 }{entries: map[fanqieRankChannel]fanqieRankCacheEntry{}}
+
+var fanqieCoverSources = struct {
+	sync.Mutex
+	entries map[string]fanqieCoverSourceEntry
+}{entries: map[string]fanqieCoverSourceEntry{}}
+
+var fanqieCoverBytesCache = struct {
+	sync.Mutex
+	entries map[string]fanqieCoverCacheEntry
+}{entries: map[string]fanqieCoverCacheEntry{}}
 
 var fetchFanqieRankBooksFromOfficialFunc = fetchFanqieRankBooksFromOfficial
 
@@ -1868,6 +2038,205 @@ func fanqieRankURL(ch fanqieRankChannel) string {
 	default:
 		return "https://fanqienovel.com/rank"
 	}
+}
+
+func isFanqieCoverHost(host string) bool {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if host == "" {
+		return false
+	}
+	if host == "localhost" || strings.HasPrefix(host, "127.") || host == "::1" {
+		return true
+	}
+	return host == "fanqienovel.com" ||
+		host == "fqnovelpic.com" ||
+		strings.HasSuffix(host, ".fqnovelpic.com") ||
+		strings.HasSuffix(host, ".fanqienovel.com") ||
+		strings.HasSuffix(host, ".pstatp.com") ||
+		strings.HasSuffix(host, ".byteimg.com") ||
+		strings.HasSuffix(host, ".bytedance.com") ||
+		strings.HasSuffix(host, ".toutiaoimg.com")
+}
+
+func normalizeFanqieCoverSourceURL(raw string) (string, bool) {
+	normalized := normalizeFanqieImageURL(raw)
+	if normalized == "" {
+		return "", false
+	}
+	u, err := url.Parse(normalized)
+	if err != nil || u.Hostname() == "" {
+		return "", false
+	}
+	if u.Scheme != "https" && u.Scheme != "http" {
+		return "", false
+	}
+	if u.Scheme == "http" && u.Hostname() != "localhost" && !strings.HasPrefix(u.Hostname(), "127.") && u.Hostname() != "::1" {
+		return "", false
+	}
+	if !isFanqieCoverHost(u.Hostname()) {
+		return "", false
+	}
+	return u.String(), true
+}
+
+func fanqieCoverCacheKey(rawURL string) string {
+	sum := sha256.Sum256([]byte(rawURL))
+	return hex.EncodeToString(sum[:])
+}
+
+func registerFanqieCoverSource(rawURL string) (string, bool) {
+	normalized, ok := normalizeFanqieCoverSourceURL(rawURL)
+	if !ok {
+		return "", false
+	}
+	key := fanqieCoverCacheKey(normalized)
+	now := time.Now().UTC()
+	fanqieCoverSources.Lock()
+	fanqieCoverSources.entries[key] = fanqieCoverSourceEntry{RawURL: normalized, CreatedAt: now}
+	fanqieCoverSources.Unlock()
+	return key, true
+}
+
+func fanqieCoverLocalURL(rawURL string) string {
+	key, ok := registerFanqieCoverSource(rawURL)
+	if !ok {
+		return rawURL
+	}
+	return "/api/v1/studio/fanqie/covers/" + key
+}
+
+func withFanqieLocalCoverURLs(books []fanqieBook) []fanqieBook {
+	out := make([]fanqieBook, len(books))
+	copy(out, books)
+	for i := range out {
+		if out[i].CoverURL != "" {
+			out[i].CoverURL = fanqieCoverLocalURL(out[i].CoverURL)
+		}
+	}
+	return out
+}
+
+func lookupFanqieCoverSource(key string) (string, bool) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return "", false
+	}
+	now := time.Now().UTC()
+	fanqieCoverSources.Lock()
+	defer fanqieCoverSources.Unlock()
+	entry, ok := fanqieCoverSources.entries[key]
+	if !ok || now.Sub(entry.CreatedAt) > fanqieCoverSourceTTL {
+		delete(fanqieCoverSources.entries, key)
+		return "", false
+	}
+	return entry.RawURL, true
+}
+
+func getCachedFanqieCoverBytes(key string) (fanqieCoverCacheEntry, bool) {
+	now := time.Now().UTC()
+	fanqieCoverBytesCache.Lock()
+	defer fanqieCoverBytesCache.Unlock()
+	entry, ok := fanqieCoverBytesCache.entries[key]
+	if !ok || now.Sub(entry.UpdatedAt) > fanqieCoverCacheTTL || len(entry.Body) == 0 {
+		delete(fanqieCoverBytesCache.entries, key)
+		return fanqieCoverCacheEntry{}, false
+	}
+	body := make([]byte, len(entry.Body))
+	copy(body, entry.Body)
+	entry.Body = body
+	return entry, true
+}
+
+func setCachedFanqieCoverBytes(key string, entry fanqieCoverCacheEntry) {
+	body := make([]byte, len(entry.Body))
+	copy(body, entry.Body)
+	entry.Body = body
+	entry.UpdatedAt = time.Now().UTC()
+	fanqieCoverBytesCache.Lock()
+	fanqieCoverBytesCache.entries[key] = entry
+	fanqieCoverBytesCache.Unlock()
+}
+
+func fetchFanqieCoverBytes(ctx context.Context, rawURL string) (fanqieCoverCacheEntry, error) {
+	ctx, cancel := context.WithTimeout(ctx, fanqieCoverFetchTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return fanqieCoverCacheEntry{}, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; LanfanqieStudioCoverCache/1.0; +https://qbook.top)")
+	req.Header.Set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+	req.Header.Set("Referer", "https://fanqienovel.com/")
+	client := &http.Client{
+		Timeout: fanqieCoverFetchTimeout,
+		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
+			if _, ok := normalizeFanqieCoverSourceURL(req.URL.String()); !ok {
+				return fmt.Errorf("fanqie cover redirect target is not allowed")
+			}
+			return nil
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fanqieCoverCacheEntry{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fanqieCoverCacheEntry{}, fmt.Errorf("official cover returned %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, fanqieCoverMaxBytes+1))
+	if err != nil {
+		return fanqieCoverCacheEntry{}, err
+	}
+	if len(body) == 0 {
+		return fanqieCoverCacheEntry{}, fmt.Errorf("official cover is empty")
+	}
+	if len(body) > fanqieCoverMaxBytes {
+		return fanqieCoverCacheEntry{}, fmt.Errorf("official cover is too large")
+	}
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = http.DetectContentType(body)
+	}
+	if !strings.HasPrefix(strings.ToLower(contentType), "image/") {
+		return fanqieCoverCacheEntry{}, fmt.Errorf("official cover returned non-image content")
+	}
+	return fanqieCoverCacheEntry{ContentType: contentType, Body: body, UpdatedAt: time.Now().UTC()}, nil
+}
+
+func writeFanqieCoverBytes(c *gin.Context, entry fanqieCoverCacheEntry, cacheStatus string) {
+	if entry.ContentType == "" {
+		entry.ContentType = http.DetectContentType(entry.Body)
+	}
+	c.Header("Cache-Control", "public, max-age=86400, immutable")
+	c.Header("X-Fanqie-Cover-Cache", cacheStatus)
+	c.Data(http.StatusOK, entry.ContentType, entry.Body)
+}
+
+// ServeFanqieCover serves Fanqie cover images through a small local cache so
+// hotlist pages do not make every browser view hit the upstream image host.
+func (h *StudioHandler) ServeFanqieCover(c *gin.Context) {
+	key := strings.TrimSpace(c.Param("key"))
+	if !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(key) {
+		response.BadRequest(c, "invalid cover cache key")
+		return
+	}
+	rawURL, ok := lookupFanqieCoverSource(key)
+	if !ok {
+		response.Error(c, http.StatusNotFound, "cover cache source expired")
+		return
+	}
+	if entry, ok := getCachedFanqieCoverBytes(key); ok {
+		writeFanqieCoverBytes(c, entry, "hit")
+		return
+	}
+	entry, err := fetchFanqieCoverBytes(c.Request.Context(), rawURL)
+	if err != nil {
+		response.Error(c, http.StatusBadGateway, "cover cache fetch failed")
+		return
+	}
+	setCachedFanqieCoverBytes(key, entry)
+	writeFanqieCoverBytes(c, entry, "miss")
 }
 
 func containsPrivateUseRune(s string) bool {
@@ -2317,7 +2686,7 @@ func (h *StudioHandler) GetFanqieRank(c *gin.Context) {
 		Channel:   ch,
 		UpdatedAt: updatedAt,
 		Source:    source,
-		Books:     books,
+		Books:     withFanqieLocalCoverURLs(books),
 	})
 }
 
@@ -2337,7 +2706,7 @@ func (h *StudioHandler) SearchFanqieBooks(c *gin.Context) {
 		response.Error(c, http.StatusBadGateway, err.Error())
 		return
 	}
-	response.Success(c, gin.H{"books": books})
+	response.Success(c, gin.H{"books": withFanqieLocalCoverURLs(books)})
 }
 
 type fanqieChapter struct {

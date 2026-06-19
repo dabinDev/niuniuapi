@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="creative-page mx-auto max-w-7xl">
+    <div class="creative-page studio-wide-shell mx-auto max-w-none">
       <header class="creative-head">
         <div>
           <span class="eyebrow">Writing Bench</span>
@@ -21,7 +21,7 @@
         {{ bridgeNotice }}
       </div>
 
-      <section class="creative-grid">
+      <section class="creative-grid creative-grid-wide">
         <form class="writer-panel" @submit.prevent="submit">
           <div class="template-strip" aria-label="创作模板">
             <button
@@ -36,7 +36,7 @@
             </button>
           </div>
 
-          <div class="mode-grid" aria-label="创作模式">
+          <div class="mode-grid mode-grid-wide" aria-label="创作模式">
             <button
               v-for="opt in modeOptions"
               :key="opt.value"
@@ -368,10 +368,15 @@ async function copyResult() {
 
 <style scoped>
 .creative-page {
-  width: min(100%, 96rem);
-  max-width: calc(100vw - 2rem);
+  width: min(100%, 118rem);
+  max-width: calc(100vw - 1.25rem);
   padding: 0.5rem 0 2.5rem;
   color: #221a18;
+}
+
+.studio-wide-shell {
+  width: min(100%, 118rem);
+  max-width: calc(100vw - 1.25rem);
 }
 
 .creative-head {
@@ -536,6 +541,10 @@ async function copyResult() {
   gap: 1rem;
 }
 
+.creative-grid-wide {
+  grid-template-columns: minmax(30rem, 0.9fr) minmax(0, 1.1fr);
+}
+
 .writer-panel,
 .output-panel {
   border: 1px solid #eaded8;
@@ -585,6 +594,10 @@ async function copyResult() {
   grid-template-columns: repeat(3, 1fr);
   gap: 0.55rem;
   margin-bottom: 0.9rem;
+}
+
+.mode-grid-wide {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .mode-grid button {

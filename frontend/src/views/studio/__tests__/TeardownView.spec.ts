@@ -59,6 +59,9 @@ describe('TeardownView', () => {
     const wrapper = mountView()
     await flushPromises()
 
+    expect(wrapper.find('.teardown-page').classes()).toContain('studio-wide-shell')
+    expect(wrapper.find('.diagnosis-map').classes()).toContain('diagnosis-map-wide')
+    expect(wrapper.find('.teardown-grid').classes()).toContain('teardown-grid-wide')
     expect(wrapper.text()).toContain('拆书诊断')
     expect(wrapper.text()).toContain('黄金三章')
     expect(wrapper.text()).toContain('节奏热区')
@@ -103,6 +106,20 @@ describe('TeardownView', () => {
     expect(gate.text()).toContain('首次爽点')
     expect(gate.text()).toContain('章尾钩子')
     expect(gate.text()).toContain('代价/伏笔')
+  })
+
+  it('turns gateway failures into actionable teardown guidance', async () => {
+    analyzeTeardown.mockRejectedValue({ response: { status: 502, data: { message: 'Bad Gateway' } } })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('#td-content').setValue(longText)
+    await wrapper.find('.submit-btn').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('模型或网关暂时不可用')
+    expect(wrapper.text()).not.toContain('拆书失败，请稍后重试')
+    expect(wrapper.text()).not.toContain('Bad Gateway')
   })
 
   it('prefills from a fanqie hotlist bridge payload', async () => {

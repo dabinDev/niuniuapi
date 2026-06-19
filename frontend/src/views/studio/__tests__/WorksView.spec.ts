@@ -64,6 +64,9 @@ describe('WorksView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="studio-workbench-shell"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="studio-workbench-shell"]').classes()).toContain('studio-wide-shell')
+    expect(wrapper.find('.workbench-grid').classes()).toContain('workbench-grid-wide')
+    expect(wrapper.find('[data-test="works-archive-grid"]').classes()).toContain('archive-grid-wide')
     expect(wrapper.find('[data-test="works-mission-control"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="works-queue-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="works-status-panel"]').exists()).toBe(true)

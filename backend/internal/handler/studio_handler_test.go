@@ -295,6 +295,18 @@ func performStudioCoverRequest(t *testing.T, h *StudioHandler, userID int64, bod
 	return rec
 }
 
+func performStudioCoverPromptPolishRequest(t *testing.T, h *StudioHandler, userID int64, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/studio/cover/prompt-polish", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: userID})
+
+	h.PolishCoverPrompt(c)
+	return rec
+}
+
 func performStudioCoverJobStart(t *testing.T, h *StudioHandler, userID int64, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
@@ -340,6 +352,31 @@ func performStudioFanqieRankRequest(t *testing.T, h *StudioHandler, userID int64
 
 	h.GetFanqieRank(c)
 	return rec
+}
+
+func performStudioFanqieCoverRequest(t *testing.T, h *StudioHandler, key string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/studio/fanqie/covers/"+key, nil)
+	c.Params = gin.Params{{Key: "key", Value: key}}
+
+	h.ServeFanqieCover(c)
+	return rec
+}
+
+func resetFanqieCoverCachesForTest() {
+	fanqieCoverSources.Lock()
+	fanqieCoverSources.entries = map[string]fanqieCoverSourceEntry{}
+	fanqieCoverSources.Unlock()
+
+	fanqieCoverBytesCache.Lock()
+	fanqieCoverBytesCache.entries = map[string]fanqieCoverCacheEntry{}
+	fanqieCoverBytesCache.Unlock()
+}
+
+func registerFanqieCoverSourceForTest(rawURL string) (string, bool) {
+	return registerFanqieCoverSource(rawURL)
 }
 
 func performStudioFanqieSearchRequest(t *testing.T, h *StudioHandler, userID int64, query string) *httptest.ResponseRecorder {
@@ -786,6 +823,84 @@ func TestGetModelConfigAutoConfiguresOpenAIImageFallbackWhenModelsEndpointOmitsI
 	require.Equal(t, "gpt-5.5", resp.Data.Text.Model)
 }
 
+func TestBuildCoverPromptEmphasizesNovelCoverTypography(t *testing.T) {
+	prompt := buildCoverPrompt(coverRequest{
+		Mode:        "novel",
+		Title:       "北境书塔",
+		Synopsis:    "少年在雨夜进入一座会吞掉书名的书塔。",
+		Protagonist: "红斗篷装订师",
+		Genre:       "玄幻 / 悬疑",
+		CoverTitle:  "北境书塔",
+	})
+
+	for _, kw := range []string{"小说封面", "封面文字", "书名", "北境书塔"} {
+		require.Contains(t, prompt, kw)
+	}
+	require.NotContains(t, prompt, "不要出现任何文字")
+}
+
+func TestPolishCoverPromptCustomUsesTextModel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := startStudioChatGatewayRecorder(t, `{"prompt":"竖版网络小说封面，雨夜赛博城市，主标题区醒目，封面文字清晰有设计感。"}`)
+	h, userID := newStudioTextHandlerWithConfig(t, "studio_cover_polish_custom", "gpt-5.5")
+
+	rec := performStudioCoverPromptPolishRequest(t, h, userID, `{
+		"mode":"custom",
+		"prompt":"赛博朋克雨夜街道"
+	}`)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			Prompt string `json:"prompt"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.Contains(t, resp.Data.Prompt, "竖版网络小说封面")
+	require.Contains(t, resp.Data.Prompt, "封面文字")
+
+	requests := recorder.snapshot()
+	require.Len(t, requests, 1)
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal(requests[0].Body, &payload))
+	require.Equal(t, "gpt-5.5", payload["model"])
+	require.Contains(t, string(requests[0].Body), "赛博朋克雨夜街道")
+	require.Contains(t, string(requests[0].Body), "小说封面")
+}
+
+func TestPolishCoverPromptNovelCompletesFieldsFromSynopsis(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	startStudioChatGatewayRecorder(t, `{"protagonist":"林见微，冷感书塔修复师，红斗篷","genre":"玄幻 / 悬疑","mood":"冷色悬疑，雨夜压迫感","key_scene":"雨夜书塔门前，书页化作群鸟","cover_title":"北境书塔"}`)
+	h, userID := newStudioTextHandlerWithConfig(t, "studio_cover_polish_novel", "gpt-5.5")
+
+	rec := performStudioCoverPromptPolishRequest(t, h, userID, `{
+		"mode":"novel",
+		"title":"北境书塔",
+		"synopsis":"少年在雨夜进入一座会吞掉书名的书塔。"
+	}`)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			Protagonist string `json:"protagonist"`
+			Genre       string `json:"genre"`
+			Mood        string `json:"mood"`
+			KeyScene    string `json:"key_scene"`
+			CoverTitle  string `json:"cover_title"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.Contains(t, resp.Data.Protagonist, "林见微")
+	require.Contains(t, resp.Data.Genre, "玄幻")
+	require.Contains(t, resp.Data.Mood, "雨夜")
+	require.Contains(t, resp.Data.KeyScene, "书塔")
+	require.Equal(t, "北境书塔", resp.Data.CoverTitle)
+}
+
 func TestGenerateCoverQueuesGPTImageRequestsAsSingleImageJobs(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := startStudioCoverGatewayRecorder(t)
@@ -871,7 +986,9 @@ func TestGenerateCoverWithReferenceImageUsesMultipartEditsEndpoint(t *testing.T)
 	}
 
 	require.Equal(t, "gpt-image-2", fields["model"])
-	require.Equal(t, "use this composition", fields["prompt"])
+	require.Contains(t, fields["prompt"], "use this composition")
+	require.Contains(t, fields["prompt"], "小说封面")
+	require.Contains(t, fields["prompt"], "封面文字")
 	require.Equal(t, "1", fields["n"])
 	require.Equal(t, "1024x1024", fields["size"])
 	require.Equal(t, []byte("reference-bytes"), upload)
@@ -1096,6 +1213,119 @@ func TestLiveFanqieRankBooksFallsBackWhenOfficialSourceIsSlow(t *testing.T) {
 	require.Less(t, time.Since(started), 2*time.Second)
 	require.Equal(t, "fanqie-rank-cache", source)
 	require.Len(t, books, 30)
+}
+
+func TestStudioFanqieRankRewritesOfficialCoverURLsToLocalCache(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	resetFanqieCoverCachesForTest()
+	fanqieRankCache.Lock()
+	fanqieRankCache.entries = map[fanqieRankChannel]fanqieRankCacheEntry{}
+	fanqieRankCache.Unlock()
+
+	oldFetcher := fetchFanqieRankBooksFromOfficialFunc
+	fetchFanqieRankBooksFromOfficialFunc = func(context.Context, fanqieRankChannel) ([]fanqieBook, error) {
+		books := make([]fanqieBook, 30)
+		for i := range books {
+			books[i] = fanqieBook{
+				ID:          fmt.Sprintf("100%d", i),
+				Rank:        i + 1,
+				Title:       fmt.Sprintf("缓存封面样本 %d", i+1),
+				Author:      "作者",
+				Category:    "都市脑洞",
+				Status:      "连载中",
+				WordCount:   "88万字",
+				Score:       "官方实时榜",
+				Description: "封面需要走本地缓存",
+				CoverURL:    "https://p3-reading-sign.fqnovelpic.com/novel-pic/p2o123~tplv.jpg",
+				SourceURL:   "https://fanqienovel.com/page/1001",
+				Tags:        []string{"官方实时榜"},
+			}
+		}
+		return books, nil
+	}
+	t.Cleanup(func() {
+		fetchFanqieRankBooksFromOfficialFunc = oldFetcher
+		resetFanqieCoverCachesForTest()
+		fanqieRankCache.Lock()
+		fanqieRankCache.entries = map[fanqieRankChannel]fanqieRankCacheEntry{}
+		fanqieRankCache.Unlock()
+	})
+
+	client := newStudioHandlerTestClient(t, "studio_fanqie_cover_rewrite")
+	user, err := client.User.Create().
+		SetEmail("studio-fanqie-cover-rewrite@example.com").
+		SetPasswordHash("hash").
+		Save(context.Background())
+	require.NoError(t, err)
+	h := &StudioHandler{client: client}
+
+	rec := performStudioFanqieRankRequest(t, h, user.ID, "hot")
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			Books []struct {
+				CoverURL string `json:"cover_url"`
+			} `json:"books"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.NotEmpty(t, resp.Data.Books)
+	require.True(t, strings.HasPrefix(resp.Data.Books[0].CoverURL, "/api/v1/studio/fanqie/covers/"), resp.Data.Books[0].CoverURL)
+	require.NotContains(t, resp.Data.Books[0].CoverURL, "fqnovelpic.com")
+}
+
+func TestServeFanqieCoverCachesImageBytes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	resetFanqieCoverCachesForTest()
+	var hits int
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		require.Equal(t, "/cover.jpg", r.URL.Path)
+		w.Header().Set("Content-Type", "image/jpeg")
+		_, _ = w.Write([]byte("cover-bytes"))
+	}))
+	defer upstream.Close()
+	t.Cleanup(resetFanqieCoverCachesForTest)
+
+	key, ok := registerFanqieCoverSourceForTest(upstream.URL + "/cover.jpg")
+	require.True(t, ok)
+	h := &StudioHandler{}
+
+	first := performStudioFanqieCoverRequest(t, h, key)
+	second := performStudioFanqieCoverRequest(t, h, key)
+
+	require.Equal(t, http.StatusOK, first.Code)
+	require.Equal(t, "image/jpeg", first.Header().Get("Content-Type"))
+	require.Equal(t, "cover-bytes", first.Body.String())
+	require.Equal(t, "miss", first.Header().Get("X-Fanqie-Cover-Cache"))
+	require.Equal(t, http.StatusOK, second.Code)
+	require.Equal(t, "cover-bytes", second.Body.String())
+	require.Equal(t, "hit", second.Header().Get("X-Fanqie-Cover-Cache"))
+	require.Equal(t, 1, hits)
+}
+
+func TestServeFanqieCoverRejectsRedirectToUntrustedHost(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	resetFanqieCoverCachesForTest()
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://example.com/cover.jpg", http.StatusFound)
+	}))
+	defer upstream.Close()
+	t.Cleanup(resetFanqieCoverCachesForTest)
+
+	key, ok := registerFanqieCoverSourceForTest(upstream.URL + "/cover.jpg")
+	require.True(t, ok)
+	h := &StudioHandler{}
+
+	rec := performStudioFanqieCoverRequest(t, h, key)
+
+	require.Equal(t, http.StatusBadGateway, rec.Code)
+	require.Empty(t, rec.Header().Get("X-Fanqie-Cover-Cache"))
+	_, ok = getCachedFanqieCoverBytes(key)
+	require.False(t, ok)
 }
 
 func TestParseFanqieRankHTMLReturnsOfficialBooks(t *testing.T) {

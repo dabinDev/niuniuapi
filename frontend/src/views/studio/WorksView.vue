@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="works-page mx-auto max-w-7xl" data-test="studio-workbench-shell">
+    <div class="works-page studio-wide-shell mx-auto max-w-none" data-test="studio-workbench-shell">
       <header class="works-head">
         <div>
           <span class="eyebrow">作品任务台</span>
@@ -37,7 +37,7 @@
         </article>
       </section>
 
-      <section class="workbench-grid">
+      <section class="workbench-grid workbench-grid-wide">
         <aside class="panel chapter-panel" aria-label="章节树">
           <div class="panel-head">
             <span>章节树</span>
@@ -116,7 +116,7 @@
           </div>
         </div>
 
-        <div class="archive-grid archive-grid-mobile-flow" data-test="works-archive-grid">
+        <div class="archive-grid archive-grid-wide archive-grid-mobile-flow" data-test="works-archive-grid">
           <section class="archive-list">
             <div v-if="loading" class="archive-empty">加载中...</div>
             <div v-else-if="!works.length" class="archive-empty dashed">
@@ -555,8 +555,15 @@ onBeforeUnmount(closeCoverViewer)
 .works-page {
   display: flex;
   flex-direction: column;
+  width: min(100%, 118rem);
+  max-width: calc(100vw - 1.25rem);
   padding: 0.5rem 0 2.5rem;
   color: #221a18;
+}
+
+.studio-wide-shell {
+  width: min(100%, 118rem);
+  max-width: calc(100vw - 1.25rem);
 }
 
 .works-head {
@@ -704,6 +711,10 @@ onBeforeUnmount(closeCoverViewer)
   display: grid;
   grid-template-columns: minmax(220px, 0.78fr) minmax(0, 1.44fr) minmax(220px, 0.78fr);
   gap: 1rem;
+}
+
+.workbench-grid-wide {
+  grid-template-columns: minmax(16rem, 0.86fr) minmax(0, 1.58fr) minmax(16rem, 0.86fr);
 }
 
 .panel {
@@ -869,6 +880,10 @@ onBeforeUnmount(closeCoverViewer)
   display: grid;
   grid-template-columns: minmax(280px, 0.58fr) minmax(0, 1.62fr);
   gap: 1rem;
+}
+
+.archive-grid-wide {
+  grid-template-columns: minmax(20rem, 0.62fr) minmax(0, 1.78fr);
 }
 
 .archive-list ul {

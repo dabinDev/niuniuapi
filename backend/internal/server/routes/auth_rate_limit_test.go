@@ -24,6 +24,7 @@ func newAuthRoutesTestRouter(redisClient *redis.Client) *gin.Engine {
 		&handler.Handlers{
 			Auth:    &handler.AuthHandler{},
 			Setting: &handler.SettingHandler{},
+			Studio:  &handler.StudioHandler{},
 		},
 		servermiddleware.JWTAuthMiddleware(func(c *gin.Context) {
 			c.Next()
@@ -33,6 +34,17 @@ func newAuthRoutesTestRouter(redisClient *redis.Client) *gin.Engine {
 	)
 
 	return router
+}
+
+func TestFanqieCoverCacheRouteIsPublic(t *testing.T) {
+	router := newAuthRoutesTestRouter(nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/studio/fanqie/covers/not-a-cache-key", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.NotContains(t, w.Body.String(), "User not authenticated")
 }
 
 func TestAuthRoutesRateLimitFailCloseWhenRedisUnavailable(t *testing.T) {

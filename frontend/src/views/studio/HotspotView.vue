@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="hotspot-page mx-auto max-w-7xl">
+    <div class="hotspot-page studio-wide-shell mx-auto max-w-none">
       <header class="studio-hero">
         <div>
           <span class="eyebrow">Benchmark Lab</span>
@@ -25,7 +25,7 @@
         {{ bridgeNotice }}
       </div>
 
-      <section class="hotspot-grid">
+      <section class="hotspot-grid hotspot-grid-wide">
         <form class="input-panel" @submit.prevent="submit">
           <div class="panel-title">
             <span>输入</span>
@@ -45,7 +45,7 @@
             </button>
           </div>
 
-          <div class="material-map" data-test="hotspot-material-map" aria-label="对标素材配比">
+          <div class="material-map material-map-wide" data-test="hotspot-material-map" aria-label="对标素材配比">
             <div class="map-head">
               <span>素材配比</span>
               <strong>把“我”和“样本”摆在同一张桌上</strong>
@@ -358,10 +358,15 @@ async function submit() {
 
 <style scoped>
 .hotspot-page {
-  width: min(100%, 96rem);
-  max-width: calc(100vw - 2rem);
+  width: min(100%, 118rem);
+  max-width: calc(100vw - 1.25rem);
   padding: 0.5rem 0 2.5rem;
   color: #221a18;
+}
+
+.studio-wide-shell {
+  width: min(100%, 118rem);
+  max-width: calc(100vw - 1.25rem);
 }
 
 .studio-hero {
@@ -526,6 +531,10 @@ async function submit() {
   gap: 1rem;
 }
 
+.hotspot-grid-wide {
+  grid-template-columns: minmax(30rem, 0.82fr) minmax(0, 1.18fr);
+}
+
 .input-panel,
 .result-panel {
   border: 1px solid #eaded8;
@@ -601,6 +610,10 @@ async function submit() {
   background:
     radial-gradient(circle at 100% 0%, rgba(232, 65, 46, 0.13), transparent 12rem),
     #fffaf6;
+}
+
+.material-map-wide .map-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .map-head {

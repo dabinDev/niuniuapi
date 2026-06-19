@@ -60,8 +60,26 @@ describe('DownloaderView as FanqieHotlist', () => {
     await flushPromises()
 
     expect(getFanqieRank).toHaveBeenCalledWith('hot')
+    expect(wrapper.find('.fanqie-page').classes()).toContain('studio-wide-shell')
+    expect(wrapper.find('.metric-strip').classes()).toContain('metric-strip-wide')
+    expect(wrapper.find('.rank-workbench').classes()).toContain('rank-workbench-wide')
     expect(wrapper.findAll('[data-test="fanqie-rank-row"]')).toHaveLength(30)
     expect(wrapper.find('[data-test="fanqie-channel-hot"]').classes()).toContain('active')
+  })
+
+  it('labels backend official rank cache in plain language', async () => {
+    getFanqieRank.mockResolvedValueOnce({
+      channel: 'hot',
+      updated_at: '2026-06-17T00:00:00Z',
+      source: 'fanqie-official-cache',
+      books: rankBooks,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('后端官方缓存')
+    expect(wrapper.text()).not.toContain('fanqie-official-cache')
   })
 
   it('renders book covers in the list and selected sample card', async () => {

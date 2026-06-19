@@ -252,6 +252,27 @@ export interface CoverNovelRequest {
 export type CoverRequest = CoverCustomRequest | CoverNovelRequest
 const STUDIO_COVER_TIMEOUT_MS = 240_000
 
+export interface CoverPromptPolishRequest {
+  mode: 'custom' | 'novel'
+  prompt?: string
+  title?: string
+  synopsis?: string
+  protagonist?: string
+  genre?: string
+  mood?: string
+  key_scene?: string
+  cover_title?: string
+}
+
+export interface CoverPromptPolishResult {
+  prompt?: string
+  protagonist?: string
+  genre?: string
+  mood?: string
+  key_scene?: string
+  cover_title?: string
+}
+
 /** 生成小说封面（多版候选）。 */
 export async function generateCover(payload: CoverRequest): Promise<CoverResult> {
   const { data } = await apiClient.post<CoverResult>('/studio/cover', payload, {
@@ -267,6 +288,11 @@ export async function startCoverJob(payload: CoverRequest): Promise<CoverJob> {
 
 export async function getCoverJob(jobId: string): Promise<CoverJob> {
   const { data } = await apiClient.get<CoverJob>(`/studio/cover/jobs/${encodeURIComponent(jobId)}`)
+  return data
+}
+
+export async function polishCoverPrompt(payload: CoverPromptPolishRequest): Promise<CoverPromptPolishResult> {
+  const { data } = await apiClient.post<CoverPromptPolishResult>('/studio/cover/prompt-polish', payload)
   return data
 }
 
@@ -507,6 +533,7 @@ export const studioAPI = {
   generateCover,
   startCoverJob,
   getCoverJob,
+  polishCoverPrompt,
   generateCreative,
   generateScript,
   importStudioContent,

@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="fanqie-page mx-auto max-w-7xl">
+    <div class="fanqie-page studio-wide-shell mx-auto max-w-none">
       <header class="page-head">
         <div>
           <span class="eyebrow">Rank Research</span>
@@ -13,7 +13,7 @@
         </div>
       </header>
 
-      <section class="metric-strip" aria-label="榜单概览">
+      <section class="metric-strip metric-strip-wide" aria-label="榜单概览">
         <article>
           <span>当前榜单</span>
           <strong>{{ activeChannelLabel }}</strong>
@@ -68,7 +68,7 @@
         </form>
       </section>
 
-      <section class="rank-workbench">
+      <section class="rank-workbench rank-workbench-wide">
         <main class="rank-panel">
           <div class="panel-head">
             <div>
@@ -384,7 +384,11 @@ const updatedAtLabel = computed(() => {
   const d = new Date(updatedAt.value)
   return Number.isNaN(d.getTime()) ? updatedAt.value : d.toLocaleString()
 })
-const rankSourceLabel = computed(() => rankSource.value === 'fanqie-rank-cache' ? '后端榜单缓存' : (rankSource.value || '后端聚合接口'))
+const rankSourceLabel = computed(() => {
+  if (rankSource.value === 'fanqie-official-cache') return '后端官方缓存'
+  if (rankSource.value === 'fanqie-rank-cache') return '后端榜单缓存'
+  return rankSource.value || '后端聚合接口'
+})
 const benchmarkText = computed(() => {
   if (!selectedBook.value) return ''
   const book = selectedBook.value
@@ -574,11 +578,16 @@ onMounted(loadRank)
 
 <style scoped>
 .fanqie-page {
-  width: min(100%, 96rem);
-  max-width: calc(100vw - 2rem);
+  width: min(100%, 118rem);
+  max-width: calc(100vw - 1.25rem);
   padding: 0.5rem 0 2.5rem;
   color: #221a18;
   font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+.studio-wide-shell {
+  width: min(100%, 118rem);
+  max-width: calc(100vw - 1.25rem);
 }
 
 .page-head {
@@ -658,6 +667,10 @@ onMounted(loadRank)
   margin-bottom: 1rem;
 }
 
+.metric-strip-wide {
+  grid-template-columns: repeat(4, minmax(12rem, 1fr));
+}
+
 .metric-strip article,
 .toolbar-panel,
 .rank-panel,
@@ -693,7 +706,7 @@ onMounted(loadRank)
 
 .toolbar-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.45fr);
+  grid-template-columns: minmax(0, 1.28fr) minmax(360px, 0.72fr);
   gap: 1rem;
   padding: 0.9rem;
   margin-bottom: 1rem;
@@ -771,6 +784,10 @@ onMounted(loadRank)
   display: grid;
   grid-template-columns: minmax(520px, 1.12fr) minmax(430px, 0.88fr);
   gap: 1rem;
+}
+
+.rank-workbench-wide {
+  grid-template-columns: minmax(0, 1.34fr) minmax(26rem, 0.86fr);
 }
 
 .rank-panel,

@@ -217,6 +217,12 @@ func RegisterAuthRoutes(
 		settings.GET("/email-unsubscribe", h.Setting.UnsubscribeNotificationEmail)
 	}
 
+	// 公开封面缓存：浏览器 <img> 请求不能携带用户 JWT，handler 只接受已登记的番茄/字节系图片源。
+	studio := v1.Group("/studio")
+	{
+		studio.GET("/fanqie/covers/:key", h.Studio.ServeFanqieCover)
+	}
+
 	// 需要认证的当前用户信息
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))

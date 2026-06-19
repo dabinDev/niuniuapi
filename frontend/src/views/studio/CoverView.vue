@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="cover-lab mx-auto max-w-7xl">
+    <div class="cover-lab studio-wide-shell mx-auto max-w-none">
       <header class="cover-hero">
         <div>
           <span class="cover-kicker">Cover Foundry</span>
@@ -14,7 +14,7 @@
         </div>
       </header>
 
-      <section class="cover-flow cover-flow-mobile-readable" data-test="cover-workflow-guide" aria-label="封面生成工作流">
+      <section class="cover-flow cover-flow-wide cover-flow-mobile-readable" data-test="cover-workflow-guide" aria-label="封面生成工作流">
         <article v-for="step in coverWorkflow" :key="step.kicker">
           <span>{{ step.kicker }}</span>
           <strong>{{ step.title }}</strong>
@@ -69,12 +69,26 @@
         </button>
       </div>
 
-      <div class="cover-workbench">
+      <div class="cover-workbench cover-workbench-wide">
         <!-- 表单 -->
         <section class="cover-form-card">
           <template v-if="mode === 'custom'">
-            <label class="form-label" for="cv-prompt">提示词</label>
+            <div class="prompt-tools-row">
+              <label class="form-label" for="cv-prompt">提示词</label>
+              <button
+                type="button"
+                class="polish-btn"
+                data-test="cover-polish-custom"
+                :disabled="!canPolishCustom"
+                :title="textConfigured ? `使用 ${textModel} 完善提示词` : '请先在 API 密钥页配置文案模型'"
+                @click="polishCustomPrompt"
+              >
+                <span class="polish-icon">AI</span>
+                {{ polishingMode === 'custom' ? '完善中…' : '提示词完善' }}
+              </button>
+            </div>
             <textarea id="cv-prompt" v-model="prompt" class="form-input" rows="6" placeholder="描述你想要的画面……"></textarea>
+            <p v-if="!textConfigured" class="cover-polish-hint">配置文案模型后，可一键把粗略想法扩写成小说封面 brief。</p>
             <label class="form-label">参考图（选填）</label>
             <ImageUpload
               v-model="refImage"
@@ -96,8 +110,22 @@
                 <input id="cv-genre" v-model="genre" class="form-input" type="text" placeholder="玄幻 / 国风…" />
               </div>
             </div>
-            <label class="form-label" for="cv-synopsis">简介</label>
+            <div class="prompt-tools-row">
+              <label class="form-label" for="cv-synopsis">简介</label>
+              <button
+                type="button"
+                class="polish-btn"
+                data-test="cover-polish-novel"
+                :disabled="!canPolishNovel"
+                :title="textConfigured ? `使用 ${textModel} 补全封面字段` : '请先在 API 密钥页配置文案模型'"
+                @click="polishNovelPrompt"
+              >
+                <span class="polish-icon">AI</span>
+                {{ polishingMode === 'novel' ? '补全中…' : '提示词完善' }}
+              </button>
+            </div>
             <textarea id="cv-synopsis" v-model="synopsis" class="form-input" rows="3" placeholder="一句话或一段简介……"></textarea>
+            <p class="cover-polish-hint">根据简介补全主角、题材、情绪、场景和封面标题；最终生图会强调“小说封面”和标题文字区域。</p>
             <label class="form-label" for="cv-protagonist">主角信息（外貌/气质）</label>
             <textarea id="cv-protagonist" v-model="protagonist" class="form-input" rows="2" placeholder="林见微，外冷内热，记忆缺口……"></textarea>
             <div class="grid grid-cols-2 gap-3">
@@ -134,6 +162,7 @@
           </button>
 
           <p v-if="errorMsg" class="mt-3 text-sm text-red-500">{{ errorMsg }}</p>
+          <p v-if="polishError" class="cover-polish-error">{{ polishError }}</p>
           <div v-if="backendPending" class="mt-3 rounded-lg border border-dashed border-primary-300 bg-primary-50 px-3 py-2 text-sm text-primary-700 dark:border-primary-700 dark:bg-primary-900/20 dark:text-primary-300">
             后端封面生成服务正在开发中，接口就绪后即可在此实时出图。当前页面与调用流程已可用。
           </div>
@@ -240,6 +269,7 @@ import {
   getModelConfig,
   getWork,
   listWorks,
+  polishCoverPrompt,
   startCoverJob,
   type CoverImage,
   type CoverJob,
@@ -310,6 +340,10 @@ const errorMsg = ref('')
 const backendPending = ref(false)
 const configured = ref(false)
 const imageModel = ref('')
+const textConfigured = ref(false)
+const textModel = ref('')
+const polishingMode = ref<CoverMode | ''>('')
+const polishError = ref('')
 const queueDone = ref(0)
 const queueTotal = ref(0)
 const appStore = useAppStore()
@@ -572,6 +606,10 @@ onMounted(async () => {
         count.value = 1
       }
     }
+    if (cfg.text?.model) {
+      textConfigured.value = true
+      textModel.value = cfg.text.model
+    }
   } catch {
     /* 忽略：未配置 */
   }
@@ -582,6 +620,7 @@ onBeforeUnmount(() => {
 })
 
 watch(mode, (value) => {
+  polishError.value = ''
   try {
     localStorage.setItem(COVER_MODE_STORAGE_KEY, value)
   } catch {
@@ -595,6 +634,14 @@ const canSubmit = computed(() => {
     ? prompt.value.trim().length > 0
     : synopsis.value.trim().length > 0 && protagonist.value.trim().length > 0
 })
+
+const canPolishCustom = computed(() =>
+  textConfigured.value && polishingMode.value === '' && prompt.value.trim().length > 0,
+)
+
+const canPolishNovel = computed(() =>
+  textConfigured.value && polishingMode.value === '' && synopsis.value.trim().length > 0,
+)
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -657,6 +704,62 @@ async function runCoverJob(payload: Parameters<typeof startCoverJob>[0], runId: 
     if (runId === generationRunId) {
       clearActiveCoverJob()
     }
+  }
+}
+
+function applyPolishedValue(next: string | undefined, setter: (value: string) => void) {
+  const clean = (next || '').trim()
+  if (clean) setter(clean)
+  return clean.length > 0
+}
+
+async function polishCustomPrompt() {
+  if (!canPolishCustom.value) return
+  polishError.value = ''
+  polishingMode.value = 'custom'
+  try {
+    const result = await polishCoverPrompt({
+      mode: 'custom',
+      prompt: prompt.value.trim(),
+    })
+    if (!applyPolishedValue(result.prompt, (value) => { prompt.value = value })) {
+      polishError.value = '模型没有返回可用提示词，请稍后重试。'
+    }
+  } catch (err: unknown) {
+    polishError.value = getRequestMessage(err) || '提示词完善失败，请稍后重试。'
+  } finally {
+    polishingMode.value = ''
+  }
+}
+
+async function polishNovelPrompt() {
+  if (!canPolishNovel.value) return
+  polishError.value = ''
+  polishingMode.value = 'novel'
+  try {
+    const result = await polishCoverPrompt({
+      mode: 'novel',
+      title: novelTitle.value.trim() || undefined,
+      synopsis: synopsis.value.trim(),
+      protagonist: protagonist.value.trim() || undefined,
+      genre: genre.value.trim() || undefined,
+      mood: mood.value.trim() || undefined,
+      key_scene: keyScene.value.trim() || undefined,
+      cover_title: coverTitle.value.trim() || undefined,
+    })
+    let updated = false
+    updated = applyPolishedValue(result.protagonist, (value) => { protagonist.value = value }) || updated
+    updated = applyPolishedValue(result.genre, (value) => { genre.value = value }) || updated
+    updated = applyPolishedValue(result.mood, (value) => { mood.value = value }) || updated
+    updated = applyPolishedValue(result.key_scene, (value) => { keyScene.value = value }) || updated
+    updated = applyPolishedValue(result.cover_title, (value) => { coverTitle.value = value }) || updated
+    if (!updated) {
+      polishError.value = '模型没有返回可用补全字段，请稍后重试。'
+    }
+  } catch (err: unknown) {
+    polishError.value = getRequestMessage(err) || '提示词完善失败，请稍后重试。'
+  } finally {
+    polishingMode.value = ''
   }
 }
 
@@ -739,11 +842,16 @@ async function submit() {
 
 <style scoped>
 .cover-lab {
-  width: min(100%, 96rem);
-  max-width: calc(100vw - 2rem);
+  width: min(100%, 118rem);
+  max-width: calc(100vw - 1.25rem);
   padding-bottom: 2.5rem;
   color: #201714;
   font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+.studio-wide-shell {
+  width: min(100%, 118rem);
+  max-width: calc(100vw - 1.25rem);
 }
 
 .cover-hero {
@@ -849,11 +957,19 @@ async function submit() {
   align-items: start;
 }
 
+.cover-workbench-wide {
+  grid-template-columns: minmax(30rem, 0.86fr) minmax(0, 1.14fr);
+}
+
 .cover-flow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(16rem, 0.9fr);
   gap: 0.75rem;
   margin-bottom: 1rem;
+}
+
+.cover-flow-wide {
+  grid-template-columns: repeat(3, minmax(12rem, 1fr)) minmax(18rem, 0.92fr);
 }
 
 .cover-flow article,
@@ -1066,6 +1182,91 @@ async function submit() {
 
 .dark .form-label {
   color: rgb(209 213 219);
+}
+
+.prompt-tools-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.prompt-tools-row .form-label {
+  margin: 0;
+}
+
+.polish-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-height: 2rem;
+  border: 1px solid rgba(232, 65, 46, 0.28);
+  border-radius: 999px;
+  padding: 0.32rem 0.72rem 0.32rem 0.38rem;
+  background:
+    radial-gradient(circle at 16% 20%, rgba(255, 255, 255, 0.9), transparent 1.5rem),
+    linear-gradient(135deg, #fff0e4, #ffe1d1);
+  color: #a82f1d;
+  font-size: 0.78rem;
+  font-weight: 900;
+  box-shadow: 0 10px 24px rgba(232, 65, 46, 0.13);
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    opacity 0.16s ease;
+}
+
+.polish-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(232, 65, 46, 0.2);
+}
+
+.polish-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.polish-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  background: #201714;
+  color: #fff7ed;
+  font-size: 0.64rem;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+}
+
+.cover-polish-hint {
+  margin-top: 0.45rem;
+  color: #9a7666;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.cover-polish-error {
+  margin-top: 0.75rem;
+  border: 1px solid rgba(220, 38, 38, 0.18);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  background: rgba(254, 242, 242, 0.9);
+  color: #b91c1c;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.dark .cover-polish-hint {
+  color: #d6a995;
+}
+
+.dark .cover-polish-error {
+  border-color: rgba(248, 113, 113, 0.24);
+  background: rgba(127, 29, 29, 0.22);
+  color: #fecaca;
 }
 
 .form-input {
@@ -1422,6 +1623,17 @@ async function submit() {
   }
 
   .cover-key-setup-card a {
+    width: 100%;
+  }
+
+  .prompt-tools-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .polish-btn {
+    justify-content: center;
     width: 100%;
   }
 }

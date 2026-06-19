@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="teardown-page mx-auto max-w-7xl">
+    <div class="teardown-page studio-wide-shell mx-auto max-w-none">
       <header class="teardown-head">
         <div>
           <span class="eyebrow">Diagnosis Board</span>
@@ -21,7 +21,7 @@
         {{ bridgeNotice }}
       </div>
 
-      <section class="diagnosis-map" aria-label="拆书诊断模块">
+      <section class="diagnosis-map diagnosis-map-wide" aria-label="拆书诊断模块">
         <article v-for="item in diagnosisModules" :key="item.title">
           <span>{{ item.kicker }}</span>
           <strong>{{ item.title }}</strong>
@@ -29,7 +29,7 @@
         </article>
       </section>
 
-      <section class="teardown-grid">
+      <section class="teardown-grid teardown-grid-wide">
         <form class="input-panel" @submit.prevent="submit">
           <div class="template-strip" aria-label="拆书模板">
             <button
@@ -320,20 +320,49 @@ async function submit() {
       tone: tone.value,
     })
   } catch (err: unknown) {
-    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-    errorMsg.value = msg || '拆书失败，请稍后重试。'
+    errorMsg.value = formatTeardownErrorMessage(err)
   } finally {
     loading.value = false
   }
+}
+
+function formatTeardownErrorMessage(err: unknown) {
+  const error = err as {
+    code?: string
+    message?: string
+    response?: { status?: number; data?: { message?: string } }
+    status?: number
+  }
+  const status = error.response?.status ?? error.status ?? 0
+  const raw = error.response?.data?.message || error.message || ''
+  const lower = raw.toLowerCase()
+  if (status === 401 || status === 403 || lower.includes('unauthorized') || lower.includes('invalid api key')) {
+    return '文案模型密钥不可用，请先检查 API 密钥、分组权限和模型配置。'
+  }
+  if (status === 429 || lower.includes('rate limit') || lower.includes('quota')) {
+    return '模型额度或频率限制已触发，请稍后重试，或切换可用文案模型。'
+  }
+  if (status === 502 || status === 503 || status === 504 || error.code === 'ECONNABORTED' || lower.includes('bad gateway') || lower.includes('timeout')) {
+    return '模型或网关暂时不可用，请稍后重试；也可以先保存章节内容，换一个文案模型再拆。'
+  }
+  if (lower.includes('json') || lower.includes('format')) {
+    return '模型返回格式不完整，请缩短输入或换成黄金三章模板后重试。'
+  }
+  return raw || '拆书失败，请稍后重试。'
 }
 </script>
 
 <style scoped>
 .teardown-page {
-  width: min(100%, 96rem);
-  max-width: calc(100vw - 2rem);
+  width: min(100%, 118rem);
+  max-width: calc(100vw - 1.25rem);
   padding: 0.5rem 0 2.5rem;
   color: #221a18;
+}
+
+.studio-wide-shell {
+  width: min(100%, 118rem);
+  max-width: calc(100vw - 1.25rem);
 }
 
 .teardown-head {
@@ -499,6 +528,10 @@ async function submit() {
   margin-bottom: 1rem;
 }
 
+.diagnosis-map-wide {
+  grid-template-columns: repeat(4, minmax(12rem, 1fr));
+}
+
 .diagnosis-map article,
 .input-panel,
 .result-panel {
@@ -535,6 +568,10 @@ async function submit() {
   display: grid;
   grid-template-columns: minmax(340px, 0.88fr) minmax(0, 1.12fr);
   gap: 1rem;
+}
+
+.teardown-grid-wide {
+  grid-template-columns: minmax(28rem, 0.82fr) minmax(0, 1.18fr);
 }
 
 .input-panel,

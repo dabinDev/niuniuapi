@@ -27,6 +27,7 @@ func RegisterUserRoutes(
 			studio.GET("/keys/:id/models", h.Studio.ListKeyModels)
 			studio.POST("/model-test", h.Studio.TestModel)
 			studio.POST("/cover", h.Studio.GenerateCover)
+			studio.POST("/cover/prompt-polish", h.Studio.PolishCoverPrompt)
 			studio.POST("/cover/jobs", h.Studio.StartCoverJob)
 			studio.GET("/cover/jobs/:id", h.Studio.GetCoverJob)
 			studio.POST("/teardown", h.Studio.GenerateTeardown)

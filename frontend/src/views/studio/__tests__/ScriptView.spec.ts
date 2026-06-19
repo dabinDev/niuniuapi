@@ -31,6 +31,9 @@ describe('ScriptView', () => {
     const wrapper = mountView()
     await flushPromises()
 
+    expect(wrapper.find('.creative-page').classes()).toContain('studio-wide-shell')
+    expect(wrapper.find('.creative-grid').classes()).toContain('creative-grid-wide')
+    expect(wrapper.find('.mode-grid').classes()).toContain('mode-grid-wide')
     expect(wrapper.text()).toContain('创作生成')
     expect(wrapper.text()).toContain('大纲')
     expect(wrapper.text()).toContain('正文续写')

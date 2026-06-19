@@ -35,6 +35,9 @@ describe('HotspotView', () => {
     const wrapper = mountView()
     await flushPromises()
 
+    expect(wrapper.find('.hotspot-page').classes()).toContain('studio-wide-shell')
+    expect(wrapper.find('.hotspot-grid').classes()).toContain('hotspot-grid-wide')
+    expect(wrapper.find('[data-test="hotspot-material-map"]').classes()).toContain('material-map-wide')
     expect(wrapper.text()).toContain('爆款对标')
     expect(wrapper.text()).toContain('我的作品片段')
     expect(wrapper.text()).toContain('对标样本')

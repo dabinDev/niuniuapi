@@ -5,12 +5,13 @@ const getModelConfig = vi.hoisted(() => vi.fn())
 const getCoverJob = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
 const startCoverJob = vi.hoisted(() => vi.fn())
+const polishCoverPrompt = vi.hoisted(() => vi.fn())
 const listWorks = vi.hoisted(() => vi.fn())
 const getWork = vi.hoisted(() => vi.fn())
 
 vi.mock('@/api/studio', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/studio')>()
-  return { ...actual, getCoverJob, getModelConfig, startCoverJob, listWorks, getWork }
+  return { ...actual, getCoverJob, getModelConfig, startCoverJob, polishCoverPrompt, listWorks, getWork }
 })
 
 vi.mock('@/stores/app', () => ({
@@ -50,6 +51,7 @@ describe('CoverView', () => {
     getWork.mockReset()
     listWorks.mockReset()
     startCoverJob.mockReset()
+    polishCoverPrompt.mockReset()
     showWarning.mockReset()
     localStorage.clear()
     getModelConfig.mockResolvedValue({ image: { api_key_id: 1, model: 'gpt-image-1' } })
@@ -100,7 +102,10 @@ describe('CoverView', () => {
     const wrapper = mountView()
     await flushPromises()
 
+    expect(wrapper.find('.cover-lab').classes()).toContain('studio-wide-shell')
+    expect(wrapper.find('.cover-workbench').classes()).toContain('cover-workbench-wide')
     expect(wrapper.find('[data-test="cover-workflow-guide"]').classes()).toContain('cover-flow-mobile-readable')
+    expect(wrapper.find('[data-test="cover-workflow-guide"]').classes()).toContain('cover-flow-wide')
     expect(wrapper.text()).toContain('Brief')
     expect(wrapper.text()).toContain('Model')
     expect(wrapper.text()).toContain('Result')
@@ -190,6 +195,59 @@ describe('CoverView', () => {
     expect(startCoverJob).toHaveBeenCalledWith(
       expect.objectContaining({ mode: 'custom', prompt: '赛博朋克雨夜街道' }),
     )
+  })
+
+  it('polishes a custom prompt with the configured text model', async () => {
+    getModelConfig.mockResolvedValue({
+      image: { api_key_id: 1, model: 'gpt-image-1' },
+      text: { api_key_id: 2, model: 'gpt-5.5' },
+    })
+    polishCoverPrompt.mockResolvedValue({
+      prompt: '竖版网络小说封面，赛博雨夜街道，主标题区醒目，封面文字清晰有设计感。',
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await clickByText(wrapper, '自定义')
+    await wrapper.find('#cv-prompt').setValue('赛博朋克雨夜街道')
+    await wrapper.find('[data-test="cover-polish-custom"]').trigger('click')
+    await flushPromises()
+
+    expect(polishCoverPrompt).toHaveBeenCalledWith(expect.objectContaining({ mode: 'custom', prompt: '赛博朋克雨夜街道' }))
+    expect((wrapper.find('#cv-prompt').element as HTMLTextAreaElement).value).toContain('竖版网络小说封面')
+    expect((wrapper.find('#cv-prompt').element as HTMLTextAreaElement).value).toContain('封面文字')
+  })
+
+  it('polishes novel-driven cover fields from synopsis', async () => {
+    getModelConfig.mockResolvedValue({
+      image: { api_key_id: 1, model: 'gpt-image-1' },
+      text: { api_key_id: 2, model: 'gpt-5.5' },
+    })
+    polishCoverPrompt.mockResolvedValue({
+      protagonist: '林见微，冷感书塔修复师，红斗篷',
+      genre: '玄幻 / 悬疑',
+      mood: '冷色悬疑，雨夜压迫感',
+      key_scene: '雨夜书塔门前，书页化作群鸟',
+      cover_title: '北境书塔',
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('#cv-title').setValue('北境书塔')
+    await wrapper.find('#cv-synopsis').setValue('少年在雨夜进入一座会吞掉书名的书塔。')
+    await wrapper.find('[data-test="cover-polish-novel"]').trigger('click')
+    await flushPromises()
+
+    expect(polishCoverPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      mode: 'novel',
+      title: '北境书塔',
+      synopsis: '少年在雨夜进入一座会吞掉书名的书塔。',
+    }))
+    expect((wrapper.find('#cv-protagonist').element as HTMLTextAreaElement).value).toContain('林见微')
+    expect((wrapper.find('#cv-genre').element as HTMLInputElement).value).toBe('玄幻 / 悬疑')
+    expect((wrapper.find('#cv-mood').element as HTMLInputElement).value).toContain('雨夜')
+    expect((wrapper.find('#cv-scene').element as HTMLInputElement).value).toContain('书塔')
+    expect((wrapper.find('#cv-cover-title').element as HTMLInputElement).value).toBe('北境书塔')
   })
 
   it('uses an upload control for custom reference images and sends the uploaded data URL', async () => {
