@@ -1,4 +1,4 @@
-# Niuniu API 本地 Docker 构建发布流程
+﻿# Niuniu API 本地 Docker 构建发布流程
 
 本文档用于发布 `niuniuapi` / `灵犀文创` 这一套独立服务。目标是：**在本机完成 Docker 镜像构建，线上服务器只加载镜像并重启新容器，避免再次卡住原有 Sub2 服务。**
 
@@ -10,15 +10,16 @@
 E:\ForkProject\niuniuapi
 ```
 
-首尔服务器：
+当前线上服务器：
 
 ```text
-IP: 43.155.249.112
+IP: 47.86.203.13
 SSH 用户: root
-SSH 私钥路径: G:/my-linux/shouer.pem
+推荐登录方式: ssh -F NUL -i C:/Users/dabin/.ssh/id_rsa root@47.86.203.13
+域名: tomato.beinai.cc
 ```
 
-注意：不要把私钥文件内容写进仓库，也不要提交 `.env`、证书私钥、数据库密码。文档只记录私钥路径。
+注意：不要把私钥文件内容、服务器密码写进仓库，也不要提交 `.env`、证书私钥、数据库密码。
 
 线上新服务目录：
 
@@ -26,19 +27,19 @@ SSH 私钥路径: G:/my-linux/shouer.pem
 /opt/niuniuapi
 /opt/niuniuapi/deploy
 /opt/niuniuapi/deploy/.env
-/opt/niuniuapi/deploy/docker-compose.niuniuapi.yml
+/opt/niuniuapi/deploy/docker-compose.tomato.yml
 ```
 
 线上临时镜像包上传位置：
 
 ```text
-/tmp/niuniuapi-lingxi.tar
+/tmp/tomato-release.tar
 ```
 
-Nginx 新站配置：
+Nginx 当前站点配置：
 
 ```text
-/opt/nginx/conf.d/lingxi.cylonai.cn.conf
+/etc/nginx/conf.d/tomato.beinai.cc.conf
 ```
 
 ## 绝对不要影响旧 Sub2
@@ -58,11 +59,11 @@ Nginx 新站配置：
 
 ```text
 新目录: /opt/niuniuapi
-新应用容器: niuniuapi
-新数据库容器: niuniuapi-postgres
-新 Redis 容器: niuniuapi-redis
+新应用容器: tomato
+新数据库容器: tomato-postgres
+新 Redis 容器: tomato-redis
 新端口: 18089
-新域名: lingxi.cylonai.cn
+新域名: tomato.beinai.cc
 ```
 
 发布时禁止执行：
@@ -84,7 +85,7 @@ cd E:\ForkProject\niuniuapi
 git status --short --branch
 git pull --ff-only
 
-docker build -t niuniuapi:lingxi .
+docker build -t tomato:latest .
 ```
 
 如果本机 Docker 访问 Docker Hub 很慢或失败，可以使用镜像源构建。这个命令只在本机运行，不会碰线上服务器：
@@ -95,26 +96,26 @@ docker build --progress=plain `
   --build-arg GOLANG_IMAGE=docker.1ms.run/library/golang:1.26.4-alpine `
   --build-arg ALPINE_IMAGE=docker.1ms.run/library/alpine:3.21 `
   --build-arg POSTGRES_IMAGE=docker.1ms.run/library/postgres:18-alpine `
-  -t niuniuapi:lingxi .
+  -t tomato:latest .
 ```
 
 如果需要带版本标签，推荐同时打一个时间戳标签：
 
 ```powershell
-$tag = "lingxi-" + (Get-Date -Format "yyyyMMddHHmm")
-docker build -t "niuniuapi:$tag" -t niuniuapi:lingxi .
+$tag = "tomato-" + (Get-Date -Format "yyyyMMddHHmm")
+docker build -t "tomato:$tag" -t tomato:latest .
 ```
 
 构建完成后本地验证镜像存在：
 
 ```powershell
-docker images niuniuapi --format 'table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedSince}}\t{{.Size}}'
+docker images tomato --format 'table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedSince}}\t{{.Size}}'
 ```
 
-如果先构建了测试标签，例如 `niuniuapi:lingxi-local-test`，发布前再改成正式标签：
+如果先构建了测试标签，例如 `tomato:local-test`，发布前再改成正式标签：
 
 ```powershell
-docker tag niuniuapi:lingxi-local-test niuniuapi:lingxi
+docker tag tomato:local-test tomato:latest
 ```
 
 排障建议：
@@ -128,29 +129,29 @@ docker tag niuniuapi:lingxi-local-test niuniuapi:lingxi
 ## 导出镜像包
 
 ```powershell
-docker save niuniuapi:lingxi -o C:\Users\dabin\AppData\Local\Temp\niuniuapi-lingxi.tar
+docker save tomato:latest -o C:\Users\dabin\AppData\Local\Temp\tomato-release.tar
 ```
 
 确认文件生成：
 
 ```powershell
-Get-Item C:\Users\dabin\AppData\Local\Temp\niuniuapi-lingxi.tar
+Get-Item C:\Users\dabin\AppData\Local\Temp\tomato-release.tar
 ```
 
 ## 上传镜像到服务器
 
 ```powershell
-scp -F NUL -i G:/my-linux/shouer.pem `
-  C:/Users/dabin/AppData/Local/Temp/niuniuapi-lingxi.tar `
-  root@43.155.249.112:/tmp/niuniuapi-lingxi.tar
+scp -F NUL -i C:/Users/dabin/.ssh/id_rsa `
+  C:/Users/dabin/AppData/Local/Temp/tomato-release.tar `
+  root@47.86.203.13:/tmp/tomato-release.tar
 ```
 
 如果只改了 compose 文件，也可以单独上传 compose 到新服务目录，注意路径是 `/opt/niuniuapi`，不是 `/opt/sub2api`：
 
 ```powershell
-scp -F NUL -i G:/my-linux/shouer.pem `
-  E:/ForkProject/niuniuapi/deploy/docker-compose.niuniuapi.yml `
-  root@43.155.249.112:/opt/niuniuapi/deploy/docker-compose.niuniuapi.yml
+scp -F NUL -i C:/Users/dabin/.ssh/id_rsa `
+  E:/ForkProject/niuniuapi/deploy/docker-compose.tomato.yml `
+  root@47.86.203.13:/opt/niuniuapi/deploy/docker-compose.tomato.yml
 ```
 
 ## 服务器加载镜像并重启新服务
@@ -158,17 +159,17 @@ scp -F NUL -i G:/my-linux/shouer.pem `
 登录服务器：
 
 ```powershell
-ssh -F NUL -i G:/my-linux/shouer.pem root@43.155.249.112
+ssh -F NUL -i C:/Users/dabin/.ssh/id_rsa root@47.86.203.13
 ```
 
 在服务器执行：
 
 ```bash
-docker load -i /tmp/niuniuapi-lingxi.tar
-docker images niuniuapi
+docker load -i /tmp/tomato-release.tar
+docker images tomato
 
 cd /opt/niuniuapi/deploy
-docker compose -f docker-compose.niuniuapi.yml --env-file .env up -d --no-build
+docker compose -f docker-compose.tomato.yml --env-file .env up -d --no-build tomato
 ```
 
 关键点：
@@ -184,15 +185,15 @@ docker compose -f docker-compose.niuniuapi.yml --env-file .env up -d --no-build
 检查新旧容器状态：
 
 ```bash
-docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' | egrep 'NAMES|niuniuapi|sub2api|nginx-token'
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' | egrep 'NAMES|tomato|sub2api|nginx-token'
 ```
 
 期望看到：
 
 ```text
-niuniuapi            Up ... (healthy)   0.0.0.0:18089->8080/tcp
-niuniuapi-postgres   Up ... (healthy)   5432/tcp
-niuniuapi-redis      Up ...             6379/tcp
+tomato               Up ... (healthy)   0.0.0.0:18089->8080/tcp
+tomato-postgres      Up ... (healthy)   5432/tcp
+tomato-redis         Up ...             6379/tcp
 sub2api              Up ... (healthy)   0.0.0.0:18080->8080/tcp
 sub2api-postgres     Up ... (healthy)   5432/tcp
 sub2api-redis        Up ...             6379/tcp
@@ -220,24 +221,19 @@ docker exec nginx-token nginx -t
 模拟域名访问新服务：
 
 ```bash
-curl -sS -m 8 -I -H 'Host: lingxi.cylonai.cn' http://127.0.0.1/home | head
+curl -sS -m 8 -I -H 'Host: tomato.beinai.cc' http://127.0.0.1/home | head
 ```
 
 本机 Windows 也可以模拟 DNS 访问：
 
 ```powershell
-curl.exe -I --max-time 15 --resolve lingxi.cylonai.cn:80:43.155.249.112 http://lingxi.cylonai.cn/home
+curl.exe -I --max-time 20 http://tomato.beinai.cc/
+curl.exe -sS --max-time 20 https://tomato.beinai.cc/health
 ```
 
 ## DNS 与 SSL
 
-`lingxi.cylonai.cn` 需要在腾讯云 DNS 添加：
-
-```text
-主机记录: lingxi
-记录类型: A
-记录值: 43.155.249.112
-```
+当前线上域名为 `tomato.beinai.cc`，A 记录指向 `47.86.203.13`。
 
 当前 `18089` 不需要对公网开放。推荐只让 Nginx 通过 80/443 访问新服务：
 
@@ -246,20 +242,20 @@ curl.exe -I --max-time 15 --resolve lingxi.cylonai.cn:80:43.155.249.112 http://l
 内网/宿主机: 18089
 ```
 
-HTTPS 需要单独申请 `lingxi.cylonai.cn` 的 SSL 证书。不能直接复用 `token.cylonai.cn` 或 `sub.cyroute.cn` 的证书，否则浏览器会提示证书域名不匹配。
+HTTPS 使用 `tomato.beinai.cc` 自己的 SSL 证书。不能直接复用其它域名证书，否则浏览器会提示证书域名不匹配。
 
 证书放置建议：
 
 ```text
-/opt/nginx/ssl/lingxi.cylonai.cn_bundle.pem
-/opt/nginx/ssl/lingxi.cylonai.cn.key
+/etc/nginx/ssl/tomato.beinai.cc/tomato.beinai.cc_bundle.crt
+/etc/nginx/ssl/tomato.beinai.cc/tomato.beinai.cc.key
 ```
 
-证书配置完成后，再把 `/opt/nginx/conf.d/lingxi.cylonai.cn.conf` 增加 443 server，并执行：
+证书配置完成后，再把 `/etc/nginx/conf.d/tomato.beinai.cc.conf` 增加 443 server，并执行：
 
 ```bash
-docker exec nginx-token nginx -t
-docker exec nginx-token nginx -s reload
+nginx -t
+systemctl reload nginx
 ```
 
 ## 回滚
@@ -268,24 +264,24 @@ docker exec nginx-token nginx -s reload
 
 ```bash
 cd /opt/niuniuapi/deploy
-docker compose -f docker-compose.niuniuapi.yml --env-file .env logs --tail=200 niuniuapi
-docker compose -f docker-compose.niuniuapi.yml --env-file .env restart niuniuapi
+docker compose -f docker-compose.tomato.yml --env-file .env logs --tail=200 tomato
+docker compose -f docker-compose.tomato.yml --env-file .env restart tomato
 ```
 
 如果需要回滚到上一版镜像，先确认本机或服务器保留了旧镜像标签，例如：
 
 ```bash
-docker images niuniuapi
-docker tag niuniuapi:lingxi-上一版本 niuniuapi:lingxi
+docker images tomato
+docker tag tomato:上一版本 tomato:latest
 cd /opt/niuniuapi/deploy
-docker compose -f docker-compose.niuniuapi.yml --env-file .env up -d --no-build
+docker compose -f docker-compose.tomato.yml --env-file .env up -d --no-build tomato
 ```
 
 如果只是新站完全不要对外，停新服务即可：
 
 ```bash
 cd /opt/niuniuapi/deploy
-docker compose -f docker-compose.niuniuapi.yml --env-file .env stop niuniuapi
+docker compose -f docker-compose.tomato.yml --env-file .env stop tomato
 ```
 
 不要执行 `down -v`，否则会删除新服务的数据卷。
@@ -309,7 +305,7 @@ docs/
 
 ```text
 REPOSITORY   TAG                 IMAGE ID       SIZE
-niuniuapi    lingxi-local-test   7851fa1c445d   144MB
+tomato       local-test   7851fa1c445d   144MB
 ```
 
 这次没有发布、没有登录服务器、没有从服务器拉取或导出镜像。

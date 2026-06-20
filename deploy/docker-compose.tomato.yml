@@ -1,10 +1,10 @@
 services:
-  niuniuapi:
+  tomato:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: niuniuapi:lingxi
-    container_name: niuniuapi
+    image: tomato:latest
+    container_name: tomato
     restart: unless-stopped
     ports:
       - "18089:8080"
@@ -43,7 +43,7 @@ services:
       redis:
         condition: service_started
     networks:
-      - niuniuapi-net
+      - tomato-net
     healthcheck:
       test: ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://localhost:8080/health"]
       interval: 30s
@@ -53,7 +53,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: niuniuapi-postgres
+    container_name: tomato-postgres
     restart: unless-stopped
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-niuniuapi}
@@ -68,25 +68,25 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      niuniuapi-net:
+      tomato-net:
         aliases:
           - postgres
 
   redis:
     image: redis:7-alpine
-    container_name: niuniuapi-redis
+    container_name: tomato-redis
     restart: unless-stopped
     environment:
       - TZ=Asia/Shanghai
     volumes:
       - redis_data:/data
     networks:
-      niuniuapi-net:
+      tomato-net:
         aliases:
           - redis
 
 networks:
-  niuniuapi-net:
+  tomato-net:
     driver: bridge
 
 volumes:

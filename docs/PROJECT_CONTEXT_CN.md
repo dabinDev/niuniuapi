@@ -1,4 +1,4 @@
-# 灵犀文创 / Niuniu API 项目上下文
+﻿# 灵犀文创 / Niuniu API 项目上下文
 
 本文档用于把当前 Codex 对话里的关键项目上下文沉淀到仓库中，方便后续打开项目后直接检索。
 
@@ -141,7 +141,7 @@ frontend/pnpm-lock.yaml
 3. 新增独立部署 compose，不与旧 Sub2 共用数据库、Redis 或端口：
 
 ```text
-deploy/docker-compose.niuniuapi.yml
+deploy/docker-compose.tomato.yml
 ```
 
 4. 修复 Docker 构建：
@@ -174,11 +174,11 @@ docs/LOCAL_DOCKER_RELEASE_CN.md
 
 ```text
 新目录: /opt/niuniuapi
-新应用容器: niuniuapi
-新数据库容器: niuniuapi-postgres
-新 Redis 容器: niuniuapi-redis
+新应用容器: tomato
+新数据库容器: tomato-postgres
+新 Redis 容器: tomato-redis
 新端口: 18089
-新域名: lingxi.cylonai.cn
+新域名: tomato.beinai.cc
 ```
 
 ## 发布注意事项
@@ -190,8 +190,8 @@ docs/LOCAL_DOCKER_RELEASE_CN.md
 硬性发布红线（2026-06-19 追加）：
 
 ```text
-- 任何线上发布前，必须先在本机完成 `docker build -t niuniuapi:lingxi .` 或等价镜像源构建，并确认构建成功。
-- 生产服务器只允许 `docker load` 已上传镜像，再用 `docker compose ... up -d --no-build` 重启新 niuniuapi 服务。
+- 任何线上发布前，必须先在本机完成 `docker build -t tomato:latest .` 或等价镜像源构建，并确认构建成功。
+- 生产服务器只允许 `docker load` 已上传镜像，再用 `docker compose ... up -d --no-build` 重启 tomato 服务。
 - 禁止在生产服务器完整执行前端 npm/pnpm 安装、vite/vue-tsc 构建或 Go 编译；这会抢占 CPU/IO，把同机旧 Sub2 服务卡慢。
 - 发布、回滚、排障都只操作 `/opt/niuniuapi`、`18089`、`niuniuapi*` 资源；不要操作 `/opt/sub2api`、`18080`、`sub2api*` 旧服务资源。
 ```
@@ -217,7 +217,7 @@ docs/LOCAL_DOCKER_RELEASE_CN.md
 
 ```text
 REPOSITORY   TAG                 IMAGE ID       SIZE
-niuniuapi    lingxi-local-test   7851fa1c445d   144MB
+niuniuapi    tomato-local-test   7851fa1c445d   144MB
 ```
 
 本次验证没有发布、没有登录服务器、没有从服务器拉取或导出镜像。
@@ -227,5 +227,5 @@ niuniuapi    lingxi-local-test   7851fa1c445d   144MB
 ```text
 c2fdb7a8 docs: document local docker build mirrors
 9e3c4231 docs: add local docker release guide
-2cd731fb feat: launch lingxi creative homepage
+2cd731fb feat: launch tomato creative homepage
 ```

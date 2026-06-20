@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="relative">
     <!-- Admin: Full version badge with dropdown -->
     <template v-if="isAdmin">
@@ -325,7 +325,7 @@
                   <div class="mt-3 rounded-md bg-white/70 p-2 text-xs leading-5 text-amber-700 dark:bg-dark-900/30 dark:text-amber-300">
                     <p class="font-semibold">生产发布请走本地 Docker 流程</p>
                     <p>
-                      先在本机完成 <code>docker build -t niuniuapi:lingxi .</code>，
+                      先在本机完成 <code>docker build -t tomato:latest .</code>，
                       再上传镜像包到服务器执行 <code>docker load</code>，最后使用
                       <code>docker compose ... up -d --no-build</code> 重启新服务。
                     </p>
