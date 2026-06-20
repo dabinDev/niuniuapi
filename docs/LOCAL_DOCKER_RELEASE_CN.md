@@ -1,6 +1,6 @@
-﻿# Niuniu API 本地 Docker 构建发布流程
+# Tomato 本地 Docker 构建发布流程
 
-本文档用于发布 `niuniuapi` / `灵犀文创` 这一套独立服务。目标是：**在本机完成 Docker 镜像构建，线上服务器只加载镜像并重启新容器，避免再次卡住原有 Sub2 服务。**
+本文档用于发布 `tomato` / `番茄` 这一套独立服务。目标是：**在本机完成 Docker 镜像构建，线上服务器只加载镜像并重启新容器，避免再次卡住原有 Sub2 服务。**
 
 ## 服务器与路径
 
@@ -44,7 +44,7 @@ Nginx 当前站点配置：
 
 ## 绝对不要影响旧 Sub2
 
-旧 Sub2 正在同一台服务器运行，发布 `niuniuapi` 时不要操作这些资源：
+旧 Sub2 正在同一台服务器运行，发布 `tomato` 时不要操作这些资源：
 
 ```text
 旧目录: /opt/sub2api
@@ -55,7 +55,7 @@ Nginx 当前站点配置：
 旧域名: token.cylonai.cn, sub.cyroute.cn
 ```
 
-新 `niuniuapi` 必须使用这些独立资源：
+新 `tomato` 必须使用这些独立资源：
 
 ```text
 新目录: /opt/niuniuapi
@@ -322,7 +322,7 @@ SSH 用户: root
 登录方式: 密码登录（密码不要写入仓库或记忆）
 推荐登录方式: `ssh -F NUL -i C:/Users/dabin/.ssh/id_rsa root@47.86.203.13`
 Nginx: nginx/1.24.0 (Ubuntu)
-应用上游: 127.0.0.1:18089 -> niuniuapi 容器 8080
+应用上游: 127.0.0.1:18089 -> tomato 容器 8080
 域名: tomato.beinai.cc -> 47.86.203.13
 ```
 

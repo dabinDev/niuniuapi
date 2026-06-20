@@ -59,7 +59,7 @@ describe('VersionBadge', () => {
     const wrapper = mount(VersionBadge, { props: { version: '1.0.0' } })
     await wrapper.get('button').trigger('click')
 
-    expect(wrapper.text()).toContain('Niuniu API 维护渠道')
+    expect(wrapper.text()).toContain('番茄维护渠道')
     expect(wrapper.text()).toContain('dabinDev/niuniuapi')
     expect(wrapper.text()).toContain('--no-build')
     expect(wrapper.find('a[href*="Wei-Shaw/sub2api"]').exists()).toBe(false)

@@ -89,7 +89,7 @@ const (
 	totpLoginTTL    = 5 * time.Minute
 	totpAttemptsTTL = 15 * time.Minute
 	maxTotpAttempts = 5
-	totpIssuer      = "烂番茄"
+	totpIssuer      = "番茄"
 )
 
 // TotpService handles TOTP operations

@@ -9,10 +9,10 @@ const componentSource = readFileSync(componentPath, 'utf8')
 
 describe('AuthLayout brand panel', () => {
   it('uses a lanfanqie tomato seal fallback instead of an empty logo frame', () => {
-    expect(componentSource).toContain('LANFANQIE')
+    expect(componentSource).toContain('TOMATO')
     expect(componentSource).toContain('auth-tomato-mark')
     expect(componentSource).toContain('auth-seal-text')
-    expect(componentSource).toContain('烂番茄创作质检台')
+    expect(componentSource).toContain('番茄创作质检台')
   })
 
   it('does not use the old API conversion platform subtitle as fallback copy', () => {

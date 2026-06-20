@@ -4441,7 +4441,7 @@
                 <span class="version-channel-card__kicker">Release Channel</span>
                 <h2>版本更新 / 维护渠道</h2>
                 <p>
-                  当前实例只检查我们维护的灵犀文创发布源，不再展示或跳转到上游 Sub2 更新渠道。
+                  当前实例只检查我们维护的番茄发布源，不再展示或跳转到上游 Sub2 更新渠道。
                 </p>
               </div>
               <a
@@ -5808,7 +5808,7 @@
                       v-model="form.payment_product_name_prefix"
                       type="text"
                       class="input"
-                      placeholder="烂番茄"
+                      placeholder="番茄"
                     />
                   </div>
                   <div>
@@ -5830,7 +5830,7 @@
                       class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300"
                     >
                       {{
-                        (form.payment_product_name_prefix || "烂番茄") +
+                        (form.payment_product_name_prefix || "番茄") +
                         " 100 " +
                         (form.payment_product_name_suffix || "CNY")
                       }}
@@ -7092,7 +7092,7 @@ const form = reactive<SettingsForm>({
   default_subscriptions: [],
   force_email_on_third_party_signup: false,
   default_user_rpm_limit: 0,
-  site_name: "烂番茄",
+  site_name: "番茄",
   site_logo: "",
   site_subtitle: "Subscription to API Conversion Platform",
   api_base_url: "",

@@ -10,7 +10,7 @@ const showSuccess = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
 
 const appStoreState = vi.hoisted(() => ({
-    siteName: '烂番茄',
+    siteName: '番茄',
     siteLogo: '',
     publicSettingsLoaded: true,
     cachedPublicSettings: {
@@ -110,7 +110,7 @@ const mountLoginView = () =>
 describe('LoginView product fit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    appStoreState.siteName = '烂番茄'
+    appStoreState.siteName = '番茄'
     appStoreState.siteLogo = ''
     appStoreState.publicSettingsLoaded = true
     appStoreState.cachedPublicSettings = {
@@ -135,12 +135,12 @@ describe('LoginView product fit', () => {
     })
   })
 
-  it('renders the LANFANQIE writer-workbench login shell instead of the legacy API conversion copy', async () => {
+  it('renders the TOMATO writer-workbench login shell instead of the legacy API conversion copy', async () => {
     const wrapper = mountLoginView()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('LANFANQIE STUDIO')
-    expect(wrapper.text()).toContain('烂番茄')
+    expect(wrapper.text()).toContain('TOMATO STUDIO')
+    expect(wrapper.text()).toContain('番茄')
     expect(wrapper.text()).toContain('热榜、拆书、封面与创作生成一体化工作台')
     expect(wrapper.text()).toContain('登录创作台，继续你的热榜拆解和下一稿')
     expect(wrapper.text()).toContain('番茄热榜、封面生成、拆书诊断、爆款对标和创作生成')

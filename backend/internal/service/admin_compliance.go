@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	AdminComplianceVersion        = "v2026.06.19"
+	AdminComplianceVersion        = "v2026.06.21"
 	AdminComplianceDocumentPathZH = "docs/legal/admin-compliance.zh.md"
 	AdminComplianceDocumentPathEN = "docs/legal/admin-compliance.en.md"
 	AdminComplianceDocumentURLZH  = "https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/legal/admin-compliance.zh.md"
 	AdminComplianceDocumentURLEN  = "https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/legal/admin-compliance.en.md"
-	AdminComplianceAckPhraseZH    = "我已阅读、理解并同意烂番茄 / Niuniu API 部署与运营合规承诺"
-	AdminComplianceAckPhraseEN    = "I have read, understood, and agree to the LANFANQIE / Niuniu API Deployment and Operation Compliance Commitment"
+	AdminComplianceAckPhraseZH    = "我已阅读、理解并同意番茄部署与运营合规承诺"
+	AdminComplianceAckPhraseEN    = "I have read, understood, and agree to the Tomato Deployment and Operation Compliance Commitment"
 
 	settingKeyAdminComplianceAcknowledgement = "admin_compliance_acknowledgement"
 )

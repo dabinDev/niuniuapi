@@ -17,13 +17,13 @@
         <template v-if="settingsLoaded">
           <div class="auth-seal">
             <img v-if="siteLogo" :src="siteLogo" alt="Logo" class="auth-logo" />
-            <div v-else class="auth-tomato-mark" aria-label="烂番茄创作质检台">
+            <div v-else class="auth-tomato-mark" aria-label="番茄创作质检台">
               <span class="auth-tomato-leaf"></span>
               <strong>烂</strong>
-              <span class="auth-seal-text">LANFANQIE</span>
+              <span class="auth-seal-text">TOMATO</span>
             </div>
           </div>
-          <p class="auth-kicker">LANFANQIE STUDIO</p>
+          <p class="auth-kicker">TOMATO STUDIO</p>
           <h1>{{ siteName }}</h1>
           <p class="auth-subtitle">{{ siteSubtitle }}</p>
         </template>
@@ -83,7 +83,7 @@ function normalizeAuthSubtitle(value?: string) {
   return subtitle
 }
 
-const siteName = computed(() => appStore.siteName || '烂番茄')
+const siteName = computed(() => appStore.siteName || '番茄')
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
 const siteSubtitle = computed(() => normalizeAuthSubtitle(appStore.cachedPublicSettings?.site_subtitle))
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
@@ -173,7 +173,7 @@ onMounted(() => {
 }
 
 .auth-brand-panel::after {
-  content: "烂番茄";
+  content: "番茄";
   position: absolute;
   right: -1rem;
   bottom: 0.5rem;

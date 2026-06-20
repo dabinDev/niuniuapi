@@ -645,7 +645,7 @@ func buildCoverPrompt(req coverRequest) string {
 }
 
 func buildCoverPromptPolishPrompt(req coverRequest) (string, string) {
-	system := "你是「烂番茄」小说封面提示词导演，负责把作者的粗略想法整理成可直接用于生图的封面 brief。只输出一个 JSON 对象，不要解释，不要 markdown 代码块。"
+	system := "你是「番茄」小说封面提示词导演，负责把作者的粗略想法整理成可直接用于生图的封面 brief。只输出一个 JSON 对象，不要解释，不要 markdown 代码块。"
 	var b strings.Builder
 	if req.Mode == "custom" {
 		b.WriteString("请完善下面的自定义封面提示词，输出字段：")
@@ -1237,7 +1237,7 @@ func teardownToneHint(tone string) string {
 }
 
 func buildTeardownPrompt(req teardownRequest) (string, string) {
-	system := "你是「烂番茄」的毒舌创作质检官，擅长把小说拆成结构化诊断并对照爆款标准评分。只输出一个 JSON 对象，不要任何解释，不要 markdown 代码块。"
+	system := "你是「番茄」的毒舌创作质检官，擅长把小说拆成结构化诊断并对照爆款标准评分。只输出一个 JSON 对象，不要任何解释，不要 markdown 代码块。"
 	var b strings.Builder
 	b.WriteString("请拆解并诊断下面的小说内容")
 	if req.Title != "" {
@@ -1412,7 +1412,7 @@ func scriptFormHint(form string) string {
 }
 
 func buildScriptPrompt(req scriptRequest) (string, string) {
-	system := "你是「烂番茄」的剧本改编官，把小说改写成剧本/分镜。只输出一个 JSON 对象，不要任何解释，不要 markdown 代码块。"
+	system := "你是「番茄」的剧本改编官，把小说改写成剧本/分镜。只输出一个 JSON 对象，不要任何解释，不要 markdown 代码块。"
 	var b strings.Builder
 	b.WriteString("把下面的小说内容改写成" + scriptFormHint(req.Form) + "。保留原作的人物与设定一致性。")
 	if req.Episodes > 0 {
@@ -1649,7 +1649,7 @@ func hotspotGoalHint(goal string) string {
 }
 
 func buildHotspotPrompt(req hotspotRequest) (string, string) {
-	system := "你是「烂番茄」爆款对标分析师，负责把作者作品与对标样本拆成可执行策略。只输出一个 JSON 对象，不要解释，不要 markdown 代码块。"
+	system := "你是「番茄」爆款对标分析师，负责把作者作品与对标样本拆成可执行策略。只输出一个 JSON 对象，不要解释，不要 markdown 代码块。"
 	var b strings.Builder
 	b.WriteString("请做爆款对标分析。")
 	if req.Title != "" {
@@ -1775,7 +1775,7 @@ func creativeModeHint(mode string) string {
 }
 
 func buildCreativePrompt(req creativeRequest) (string, string) {
-	system := "你是「烂番茄」创作生成台，负责把作者素材生成可继续写作、可修订、可改编的结构化内容。只输出一个 JSON 对象，不要解释，不要 markdown 代码块。"
+	system := "你是「番茄」创作生成台，负责把作者素材生成可继续写作、可修订、可改编的结构化内容。只输出一个 JSON 对象，不要解释，不要 markdown 代码块。"
 	if req.Mode == "" {
 		req.Mode = "draft"
 	}
@@ -3827,7 +3827,7 @@ func (h *StudioHandler) DownloadFanqieBook(c *gin.Context) {
 }
 
 func buildFanqieAnalysisPrompt(detail fanqieBookDetail) (string, string) {
-	system := "你是「烂番茄」网文开篇分析师。根据作品首页简介、元数据和前 10 章信息判断卖点与开篇问题。只输出一个 JSON 对象，不要解释，不要 markdown 代码块。"
+	system := "你是「番茄」网文开篇分析师。根据作品首页简介、元数据和前 10 章信息判断卖点与开篇问题。只输出一个 JSON 对象，不要解释，不要 markdown 代码块。"
 	var b strings.Builder
 	b.WriteString("请分析这本番茄小说的首页介绍和前 10 章。\n")
 	b.WriteString("书名：" + titleOr(detail.Book.Title, "未知") + "\n")

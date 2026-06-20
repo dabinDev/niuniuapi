@@ -187,8 +187,8 @@ export default {
 
   // Setup Wizard
   setup: {
-    title: '烂番茄 安装向导',
-    description: '配置您的 烂番茄 实例',
+    title: '番茄 安装向导',
+    description: '配置您的 番茄 实例',
     database: {
       title: '数据库配置',
       description: '连接到您的 PostgreSQL 数据库',
@@ -5715,7 +5715,7 @@ export default {
       },
       linuxdo: {
         title: 'LinuxDo Connect 登录',
-        description: '配置 LinuxDo Connect OAuth，用于 烂番茄 用户登录',
+        description: '配置 LinuxDo Connect OAuth，用于 番茄 用户登录',
         enable: '启用 LinuxDo 登录',
         enableHint: '在登录/注册页面显示 LinuxDo 登录入口',
         clientId: 'Client ID',
@@ -5734,7 +5734,7 @@ export default {
       },
       dingtalk: {
         title: '钉钉登录',
-        description: '配置钉钉 OAuth，用于 烂番茄 用户登录',
+        description: '配置钉钉 OAuth，用于 番茄 用户登录',
         enable: '启用钉钉登录-企业内部应用',
         enableHint: '在登录/注册页面显示钉钉登录入口',
         clientId: 'Client ID（AppKey）',
@@ -5933,7 +5933,7 @@ export default {
           '禁用用户注册、公开页面和自助服务功能。仅管理员可以登录和管理平台。',
         siteName: '站点名称',
         siteNameHint: '显示在邮件和页面标题中',
-        siteNamePlaceholder: '烂番茄',
+        siteNamePlaceholder: '番茄',
         siteSubtitle: '站点副标题',
         siteSubtitleHint: '显示在登录和注册页面',
         siteSubtitlePlaceholder: '订阅转 API 转换平台',
@@ -6224,7 +6224,7 @@ export default {
         fromEmail: '发件人邮箱',
         fromEmailPlaceholder: "noreply{'@'}example.com",
         fromName: '发件人名称',
-        fromNamePlaceholder: '烂番茄',
+        fromNamePlaceholder: '番茄',
         useTls: '使用 TLS',
         useTlsHint: '为 SMTP 连接启用 TLS 加密'
       },
@@ -6870,16 +6870,16 @@ export default {
     // Admin tour steps
     admin: {
       welcome: {
-        title: '👋 欢迎使用 烂番茄',
+        title: '👋 欢迎使用 番茄',
         description:
-          '<div style="line-height: 1.8;"><p style="margin-bottom: 16px;">烂番茄 是面向小说作者的 AI 创作工作台，把选题观察、封面生成、拆书诊断和创作生成串成同一条作品流。</p><p style="margin-bottom: 12px;"><b>🎯 创作台核心能力：</b></p><ul style="margin-left: 20px; margin-bottom: 16px;"><li>📈 <b>番茄热榜</b> - 抓取榜单样本，支持完整小说 TXT 下载/导入</li><li>🎨 <b>封面生成</b> - 自动选择生图模型，整理书名、人设和卖点 brief</li><li>🔍 <b>拆书诊断</b> - 把黄金三章拆成节奏、钩子和改稿清单</li><li>🔥 <b>爆款对标</b> - 用热榜样本对照题材、卖点和章节结构</li><li>🎬 <b>创作生成</b> - 基于诊断结论生成大纲、续写、改写和剧本</li></ul><p style="color: #e8412e; font-weight: 700;">接下来，我们将用 3 分钟带您把创作台跑通 →</p></div>',
+          '<div style="line-height: 1.8;"><p style="margin-bottom: 16px;">番茄 是面向小说作者的 AI 创作工作台，把选题观察、封面生成、拆书诊断和创作生成串成同一条作品流。</p><p style="margin-bottom: 12px;"><b>🎯 创作台核心能力：</b></p><ul style="margin-left: 20px; margin-bottom: 16px;"><li>📈 <b>番茄热榜</b> - 抓取榜单样本，支持完整小说 TXT 下载/导入</li><li>🎨 <b>封面生成</b> - 自动选择生图模型，整理书名、人设和卖点 brief</li><li>🔍 <b>拆书诊断</b> - 把黄金三章拆成节奏、钩子和改稿清单</li><li>🔥 <b>爆款对标</b> - 用热榜样本对照题材、卖点和章节结构</li><li>🎬 <b>创作生成</b> - 基于诊断结论生成大纲、续写、改写和剧本</li></ul><p style="color: #e8412e; font-weight: 700;">接下来，我们将用 3 分钟带您把创作台跑通 →</p></div>',
         nextBtn: '开始配置 🚀',
         prevBtn: '跳过'
       },
       groupManage: {
         title: '📦 第一步：分组管理',
         description:
-          '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;"><b>什么是分组？</b></p><p style="margin-bottom: 12px;">分组是 烂番茄 的核心概念，它就像一个"服务套餐"：</p><ul style="margin-left: 20px; margin-bottom: 12px; font-size: 13px;"><li>🎯 每个分组可以包含多个上游账号</li><li>💰 每个分组有独立的计费倍率</li><li>👥 可以设置为公开或专属分组</li></ul><p style="margin-top: 12px; padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 13px;"><b>💡 示例：</b>您可以创建"VIP专线"（高倍率）和"免费试用"（低倍率）两个分组</p><p style="margin-top: 16px; color: #10b981; font-weight: 600;">👉 点击左侧的"分组管理"开始</p></div>'
+          '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;"><b>什么是分组？</b></p><p style="margin-bottom: 12px;">分组是 番茄 的核心概念，它就像一个"服务套餐"：</p><ul style="margin-left: 20px; margin-bottom: 12px; font-size: 13px;"><li>🎯 每个分组可以包含多个上游账号</li><li>💰 每个分组有独立的计费倍率</li><li>👥 可以设置为公开或专属分组</li></ul><p style="margin-top: 12px; padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 13px;"><b>💡 示例：</b>您可以创建"VIP专线"（高倍率）和"免费试用"（低倍率）两个分组</p><p style="margin-top: 16px; color: #10b981; font-weight: 600;">👉 点击左侧的"分组管理"开始</p></div>'
       },
       createGroup: {
         title: '➕ 创建新分组',
@@ -6991,9 +6991,9 @@ export default {
     // User tour steps
     user: {
       welcome: {
-        title: '👋 欢迎使用 烂番茄',
+        title: '👋 欢迎使用 番茄',
         description:
-          '<div style="line-height: 1.8;"><p style="margin-bottom: 16px;">您好！欢迎来到 烂番茄 AI 服务平台。</p><p style="margin-bottom: 12px;"><b>🎯 快速开始：</b></p><ul style="margin-left: 20px; margin-bottom: 16px;"><li>🔑 创建 API 密钥</li><li>📋 复制密钥到您的应用</li><li>🚀 开始使用 AI 服务</li></ul><p style="color: #10b981; font-weight: 600;">只需 1 分钟，让我们开始吧 →</p></div>',
+          '<div style="line-height: 1.8;"><p style="margin-bottom: 16px;">您好！欢迎来到 番茄 AI 服务平台。</p><p style="margin-bottom: 12px;"><b>🎯 快速开始：</b></p><ul style="margin-left: 20px; margin-bottom: 16px;"><li>🔑 创建 API 密钥</li><li>📋 复制密钥到您的应用</li><li>🚀 开始使用 AI 服务</li></ul><p style="color: #10b981; font-weight: 600;">只需 1 分钟，让我们开始吧 →</p></div>',
         nextBtn: '开始 🚀',
         prevBtn: '跳过'
       },

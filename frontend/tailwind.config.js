@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 主色调 - 番茄红（烂番茄品牌，对齐首页 #e8412e）
+        // 主色调 - 番茄红（番茄品牌，对齐首页 #e8412e）
         primary: {
           50: '#fff1ee',
           100: '#ffe0da',

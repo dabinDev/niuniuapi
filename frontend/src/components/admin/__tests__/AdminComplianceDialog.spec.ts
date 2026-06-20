@@ -76,7 +76,7 @@ function mountDialog(path: string) {
 
   const complianceStore = useAdminComplianceStore()
   complianceStore.requireAcknowledgement({
-    ack_phrase_zh: '我已阅读、理解并同意烂番茄 / Niuniu API 部署与运营合规承诺',
+    ack_phrase_zh: '我已阅读、理解并同意番茄部署与运营合规承诺',
   })
 
   return mount(AdminComplianceDialog)

@@ -71,7 +71,7 @@ func TestUpdateServicePerformUpdateNoUpdateReturnsSentinel(t *testing.T) {
 	require.ErrorIs(t, err, ErrNoUpdateAvailable)
 }
 
-func TestUpdateServiceUsesDefaultNiuniuRepository(t *testing.T) {
+func TestUpdateServiceUsesDefaultTomatoRepository(t *testing.T) {
 	client := &updateServiceGitHubClientStub{
 		release: &GitHubRelease{TagName: "v0.1.133", Name: "v0.1.133"},
 	}
@@ -95,20 +95,20 @@ func TestUpdateServiceUsesConfiguredRepository(t *testing.T) {
 	require.Equal(t, "owner/custom-release-channel", client.repo)
 }
 
-func TestUpdateServiceUsesNiuniuBinaryNameForOwnReleaseChannel(t *testing.T) {
+func TestUpdateServiceUsesTomatoBinaryNameForOwnReleaseChannel(t *testing.T) {
 	svc := NewUpdateService(&updateServiceCacheStub{}, &updateServiceGitHubClientStub{}, "0.1.132", "release", "")
 
-	require.Equal(t, "niuniuapi", svc.binaryName())
-	require.Equal(t, ".niuniuapi-update-*", svc.tempDirPattern())
+	require.Equal(t, "tomato", svc.binaryName())
+	require.Equal(t, ".tomato-update-*", svc.tempDirPattern())
 }
 
-func TestUpdateServiceExtractsNiuniuBinaryFromReleaseArchive(t *testing.T) {
+func TestUpdateServiceExtractsTomatoBinaryFromReleaseArchive(t *testing.T) {
 	svc := NewUpdateService(&updateServiceCacheStub{}, &updateServiceGitHubClientStub{}, "0.1.132", "release", "")
 	tempDir := t.TempDir()
-	archivePath := filepath.Join(tempDir, "niuniuapi_linux_amd64.tar")
+	archivePath := filepath.Join(tempDir, "tomato_linux_amd64.tar")
 	destPath := filepath.Join(tempDir, "candidate")
 
-	createTarArchive(t, archivePath, "niuniuapi", "own release binary")
+	createTarArchive(t, archivePath, "tomato", "own release binary")
 
 	require.NoError(t, svc.extractBinary(archivePath, destPath))
 	got, err := os.ReadFile(destPath)
@@ -116,7 +116,7 @@ func TestUpdateServiceExtractsNiuniuBinaryFromReleaseArchive(t *testing.T) {
 	require.Equal(t, "own release binary", string(got))
 }
 
-func TestUpdateServiceRejectsArchiveWithoutNiuniuBinary(t *testing.T) {
+func TestUpdateServiceRejectsArchiveWithoutTomatoBinary(t *testing.T) {
 	svc := NewUpdateService(&updateServiceCacheStub{}, &updateServiceGitHubClientStub{}, "0.1.132", "release", "")
 	tempDir := t.TempDir()
 	archivePath := filepath.Join(tempDir, "upstream_linux_amd64.tar")
@@ -126,7 +126,7 @@ func TestUpdateServiceRejectsArchiveWithoutNiuniuBinary(t *testing.T) {
 
 	err := svc.extractBinary(archivePath, destPath)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "niuniuapi")
+	require.Contains(t, err.Error(), "tomato")
 }
 
 func createTarArchive(t *testing.T, path, name, content string) {

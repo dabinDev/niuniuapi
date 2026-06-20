@@ -28,7 +28,7 @@ async function bootstrap() {
   appStore.initFromInjectedConfig()
 
   // Set document title immediately after config is loaded
-  if (appStore.siteName && appStore.siteName !== '烂番茄') {
+  if (appStore.siteName && appStore.siteName !== '番茄') {
     document.title = `${appStore.siteName} · AI 写作与内容创作平台`
   }
 

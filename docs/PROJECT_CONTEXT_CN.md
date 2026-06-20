@@ -1,4 +1,4 @@
-﻿# 灵犀文创 / Niuniu API 项目上下文
+# 番茄 / Tomato 项目上下文
 
 本文档用于把当前 Codex 对话里的关键项目上下文沉淀到仓库中，方便后续打开项目后直接检索。
 
@@ -46,7 +46,7 @@ cd frontend; pnpm dev --port 5180 --strictPort --host 127.0.0.1
 项目名称：
 
 ```text
-灵犀文创
+番茄
 ```
 
 定位：
@@ -56,14 +56,14 @@ cd frontend; pnpm dev --port 5180 --strictPort --host 127.0.0.1
 后续可以销售 token，同时提供 skill、插件和作者工作流能力。
 ```
 
-首页品牌演进：原 Sub2API → `灵犀文创`（2026-06-13）→ `老番茄`（2026-06-13）→ **`烂番茄`（2026-06-14，当前）**。命名详见「命名与品牌」。
+首页品牌演进：原 Sub2API → 早期创作站命名 → `老番茄`（2026-06-13，已弃用）→ **`番茄`（当前）**。命名详见「命名与品牌」。
 
 ## 命名与品牌（2026-06-14）
 
 当前对外品牌名：
 
 ```text
-烂番茄（LANFANQIE STUDIO），印章图标 🍅
+番茄（TOMATO STUDIO），印章图标 🍅
 ```
 
 命名策略说明：
@@ -71,21 +71,21 @@ cd frontend; pnpm dev --port 5180 --strictPort --host 127.0.0.1
 ```text
 - 走「擦边番茄小说」路线借番茄系流量，但番茄/番茄小说/红果均为字节跳动注册商标，
   仅用于宣传文案与 SEO 关键词，不要做主体商标/域名 Logo。
-- 「烂番茄」双重碰瓷：番茄小说（字节）+ 烂番茄影评网 Rotten Tomatoes（Fandango 商标）。
+- 「番茄」借番茄小说相关流量做内容方向联想。
   优势是记忆点强、且与「拆书 / 爆款分析」的"内容质检评级"定位天然契合，
   可立「毒舌创作质检台：专挑烂梗/烂节奏，让你的书不烂」人设。
-- 风险：「烂」对付费生成工具有"低质"负面暗示，需靠"质检/毒舌"人设翻转语义；
-  SEO 会被 Rotten Tomatoes 影评网压制；商标同样只宜用于文案，不宜做主体注册。
-- 历史候选：「灵犀文创」（已弃）、「老番茄」（撞 B 站头部 UP 主，已弃）、
+- 风险：番茄/番茄小说/红果均为他人商标，商标和域名主体要继续避险；
+  SEO 会与番茄小说相关内容竞争，不能把第三方平台名做主体商标承诺。
+- 历史候选：早期创作站命名（已弃）、「老番茄」（撞 B 站头部 UP 主，已弃）、
   「大番茄中转站」（合作伙伴提议，弃用"中转站"——暴露中转、面向作家不友好、监管敏感）。
-- 「毒舌质检」是否作为产品主线尚未最终拍板，决定了「烂」是加分还是减分项。
+- 「毒舌质检」可作为产品语气，但当前项目/部署统一使用「番茄 / tomato」。
 ```
 
 前端品牌已替换文件：
 
 ```text
-frontend/src/views/HomeView.vue  （brand-seal = 🍅，品牌文案 = 烂番茄 / LANFANQIE STUDIO，番茄红主色 #e8412e）
-frontend/index.html              （标签标题 = 烂番茄 · AI 写作与内容创作平台）
+frontend/src/views/HomeView.vue  （brand-seal = 🍅，品牌文案 = 番茄 / TOMATO STUDIO，番茄红主色 #e8412e）
+frontend/index.html              （标签标题 = 番茄 · AI 写作与内容创作平台）
 ```
 
 ## 功能矩阵（规划）
@@ -170,7 +170,7 @@ docs/LOCAL_DOCKER_RELEASE_CN.md
 旧域名: token.cylonai.cn, sub.cyroute.cn
 ```
 
-新灵犀文创服务使用独立资源：
+新番茄服务使用独立资源：
 
 ```text
 新目录: /opt/niuniuapi
@@ -193,7 +193,7 @@ docs/LOCAL_DOCKER_RELEASE_CN.md
 - 任何线上发布前，必须先在本机完成 `docker build -t tomato:latest .` 或等价镜像源构建，并确认构建成功。
 - 生产服务器只允许 `docker load` 已上传镜像，再用 `docker compose ... up -d --no-build` 重启 tomato 服务。
 - 禁止在生产服务器完整执行前端 npm/pnpm 安装、vite/vue-tsc 构建或 Go 编译；这会抢占 CPU/IO，把同机旧 Sub2 服务卡慢。
-- 发布、回滚、排障都只操作 `/opt/niuniuapi`、`18089`、`niuniuapi*` 资源；不要操作 `/opt/sub2api`、`18080`、`sub2api*` 旧服务资源。
+- 发布、回滚、排障都只操作 `/opt/niuniuapi`、`18089`、`tomato*` 资源；不要操作 `/opt/sub2api`、`18080`、`sub2api*` 旧服务资源。
 ```
 
 重启 Codex 后也必须继续遵守的发布记忆（2026-06-19 再次确认）：
@@ -217,7 +217,7 @@ docs/LOCAL_DOCKER_RELEASE_CN.md
 
 ```text
 REPOSITORY   TAG                 IMAGE ID       SIZE
-niuniuapi    tomato-local-test   7851fa1c445d   144MB
+tomato       tomato-local-test   7851fa1c445d   144MB
 ```
 
 本次验证没有发布、没有登录服务器、没有从服务器拉取或导出镜像。

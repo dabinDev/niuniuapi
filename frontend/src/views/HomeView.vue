@@ -4,11 +4,11 @@
 
     <header class="site-header">
       <nav class="nav-inner">
-        <router-link to="/home" class="brand" aria-label="烂番茄首页">
+        <router-link to="/home" class="brand" aria-label="番茄首页">
           <span class="brand-seal">🍅</span>
           <span class="brand-text">
-            <span class="brand-name">烂番茄</span>
-            <span class="brand-sub">LANFANQIE · 毒舌创作质检台</span>
+            <span class="brand-name">番茄</span>
+            <span class="brand-sub">TOMATO · 毒舌创作质检台</span>
           </span>
         </router-link>
 
@@ -37,7 +37,7 @@
             <p class="kicker">专治三烂 · 烂梗 / 烂节奏 / 烂套路</p>
             <h1 class="hero-title">
               你的稿子<span class="hl">烂</span>在哪，<br />
-              烂番茄一眼挑出来。
+              番茄一眼挑出来。
             </h1>
             <p class="hero-sub">
               别等读者划走才发现。把章节丢进来，先做一次毒舌烂度体检——套路、注水、纸片人、假反转全给你标红，再告诉你怎么改成能卖的。
@@ -53,7 +53,7 @@
             </ul>
           </div>
 
-          <!-- 烂番茄主视觉 -->
+          <!-- 番茄主视觉 -->
           <div class="rot-stage fade-up delay-1">
             <div class="rot-orbit orbit-a" aria-hidden="true"></div>
             <div class="rot-orbit orbit-b" aria-hidden="true"></div>
@@ -175,7 +175,7 @@
 
     <footer class="site-footer">
       <div class="band-inner footer-inner">
-        <p>© {{ currentYear }} 烂番茄 · 毒舌 AI 创作质检台</p>
+        <p>© {{ currentYear }} 番茄 · 毒舌 AI 创作质检台</p>
         <div class="footer-links">
           <router-link to="/studio/teardown">拆书质检</router-link>
           <router-link to="/studio/cover">封面生成</router-link>

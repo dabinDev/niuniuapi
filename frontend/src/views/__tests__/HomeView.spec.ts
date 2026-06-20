@@ -26,7 +26,7 @@ vi.mock('@/stores', () => ({
 }))
 
 describe('HomeView', () => {
-  it('renders the rotten tomato critique homepage without the old Lingxi copy', () => {
+  it('renders the rotten tomato critique homepage without legacy creator-platform copy', () => {
     const wrapper = shallowMount(HomeView, {
       global: {
         stubs: {
@@ -40,11 +40,11 @@ describe('HomeView', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('烂番茄')
-    expect(wrapper.text()).toContain('LANFANQIE · 毒舌创作质检台')
+    expect(wrapper.text()).toContain('番茄')
+    expect(wrapper.text()).toContain('TOMATO · 毒舌创作质检台')
     expect(wrapper.text()).toContain('毒舌创作质检台')
     expect(wrapper.text()).toContain('专治三烂')
-    expect(wrapper.text()).toMatch(/你的稿子\s*烂\s*在哪，\s*烂番茄一眼挑出来/)
+    expect(wrapper.text()).toMatch(/你的稿子\s*烂\s*在哪，\s*番茄一眼挑出来/)
     expect(wrapper.text()).toContain('爆款潜力分')
     expect(wrapper.text()).toContain('小说封面生成')
     expect(wrapper.text()).toContain('拆书诊断')
@@ -58,7 +58,6 @@ describe('HomeView', () => {
     expect(wrapper.find('[data-to="/studio/cover"]').exists()).toBe(true)
     expect(wrapper.find('[data-to="/studio/hotspot"]').exists()).toBe(true)
     expect(wrapper.find('[data-to="/studio/generate"]').exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('灵犀文创')
-    expect(wrapper.text()).not.toContain('LINGXI CREATIVE')
+    expect(wrapper.text()).not.toContain('Sub2API')
   })
 })

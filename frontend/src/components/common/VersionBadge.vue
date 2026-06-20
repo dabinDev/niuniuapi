@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="relative">
     <!-- Admin: Full version badge with dropdown -->
     <template v-if="isAdmin">
@@ -81,7 +81,7 @@
                 class="mb-3 rounded-lg border border-primary-200 bg-primary-50 p-3 text-xs text-primary-700 dark:border-primary-800/50 dark:bg-primary-900/20 dark:text-primary-300"
                 data-test="niuniu-release-channel-note"
               >
-                <p class="font-semibold">Niuniu API 维护渠道</p>
+                <p class="font-semibold">番茄维护渠道</p>
                 <p class="mt-1 leading-5">
                   仅检查 <span class="font-semibold">dabinDev/niuniuapi</span> 发布；生产更新必须先完成本地 Docker 镜像构建，再上传镜像并使用
                   <code>--no-build</code> 重启。

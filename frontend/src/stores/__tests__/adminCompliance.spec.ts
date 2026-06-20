@@ -30,7 +30,7 @@ describe('useAdminComplianceStore', () => {
       'https://github.com/dabinDev/niuniuapi/blob/writer-workbench-v0/docs/legal/admin-compliance.en.md'
     )
     expect(store.status?.document_url_zh).not.toContain('Wei-Shaw/sub2api')
-    expect(store.expectedPhrase).toContain('烂番茄')
+    expect(store.expectedPhrase).toContain('番茄')
     expect(store.expectedPhrase).not.toContain('Sub2API')
     expect(store.expectedPhrase).not.toContain('�')
   })
