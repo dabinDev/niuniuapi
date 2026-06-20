@@ -110,6 +110,10 @@ export interface FanqieRankResponse {
   books: FanqieBook[]
 }
 
+export interface FanqieRankOptions {
+  forceRefresh?: boolean
+}
+
 export interface FanqieDownloadResult {
   title: string
   file_name: string
@@ -131,9 +135,9 @@ export interface FanqieAnalysisReport {
   notes?: string[]
 }
 
-export async function getFanqieRank(channel: FanqieRankChannel): Promise<FanqieRankResponse> {
+export async function getFanqieRank(channel: FanqieRankChannel, options: FanqieRankOptions = {}): Promise<FanqieRankResponse> {
   const { data } = await apiClient.get<FanqieRankResponse>('/studio/fanqie/rank', {
-    params: { channel },
+    params: { channel, force_refresh: options.forceRefresh || undefined },
   })
   return data
 }

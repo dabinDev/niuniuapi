@@ -344,14 +344,43 @@ func performStudioImportRequest(t *testing.T, h *StudioHandler, userID int64, bo
 }
 
 func performStudioFanqieRankRequest(t *testing.T, h *StudioHandler, userID int64, channel string) *httptest.ResponseRecorder {
+	return performStudioFanqieRankRequestWithForce(t, h, userID, channel, false)
+}
+
+func performStudioFanqieRankRequestWithForce(t *testing.T, h *StudioHandler, userID int64, channel string, forceRefresh bool) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/studio/fanqie/rank?channel="+channel, nil)
+	target := "/api/v1/studio/fanqie/rank?channel=" + channel
+	if forceRefresh {
+		target += "&force_refresh=true"
+	}
+	c.Request = httptest.NewRequest(http.MethodGet, target, nil)
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: userID})
 
 	h.GetFanqieRank(c)
 	return rec
+}
+
+func createFanqieRankSnapshotTableForTest(t *testing.T, client *dbent.Client) {
+	t.Helper()
+	_, err := client.ExecContext(context.Background(), `
+CREATE TABLE IF NOT EXISTS fanqie_rank_snapshots (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	channel TEXT NOT NULL UNIQUE,
+	books TEXT NOT NULL DEFAULT '[]',
+	source TEXT NOT NULL DEFAULT '',
+	fetched_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`)
+	require.NoError(t, err)
+}
+
+func resetFanqieRankCacheForTest() {
+	fanqieRankCache.Lock()
+	fanqieRankCache.entries = map[fanqieRankChannel]fanqieRankCacheEntry{}
+	fanqieRankCache.Unlock()
 }
 
 func performStudioFanqieCoverRequest(t *testing.T, h *StudioHandler, key string) *httptest.ResponseRecorder {
@@ -866,6 +895,8 @@ func TestPolishCoverPromptCustomUsesTextModel(t *testing.T) {
 	var payload map[string]any
 	require.NoError(t, json.Unmarshal(requests[0].Body, &payload))
 	require.Equal(t, "gpt-5.5", payload["model"])
+	instructions, _ := payload["instructions"].(string)
+	require.NotEmpty(t, strings.TrimSpace(instructions))
 	require.Contains(t, string(requests[0].Body), "赛博朋克雨夜街道")
 	require.Contains(t, string(requests[0].Body), "小说封面")
 }
@@ -1193,34 +1224,307 @@ func TestStudioFanqieRankReturnsThirtyBooks(t *testing.T) {
 	require.NotEmpty(t, resp.Data.Books[0].Title)
 }
 
+func TestStudioFanqieRankUsesPersistedSnapshotWithoutOfficialFetch(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	resetFanqieRankCacheForTest()
+	t.Cleanup(resetFanqieRankCacheForTest)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_fanqie_rank_db_cache")
+	createFanqieRankSnapshotTableForTest(t, client)
+	user, err := client.User.Create().
+		SetEmail("studio-fanqie-rank-db-cache@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+
+	cachedBooks := []fanqieBook{{
+		ID:          "db-1001",
+		Rank:        1,
+		Title:       "数据库缓存小说",
+		Author:      "缓存作者",
+		Category:    "玄幻",
+		Status:      "连载中",
+		WordCount:   "100万字",
+		Score:       "热度 999",
+		Description: "来自数据库快照",
+		SourceURL:   "https://fanqienovel.com/page/1001",
+		Tags:        []string{"数据库缓存"},
+	}}
+	rawBooks, err := json.Marshal(cachedBooks)
+	require.NoError(t, err)
+	_, err = client.ExecContext(ctx, `
+INSERT INTO fanqie_rank_snapshots (channel, books, source, fetched_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)`,
+		string(fanqieRankHot), string(rawBooks), "fanqie-official", time.Now().UTC(), time.Now().UTC(), time.Now().UTC())
+	require.NoError(t, err)
+
+	oldFetcher := fetchFanqieRankBooksFromOfficialFunc
+	fetchFanqieRankBooksFromOfficialFunc = func(context.Context, fanqieRankChannel) ([]fanqieBook, error) {
+		t.Fatal("official fetch should not run when a fresh database snapshot exists")
+		return nil, nil
+	}
+	t.Cleanup(func() { fetchFanqieRankBooksFromOfficialFunc = oldFetcher })
+
+	h := &StudioHandler{client: client}
+	rec := performStudioFanqieRankRequest(t, h, user.ID, "hot")
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			Source string       `json:"source"`
+			Books  []fanqieBook `json:"books"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.Equal(t, "fanqie-db-cache", resp.Data.Source)
+	require.Len(t, resp.Data.Books, 1)
+	require.Equal(t, "数据库缓存小说", resp.Data.Books[0].Title)
+}
+
+func TestStudioFanqieRankBackfillsPersistedSnapshotCovers(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	resetFanqieRankCacheForTest()
+	t.Cleanup(resetFanqieRankCacheForTest)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_fanqie_rank_db_cover_backfill")
+	createFanqieRankSnapshotTableForTest(t, client)
+	user, err := client.User.Create().
+		SetEmail("studio-fanqie-rank-db-cover-backfill@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+
+	cachedBooks := []fanqieBook{{
+		ID:          "db-no-cover-1001",
+		Rank:        1,
+		Title:       "旧缓存无封面小说",
+		Author:      "缓存作者",
+		Category:    "玄幻",
+		Status:      "连载中",
+		WordCount:   "100万字",
+		Score:       "热度 999",
+		Description: "来自旧数据库快照",
+		SourceURL:   "https://fanqienovel.com/page/1001",
+		Tags:        []string{"数据库缓存"},
+	}}
+	rawBooks, err := json.Marshal(cachedBooks)
+	require.NoError(t, err)
+	_, err = client.ExecContext(ctx, `
+INSERT INTO fanqie_rank_snapshots (channel, books, source, fetched_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)`,
+		string(fanqieRankHot), string(rawBooks), "fanqie-rank-cache", time.Now().UTC(), time.Now().UTC(), time.Now().UTC())
+	require.NoError(t, err)
+
+	oldFetcher := fetchFanqieRankBooksFromOfficialFunc
+	fetchFanqieRankBooksFromOfficialFunc = func(context.Context, fanqieRankChannel) ([]fanqieBook, error) {
+		t.Fatal("official fetch should not run when a fresh database snapshot exists")
+		return nil, nil
+	}
+	t.Cleanup(func() { fetchFanqieRankBooksFromOfficialFunc = oldFetcher })
+
+	h := &StudioHandler{client: client}
+	rec := performStudioFanqieRankRequest(t, h, user.ID, "hot")
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			Source string       `json:"source"`
+			Books  []fanqieBook `json:"books"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.Equal(t, "fanqie-db-cache", resp.Data.Source)
+	require.Len(t, resp.Data.Books, 1)
+	require.Equal(t, "旧缓存无封面小说", resp.Data.Books[0].Title)
+	require.Empty(t, resp.Data.Books[0].CoverURL)
+}
+
+func TestStudioFanqieRankForceRefreshPersistsSnapshot(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	resetFanqieRankCacheForTest()
+	t.Cleanup(resetFanqieRankCacheForTest)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_fanqie_rank_force_refresh")
+	createFanqieRankSnapshotTableForTest(t, client)
+	user, err := client.User.Create().
+		SetEmail("studio-fanqie-rank-force-refresh@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+
+	fetchedBooks := make([]fanqieBook, 30)
+	for i := range fetchedBooks {
+		fetchedBooks[i] = fanqieBook{
+			ID:          fmt.Sprintf("official-%02d", i+1),
+			Rank:        i + 1,
+			Title:       fmt.Sprintf("官方刷新小说 %02d", i+1),
+			Author:      "官方作者",
+			Category:    "都市",
+			Status:      "连载中",
+			WordCount:   "80万字",
+			Score:       "热度 900",
+			Description: "来自强制刷新",
+			SourceURL:   fmt.Sprintf("https://fanqienovel.com/page/%d", 9000+i),
+			Tags:        []string{"官方刷新"},
+		}
+	}
+	oldFetcher := fetchFanqieRankBooksFromOfficialFunc
+	fetchFanqieRankBooksFromOfficialFunc = func(context.Context, fanqieRankChannel) ([]fanqieBook, error) {
+		return fetchedBooks, nil
+	}
+	t.Cleanup(func() { fetchFanqieRankBooksFromOfficialFunc = oldFetcher })
+
+	h := &StudioHandler{client: client}
+	rec := performStudioFanqieRankRequestWithForce(t, h, user.ID, "hot", true)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			Source string       `json:"source"`
+			Books  []fanqieBook `json:"books"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.Equal(t, "fanqie-official", resp.Data.Source)
+	require.Len(t, resp.Data.Books, 30)
+	require.Equal(t, "官方刷新小说 01", resp.Data.Books[0].Title)
+
+	rows, err := client.QueryContext(ctx, `SELECT books, source FROM fanqie_rank_snapshots WHERE channel = ?`, string(fanqieRankHot))
+	require.NoError(t, err)
+	defer rows.Close()
+	require.True(t, rows.Next())
+	var storedBooksRaw string
+	var storedSource string
+	require.NoError(t, rows.Scan(&storedBooksRaw, &storedSource))
+	require.Equal(t, "fanqie-official", storedSource)
+	require.Contains(t, storedBooksRaw, "官方刷新小说 01")
+}
+
+func TestStudioFanqieRankPersistsFallbackWhenOfficialUnavailable(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	resetFanqieRankCacheForTest()
+	t.Cleanup(resetFanqieRankCacheForTest)
+	ctx := context.Background()
+	client := newStudioHandlerTestClient(t, "studio_fanqie_rank_fallback_persist")
+	createFanqieRankSnapshotTableForTest(t, client)
+	user, err := client.User.Create().
+		SetEmail("studio-fanqie-rank-fallback-persist@example.com").
+		SetPasswordHash("hash").
+		Save(ctx)
+	require.NoError(t, err)
+
+	oldFetcher := fetchFanqieRankBooksFromOfficialFunc
+	fetchFanqieRankBooksFromOfficialFunc = func(context.Context, fanqieRankChannel) ([]fanqieBook, error) {
+		return nil, errors.New("official unavailable")
+	}
+	t.Cleanup(func() { fetchFanqieRankBooksFromOfficialFunc = oldFetcher })
+
+	h := &StudioHandler{client: client}
+	rec := performStudioFanqieRankRequest(t, h, user.ID, "hot")
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			Source string       `json:"source"`
+			Books  []fanqieBook `json:"books"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.Equal(t, "fanqie-rank-cache", resp.Data.Source)
+	require.Len(t, resp.Data.Books, 30)
+	require.Empty(t, resp.Data.Books[0].CoverURL)
+
+	rows, err := client.QueryContext(ctx, `SELECT books, source FROM fanqie_rank_snapshots WHERE channel = ?`, string(fanqieRankHot))
+	require.NoError(t, err)
+	defer rows.Close()
+	require.True(t, rows.Next())
+	var storedBooksRaw string
+	var storedSource string
+	require.NoError(t, rows.Scan(&storedBooksRaw, &storedSource))
+	require.Equal(t, "fanqie-rank-cache", storedSource)
+	require.Contains(t, storedBooksRaw, "热榜样本")
+}
+
 func TestLiveFanqieRankBooksFallsBackWhenOfficialSourceIsSlow(t *testing.T) {
 	oldFetcher := fetchFanqieRankBooksFromOfficialFunc
+	oldTimeout := fanqieRankOfficialFetchTimeout
+	fanqieRankOfficialFetchTimeout = 80 * time.Millisecond
 	fetchFanqieRankBooksFromOfficialFunc = func(ctx context.Context, _ fanqieRankChannel) ([]fanqieBook, error) {
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
 	t.Cleanup(func() {
 		fetchFanqieRankBooksFromOfficialFunc = oldFetcher
+		fanqieRankOfficialFetchTimeout = oldTimeout
+		resetFanqieRankCacheForTest()
 	})
 
-	fanqieRankCache.Lock()
-	fanqieRankCache.entries = map[fanqieRankChannel]fanqieRankCacheEntry{}
-	fanqieRankCache.Unlock()
+	resetFanqieRankCacheForTest()
 
 	started := time.Now()
-	books, source, _ := liveFanqieRankBooks(context.Background(), fanqieRankHot)
+	books, source, _ := liveFanqieRankBooks(context.Background(), nil, fanqieRankHot, false)
 
 	require.Less(t, time.Since(started), 2*time.Second)
 	require.Equal(t, "fanqie-rank-cache", source)
 	require.Len(t, books, 30)
 }
 
+func TestLiveFanqieRankBooksAllowsNormalOfficialLatency(t *testing.T) {
+	oldFetcher := fetchFanqieRankBooksFromOfficialFunc
+	oldTimeout := fanqieRankOfficialFetchTimeout
+	fanqieRankOfficialFetchTimeout = 3 * time.Second
+	fetchFanqieRankBooksFromOfficialFunc = func(ctx context.Context, _ fanqieRankChannel) ([]fanqieBook, error) {
+		select {
+		case <-time.After(1700 * time.Millisecond):
+			books := make([]fanqieBook, 30)
+			for i := range books {
+				books[i] = fanqieBook{
+					ID:          fmt.Sprintf("latency-%02d", i+1),
+					Rank:        i + 1,
+					Title:       fmt.Sprintf("官方延迟榜单 %02d", i+1),
+					Author:      "官方作者",
+					Category:    "都市脑洞",
+					Status:      "连载中",
+					WordCount:   "88万字",
+					Score:       "官方实时榜",
+					Description: "正常网络延迟内返回",
+					CoverURL:    "https://p3-reading-sign.fqnovelpic.com/novel-pic/p2o123~tplv.jpg",
+					SourceURL:   fmt.Sprintf("https://fanqienovel.com/page/%d", 7000+i),
+				}
+			}
+			return books, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	t.Cleanup(func() {
+		fetchFanqieRankBooksFromOfficialFunc = oldFetcher
+		fanqieRankOfficialFetchTimeout = oldTimeout
+		resetFanqieRankCacheForTest()
+	})
+
+	resetFanqieRankCacheForTest()
+
+	books, source, _ := liveFanqieRankBooks(context.Background(), nil, fanqieRankHot, false)
+
+	require.Equal(t, "fanqie-official", source)
+	require.Len(t, books, 30)
+	require.Equal(t, "官方延迟榜单 01", books[0].Title)
+	require.NotEmpty(t, books[0].CoverURL)
+}
+
 func TestStudioFanqieRankRewritesOfficialCoverURLsToLocalCache(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	resetFanqieCoverCachesForTest()
-	fanqieRankCache.Lock()
-	fanqieRankCache.entries = map[fanqieRankChannel]fanqieRankCacheEntry{}
-	fanqieRankCache.Unlock()
+	resetFanqieRankCacheForTest()
 
 	oldFetcher := fetchFanqieRankBooksFromOfficialFunc
 	fetchFanqieRankBooksFromOfficialFunc = func(context.Context, fanqieRankChannel) ([]fanqieBook, error) {
@@ -1246,9 +1550,7 @@ func TestStudioFanqieRankRewritesOfficialCoverURLsToLocalCache(t *testing.T) {
 	t.Cleanup(func() {
 		fetchFanqieRankBooksFromOfficialFunc = oldFetcher
 		resetFanqieCoverCachesForTest()
-		fanqieRankCache.Lock()
-		fanqieRankCache.entries = map[fanqieRankChannel]fanqieRankCacheEntry{}
-		fanqieRankCache.Unlock()
+		resetFanqieRankCacheForTest()
 	})
 
 	client := newStudioHandlerTestClient(t, "studio_fanqie_cover_rewrite")
@@ -1275,6 +1577,17 @@ func TestStudioFanqieRankRewritesOfficialCoverURLsToLocalCache(t *testing.T) {
 	require.NotEmpty(t, resp.Data.Books)
 	require.True(t, strings.HasPrefix(resp.Data.Books[0].CoverURL, "/api/v1/studio/fanqie/covers/"), resp.Data.Books[0].CoverURL)
 	require.NotContains(t, resp.Data.Books[0].CoverURL, "fqnovelpic.com")
+}
+
+func TestRegisterFanqieCoverSourceRejectsGeneratedFallbackCoverScheme(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	resetFanqieCoverCachesForTest()
+	t.Cleanup(resetFanqieCoverCachesForTest)
+
+	key, ok := registerFanqieCoverSourceForTest("fanqie-generated-cover://local/cover.svg?title=fake")
+
+	require.False(t, ok)
+	require.Empty(t, key)
 }
 
 func TestServeFanqieCoverCachesImageBytes(t *testing.T) {

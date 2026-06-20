@@ -59,7 +59,7 @@ describe('DownloaderView as FanqieHotlist', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    expect(getFanqieRank).toHaveBeenCalledWith('hot')
+    expect(getFanqieRank).toHaveBeenCalledWith('hot', { forceRefresh: false })
     expect(wrapper.find('.fanqie-page').classes()).toContain('studio-wide-shell')
     expect(wrapper.find('.metric-strip').classes()).toContain('metric-strip-wide')
     expect(wrapper.find('.rank-workbench').classes()).toContain('rank-workbench-wide')
@@ -80,6 +80,45 @@ describe('DownloaderView as FanqieHotlist', () => {
 
     expect(wrapper.text()).toContain('后端官方缓存')
     expect(wrapper.text()).not.toContain('fanqie-official-cache')
+  })
+
+  it('labels persisted database cache in plain language', async () => {
+    getFanqieRank.mockResolvedValueOnce({
+      channel: 'hot',
+      updated_at: '2026-06-17T00:00:00Z',
+      source: 'fanqie-db-cache',
+      books: rankBooks,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('数据库缓存')
+    expect(wrapper.text()).not.toContain('fanqie-db-cache')
+  })
+
+  it('force refreshes the hotlist only when the user clicks refresh', async () => {
+    getFanqieRank.mockResolvedValueOnce({
+      channel: 'hot',
+      updated_at: '2026-06-17T00:00:00Z',
+      source: 'fanqie-db-cache',
+      books: rankBooks,
+    })
+    getFanqieRank.mockResolvedValueOnce({
+      channel: 'hot',
+      updated_at: '2026-06-17T01:00:00Z',
+      source: 'fanqie-official',
+      books: rankBooks,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(getFanqieRank).toHaveBeenLastCalledWith('hot', { forceRefresh: false })
+    await wrapper.find('[data-test="fanqie-rank-refresh"]').trigger('click')
+    await flushPromises()
+
+    expect(getFanqieRank).toHaveBeenLastCalledWith('hot', { forceRefresh: true })
   })
 
   it('renders book covers in the list and selected sample card', async () => {
@@ -181,7 +220,7 @@ describe('DownloaderView as FanqieHotlist', () => {
     await wrapper.find('[data-test="fanqie-channel-male"]').trigger('click')
     await flushPromises()
 
-    expect(getFanqieRank).toHaveBeenLastCalledWith('male')
+    expect(getFanqieRank).toHaveBeenLastCalledWith('male', { forceRefresh: false })
   })
 
   it('searches a named fanqie novel', async () => {

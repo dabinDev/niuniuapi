@@ -1574,7 +1574,8 @@ func studioGatewayChatURL() string {
 
 func postStudioChatCompletion(ctx context.Context, ak *dbent.APIKey, model, system, user string) ([]byte, int, error) {
 	payload, _ := json.Marshal(map[string]any{
-		"model": model,
+		"model":        model,
+		"instructions": system,
 		"messages": []map[string]string{
 			{"role": "system", "content": system},
 			{"role": "user", "content": user},
@@ -1932,6 +1933,12 @@ type fanqieRankCacheEntry struct {
 	UpdatedAt time.Time
 }
 
+type fanqieRankSnapshot struct {
+	Books     []fanqieBook
+	Source    string
+	FetchedAt time.Time
+}
+
 type fanqieCoverSourceEntry struct {
 	RawURL    string
 	CreatedAt time.Time
@@ -1951,7 +1958,9 @@ type fanqieRankAPISource struct {
 	Limit      int
 }
 
-const fanqieRankOfficialFetchTimeout = 1500 * time.Millisecond
+var fanqieRankOfficialFetchTimeout = 8 * time.Second
+
+const fanqieRankSnapshotFreshTTL = 6 * time.Hour
 const fanqieCoverCacheTTL = 24 * time.Hour
 const fanqieCoverSourceTTL = 7 * 24 * time.Hour
 const fanqieCoverFetchTimeout = 12 * time.Second
@@ -2442,6 +2451,9 @@ func fetchFanqieRankBooksFromOfficialAPI(ctx context.Context, ch fanqieRankChann
 			continue
 		}
 		all = append(all, books...)
+		if len(mergeFanqieRankBooks(all)) >= 30 {
+			break
+		}
 	}
 	merged := mergeFanqieRankBooks(all)
 	merged = enrichFanqieObfuscatedRankBooks(ctx, merged)
@@ -2462,15 +2474,116 @@ func fetchFanqieRankBooksFromOfficial(ctx context.Context, ch fanqieRankChannel)
 	return parseFanqieRankHTML(ch, pageHTML)
 }
 
-func liveFanqieRankBooks(ctx context.Context, ch fanqieRankChannel) ([]fanqieBook, string, time.Time) {
-	now := time.Now().UTC()
-	fanqieRankCache.Lock()
-	if cached, ok := fanqieRankCache.entries[ch]; ok && now.Sub(cached.UpdatedAt) < 30*time.Minute && len(cached.Books) > 0 {
-		books := make([]fanqieBook, len(cached.Books))
-		copy(books, cached.Books)
-		fanqieRankCache.Unlock()
-		return books, "fanqie-official-cache", cached.UpdatedAt
+func fanqieRankSQLPlaceholder(dialectName string, index int) string {
+	if dialectName == "postgres" {
+		return "$" + strconv.Itoa(index)
 	}
+	return "?"
+}
+
+func fanqieRankSnapshotTableMissing(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "fanqie_rank_snapshots") &&
+		(strings.Contains(msg, "no such table") || strings.Contains(msg, "does not exist"))
+}
+
+func loadFanqieRankSnapshot(ctx context.Context, client *dbent.Client, ch fanqieRankChannel) (fanqieRankSnapshot, bool) {
+	if client == nil {
+		return fanqieRankSnapshot{}, false
+	}
+	ph := fanqieRankSQLPlaceholder(client.Driver().Dialect(), 1)
+	rows, err := client.QueryContext(ctx, "SELECT books, source, fetched_at FROM fanqie_rank_snapshots WHERE channel = "+ph, string(ch))
+	if err != nil {
+		if !fanqieRankSnapshotTableMissing(err) {
+			slog.Warn("fanqie rank snapshot read failed", "channel", ch, "error", err)
+		}
+		return fanqieRankSnapshot{}, false
+	}
+	defer func() { _ = rows.Close() }()
+	if !rows.Next() {
+		return fanqieRankSnapshot{}, false
+	}
+	var booksRaw string
+	var source string
+	var fetchedAt time.Time
+	if err := rows.Scan(&booksRaw, &source, &fetchedAt); err != nil {
+		slog.Warn("fanqie rank snapshot scan failed", "channel", ch, "error", err)
+		return fanqieRankSnapshot{}, false
+	}
+	var books []fanqieBook
+	if err := json.Unmarshal([]byte(booksRaw), &books); err != nil || len(books) == 0 {
+		slog.Warn("fanqie rank snapshot decode failed", "channel", ch, "error", err)
+		return fanqieRankSnapshot{}, false
+	}
+	return fanqieRankSnapshot{Books: books, Source: source, FetchedAt: fetchedAt}, true
+}
+
+func saveFanqieRankSnapshot(ctx context.Context, client *dbent.Client, ch fanqieRankChannel, books []fanqieBook, source string, fetchedAt time.Time) {
+	if client == nil || len(books) == 0 {
+		return
+	}
+	rawBooks, err := json.Marshal(books)
+	if err != nil {
+		slog.Warn("fanqie rank snapshot encode failed", "channel", ch, "error", err)
+		return
+	}
+	dialectName := client.Driver().Dialect()
+	var query string
+	if dialectName == "postgres" {
+		query = `
+INSERT INTO fanqie_rank_snapshots (channel, books, source, fetched_at, created_at, updated_at)
+VALUES ($1, $2::jsonb, $3, $4, NOW(), NOW())
+ON CONFLICT (channel) DO UPDATE SET
+	books = EXCLUDED.books,
+	source = EXCLUDED.source,
+	fetched_at = EXCLUDED.fetched_at,
+	updated_at = NOW()`
+	} else {
+		query = `
+INSERT INTO fanqie_rank_snapshots (channel, books, source, fetched_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT(channel) DO UPDATE SET
+	books = excluded.books,
+	source = excluded.source,
+	fetched_at = excluded.fetched_at,
+	updated_at = CURRENT_TIMESTAMP`
+	}
+	if _, err := client.ExecContext(ctx, query, string(ch), string(rawBooks), source, fetchedAt); err != nil {
+		if !fanqieRankSnapshotTableMissing(err) {
+			slog.Warn("fanqie rank snapshot write failed", "channel", ch, "error", err)
+		}
+	}
+}
+
+func liveFanqieRankBooks(ctx context.Context, client *dbent.Client, ch fanqieRankChannel, forceRefresh bool) ([]fanqieBook, string, time.Time) {
+	if !forceRefresh {
+		if snapshot, ok := loadFanqieRankSnapshot(ctx, client, ch); ok {
+			books := make([]fanqieBook, len(snapshot.Books))
+			copy(books, snapshot.Books)
+			if time.Since(snapshot.FetchedAt) <= fanqieRankSnapshotFreshTTL {
+				return books, "fanqie-db-cache", snapshot.FetchedAt
+			}
+			return books, "fanqie-db-stale", snapshot.FetchedAt
+		}
+	}
+
+	now := time.Now().UTC()
+	if !forceRefresh {
+		fanqieRankCache.Lock()
+		if cached, ok := fanqieRankCache.entries[ch]; ok && now.Sub(cached.UpdatedAt) < 30*time.Minute && len(cached.Books) > 0 {
+			books := make([]fanqieBook, len(cached.Books))
+			copy(books, cached.Books)
+			fanqieRankCache.Unlock()
+			return books, "fanqie-official-cache", cached.UpdatedAt
+		}
+		fanqieRankCache.Unlock()
+	}
+
+	fanqieRankCache.Lock()
+	delete(fanqieRankCache.entries, ch)
 	fanqieRankCache.Unlock()
 
 	fetchCtx, cancel := context.WithTimeout(ctx, fanqieRankOfficialFetchTimeout)
@@ -2481,10 +2594,19 @@ func liveFanqieRankBooks(ctx context.Context, ch fanqieRankChannel) ([]fanqieBoo
 		fanqieRankCache.Lock()
 		fanqieRankCache.entries[ch] = fanqieRankCacheEntry{Books: books, UpdatedAt: now}
 		fanqieRankCache.Unlock()
+		saveFanqieRankSnapshot(ctx, client, ch, books, "fanqie-official", now)
 		return books, "fanqie-official", now
 	}
 
-	return buildFanqieRankBooks(ch), "fanqie-rank-cache", now
+	if snapshot, ok := loadFanqieRankSnapshot(ctx, client, ch); ok {
+		books := make([]fanqieBook, len(snapshot.Books))
+		copy(books, snapshot.Books)
+		return books, "fanqie-db-stale", snapshot.FetchedAt
+	}
+
+	books = buildFanqieRankBooks(ch)
+	saveFanqieRankSnapshot(ctx, client, ch, books, "fanqie-rank-cache", now)
+	return books, "fanqie-rank-cache", now
 }
 
 func fanqieSeeds(ch fanqieRankChannel) []fanqieSeedBook {
@@ -2534,7 +2656,7 @@ func buildFanqieRankBooks(ch fanqieRankChannel) []fanqieBook {
 		if i >= len(seeds) {
 			title = fmt.Sprintf("%s样本 %02d · %s", fanqieRankLabel(ch), i+1, seed.Category)
 		}
-		books = append(books, fanqieBook{
+		book := fanqieBook{
 			ID:          fmt.Sprintf("%s-%02d", ch, i+1),
 			Rank:        i + 1,
 			Title:       title,
@@ -2546,7 +2668,8 @@ func buildFanqieRankBooks(ch fanqieRankChannel) []fanqieBook {
 			Description: seed.Description,
 			SourceURL:   "https://fanqienovel.com/search/" + title,
 			Tags:        append([]string{}, seed.Tags...),
-		})
+		}
+		books = append(books, book)
 	}
 	return books
 }
@@ -2681,7 +2804,8 @@ func (h *StudioHandler) GetFanqieRank(c *gin.Context) {
 		return
 	}
 	ch := normalizeFanqieRankChannel(c.Query("channel"))
-	books, source, updatedAt := liveFanqieRankBooks(c.Request.Context(), ch)
+	forceRefresh := strings.EqualFold(c.Query("force_refresh"), "true") || c.Query("force_refresh") == "1"
+	books, source, updatedAt := liveFanqieRankBooks(c.Request.Context(), h.client, ch, forceRefresh)
 	response.Success(c, fanqieRankResponse{
 		Channel:   ch,
 		UpdatedAt: updatedAt,

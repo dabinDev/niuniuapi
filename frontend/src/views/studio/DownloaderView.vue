@@ -75,7 +75,7 @@
               <span class="eyebrow small">{{ showingSearch ? 'Search Result' : 'Top 30' }}</span>
               <h2>{{ showingSearch ? '搜索结果' : `${activeChannelLabel}前 30` }}</h2>
             </div>
-            <button type="button" class="text-action" :disabled="rankLoading" @click="loadRank">
+            <button data-test="fanqie-rank-refresh" type="button" class="text-action" :disabled="rankLoading" @click="loadRank(true)">
               {{ rankLoading ? '刷新中...' : '刷新榜单' }}
             </button>
           </div>
@@ -385,6 +385,9 @@ const updatedAtLabel = computed(() => {
   return Number.isNaN(d.getTime()) ? updatedAt.value : d.toLocaleString()
 })
 const rankSourceLabel = computed(() => {
+  if (rankSource.value === 'fanqie-db-cache') return '数据库缓存'
+  if (rankSource.value === 'fanqie-db-stale') return '数据库旧缓存'
+  if (rankSource.value === 'fanqie-official') return '官方实时刷新'
   if (rankSource.value === 'fanqie-official-cache') return '后端官方缓存'
   if (rankSource.value === 'fanqie-rank-cache') return '后端榜单缓存'
   return rankSource.value || '后端聚合接口'
@@ -472,12 +475,12 @@ function selectBook(book: FanqieBook) {
   resetBookActions()
 }
 
-async function loadRank() {
+async function loadRank(forceRefresh = false) {
   rankLoading.value = true
   errorMsg.value = ''
   showingSearch.value = false
   try {
-    const result = await getFanqieRank(activeChannel.value)
+    const result = await getFanqieRank(activeChannel.value, { forceRefresh })
     rankBooks.value = result.books || []
     updatedAt.value = result.updated_at
     rankSource.value = result.source || ''
@@ -495,7 +498,7 @@ async function loadRank() {
 async function switchChannel(channel: FanqieRankChannel) {
   if (activeChannel.value === channel && !showingSearch.value) return
   activeChannel.value = channel
-  await loadRank()
+  await loadRank(false)
 }
 
 async function submitSearch() {
@@ -573,7 +576,7 @@ async function analyzeSelectedBook() {
   }
 }
 
-onMounted(loadRank)
+onMounted(() => loadRank(false))
 </script>
 
 <style scoped>
