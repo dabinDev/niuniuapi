@@ -405,6 +405,14 @@ const baseSettingsResponse = {
   payment_product_name_suffix: "",
   payment_help_image_url: "",
   payment_help_text: "",
+  studio_feature_visibility: {
+    fanqie: true,
+    cover: true,
+    works: true,
+    teardown: true,
+    hotspot: true,
+    generate: true,
+  },
   payment_cancel_rate_limit_enabled: false,
   payment_cancel_rate_limit_max: 10,
   payment_cancel_rate_limit_window: 1,
@@ -478,6 +486,16 @@ async function openUsersTab(wrapper: ReturnType<typeof mountView>) {
 
   expect(usersTabButton).toBeDefined();
   await usersTabButton?.trigger("click");
+  await flushPromises();
+}
+
+async function openFeaturesTab(wrapper: ReturnType<typeof mountView>) {
+  const featuresTabButton = wrapper
+    .findAll("button")
+    .find((node) => node.text().includes("admin.settings.tabs.features"));
+
+  expect(featuresTabButton).toBeDefined();
+  await featuresTabButton?.trigger("click");
   await flushPromises();
 }
 
@@ -621,6 +639,40 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(payload).not.toHaveProperty("payment_visible_method_wxpay_source");
     expect(payload).not.toHaveProperty("payment_visible_method_alipay_enabled");
     expect(payload).not.toHaveProperty("payment_visible_method_wxpay_enabled");
+  });
+
+  it("renders and submits studio feature visibility switches", async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openFeaturesTab(wrapper);
+
+    expect(wrapper.find('[data-test="studio-feature-toggle-fanqie"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="studio-feature-toggle-cover"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="studio-feature-toggle-works"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="studio-feature-toggle-teardown"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="studio-feature-toggle-hotspot"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="studio-feature-toggle-generate"]').exists()).toBe(true);
+
+    await wrapper
+      .find('[data-test="studio-feature-toggle-cover"] input[type="checkbox"]')
+      .setValue(false);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        studio_feature_visibility: expect.objectContaining({
+          fanqie: true,
+          cover: false,
+          works: true,
+          teardown: true,
+          hotspot: true,
+          generate: true,
+        }),
+      }),
+    );
   });
 
   it("submits Anthropic cache TTL injection gateway setting", async () => {

@@ -3,8 +3,20 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 const generateCreative = vi.hoisted(() => vi.fn())
 const getModelConfig = vi.hoisted(() => vi.fn())
+const studioVisibility = vi.hoisted(() => ({ value: {} as Record<string, boolean> }))
+const isAdmin = vi.hoisted(() => ({ value: false }))
 
 vi.mock('@/api/studio', () => ({ generateCreative, getModelConfig }))
+vi.mock('@/stores', () => ({
+  useAppStore: () => ({
+    cachedPublicSettings: { studio_feature_visibility: studioVisibility.value },
+  }),
+  useAuthStore: () => ({
+    get isAdmin() {
+      return isAdmin.value
+    },
+  }),
+}))
 
 import ScriptView from '../ScriptView.vue'
 
@@ -24,6 +36,8 @@ describe('ScriptView', () => {
   beforeEach(() => {
     generateCreative.mockReset()
     getModelConfig.mockReset()
+    studioVisibility.value = {}
+    isAdmin.value = false
     getModelConfig.mockResolvedValue({ text: { api_key_id: 1, model: 'gpt-5.4' } })
   })
 
@@ -170,5 +184,25 @@ describe('ScriptView', () => {
 
     expect(generateCreative).toHaveBeenCalledWith(expect.objectContaining({ mode: 'outline' }))
     expect(wrapper.text()).toContain('旧神书塔觉醒')
+  })
+
+  it('hides works archive entries when the works feature is disabled', async () => {
+    studioVisibility.value = { works: false }
+    generateCreative.mockResolvedValue({
+      title: '生成结果',
+      mode: 'outline',
+      sections: [{ heading: '第一章', content: '正文结果' }],
+      next_steps: [],
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('查看我的作品')
+
+    await wrapper.find('#sc-content').setValue(longText)
+    await wrapper.find('.submit-btn').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('查看归档')
   })
 })

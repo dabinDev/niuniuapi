@@ -4,10 +4,22 @@ import { flushPromises, mount } from '@vue/test-utils'
 const analyzeTeardown = vi.hoisted(() => vi.fn())
 const getModelConfig = vi.hoisted(() => vi.fn())
 const routerPush = vi.hoisted(() => vi.fn())
+const studioVisibility = vi.hoisted(() => ({ value: {} as Record<string, boolean> }))
+const isAdmin = vi.hoisted(() => ({ value: false }))
 
 vi.mock('@/api/studio', () => ({ analyzeTeardown, getModelConfig }))
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: routerPush }),
+}))
+vi.mock('@/stores', () => ({
+  useAppStore: () => ({
+    cachedPublicSettings: { studio_feature_visibility: studioVisibility.value },
+  }),
+  useAuthStore: () => ({
+    get isAdmin() {
+      return isAdmin.value
+    },
+  }),
 }))
 
 import TeardownView from '../TeardownView.vue'
@@ -39,6 +51,8 @@ describe('TeardownView', () => {
     analyzeTeardown.mockReset()
     getModelConfig.mockReset()
     routerPush.mockReset()
+    studioVisibility.value = {}
+    isAdmin.value = false
     localStorage.clear()
     getModelConfig.mockResolvedValue({ text: { api_key_id: 1, model: 'gpt-5.4' } })
   })
@@ -207,6 +221,25 @@ describe('TeardownView', () => {
     expect(setItem).toHaveBeenCalledWith('studio_bridge_payload', expect.stringContaining('"target":"generate"'))
     expect(setItem).toHaveBeenCalledWith('studio_bridge_payload', expect.stringContaining('根据拆书建议生成改写方案'))
     expect(routerPush).toHaveBeenCalledWith('/studio/generate')
+    setItem.mockRestore()
+  })
+
+  it('hides disabled downstream feature entries and blocks bridge routing', async () => {
+    studioVisibility.value = { hotspot: false, generate: false }
+    analyzeTeardown.mockResolvedValue(sampleReport)
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('#td-content').setValue(longText)
+    await wrapper.find('.submit-btn').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="teardown-send-hotspot"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="teardown-send-generate"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('去爆款对标')
+    expect(setItem).not.toHaveBeenCalled()
+    expect(routerPush).not.toHaveBeenCalled()
     setItem.mockRestore()
   })
 })

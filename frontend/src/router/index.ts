@@ -11,6 +11,7 @@ import { useAdminComplianceStore } from '@/stores/adminCompliance'
 import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
 import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/api/setup'
+import { firstVisibleStudioPath, isStudioFeatureVisible, studioFeatureForPath } from '@/utils/studioFeatures'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveDocumentTitle } from './title'
 
@@ -902,12 +903,31 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
+  if (!appStore.publicSettingsLoaded) {
+    await appStore.fetchPublicSettings()
+  }
 
   // Check payment requirement (internal payment system only)
   if (to.meta.requiresPayment) {
     const paymentEnabled = appStore.cachedPublicSettings?.payment_enabled
     if (!paymentEnabled) {
       next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+      return
+    }
+  }
+
+  if (to.path === '/studio' || to.path.startsWith('/studio/')) {
+    const visibility = appStore.cachedPublicSettings?.studio_feature_visibility
+    const fallbackPath = firstVisibleStudioPath(visibility, authStore.isAdmin)
+    const featureId = studioFeatureForPath(to.path)
+
+    if (to.path === '/studio') {
+      next(fallbackPath)
+      return
+    }
+
+    if (!authStore.isAdmin && featureId && !isStudioFeatureVisible(featureId, visibility, false)) {
+      next(fallbackPath === to.path ? '/dashboard' : fallbackPath)
       return
     }
   }

@@ -7,7 +7,7 @@
           <h1>拆书诊断</h1>
           <p>把章节拆成可执行的质检报告：黄金三章、节奏热区、人物钩子、伏笔追踪和下一步改法分开呈现。</p>
         </div>
-        <router-link class="head-link studio-action-link" to="/studio/hotspot">去爆款对标</router-link>
+        <router-link v-if="isStudioVisible('hotspot')" class="head-link studio-action-link" to="/studio/hotspot">去爆款对标</router-link>
       </header>
 
       <div class="model-strip model-strip-compact" :class="{ ready: configured }" data-test="model-auto-config-strip">
@@ -121,8 +121,8 @@
             <p class="summary">{{ report.summary }}</p>
 
             <div class="report-actions" data-test="teardown-report-actions">
-              <button data-test="teardown-send-hotspot" type="button" @click="sendReportTo('hotspot')">送去爆款对标</button>
-              <button data-test="teardown-send-generate" type="button" @click="sendReportTo('generate')">送去创作生成</button>
+              <button v-if="isStudioVisible('hotspot')" data-test="teardown-send-hotspot" type="button" @click="sendReportTo('hotspot')">送去爆款对标</button>
+              <button v-if="isStudioVisible('generate')" data-test="teardown-send-generate" type="button" @click="sendReportTo('generate')">送去创作生成</button>
             </div>
 
             <div v-if="report.scores.length" class="score-grid">
@@ -196,11 +196,15 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { analyzeTeardown, getModelConfig, type TeardownReport, type TeardownTone } from '@/api/studio'
+import { useAppStore, useAuthStore } from '@/stores'
 import { consumeStudioBridgePayload, saveStudioBridgePayload, type StudioBridgeTarget } from '@/utils/studioBridge'
+import { isStudioFeatureVisible, type StudioFeatureId } from '@/utils/studioFeatures'
 
 const MIN_LEN = 100
 
 const router = useRouter()
+const appStore = useAppStore()
+const authStore = useAuthStore()
 
 const content = ref('')
 const title = ref('')
@@ -233,6 +237,7 @@ const toneOptions: { value: TeardownTone; label: string }[] = [
 
 const contentLength = computed(() => content.value.trim().length)
 const canSubmit = computed(() => configured.value && contentLength.value >= MIN_LEN && !loading.value)
+const studioVisibility = computed(() => appStore.cachedPublicSettings?.studio_feature_visibility)
 
 onMounted(async () => {
   try {
@@ -279,7 +284,12 @@ function applyTemplate(key: string) {
   ].join('\n\n')
 }
 
+function isStudioVisible(id: StudioFeatureId) {
+  return isStudioFeatureVisible(id, studioVisibility.value, authStore.isAdmin)
+}
+
 function sendReportTo(target: StudioBridgeTarget) {
+  if (!isStudioVisible(target)) return
   if (!report.value) return
   const workTitle = title.value.trim() || '未命名作品'
   const workGenre = genre.value.trim() || ''

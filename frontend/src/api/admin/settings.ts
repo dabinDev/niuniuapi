@@ -9,6 +9,7 @@ import type {
   CustomMenuItem,
   LoginAgreementDocument,
   NotifyEmailEntry,
+  StudioFeatureVisibility,
 } from "@/types";
 
 export interface DefaultSubscriptionSetting {
@@ -438,6 +439,7 @@ export interface SystemSettings {
   backend_mode_enabled: boolean;
   custom_menu_items: CustomMenuItem[];
   custom_endpoints: CustomEndpoint[];
+  studio_feature_visibility: StudioFeatureVisibility;
   // SMTP settings
   smtp_host: string;
   smtp_port: number;
@@ -696,6 +698,7 @@ export interface UpdateSettingsRequest {
   backend_mode_enabled?: boolean;
   custom_menu_items?: CustomMenuItem[];
   custom_endpoints?: CustomEndpoint[];
+  studio_feature_visibility?: StudioFeatureVisibility;
   smtp_host?: string;
   smtp_port?: number;
   smtp_username?: string;

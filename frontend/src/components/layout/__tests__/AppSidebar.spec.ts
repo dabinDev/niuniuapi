@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
+import { STUDIO_FEATURES } from '@/utils/studioFeatures'
 
 const componentPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppSidebar.vue')
 const componentSource = readFileSync(componentPath, 'utf8')
@@ -33,22 +34,22 @@ describe('AppSidebar header styles', () => {
 
 describe('AppSidebar studio navigation', () => {
   it('uses the new studio IA and keeps legacy script out of the visible menu', () => {
-    expect(componentSource).toContain("path: '/studio/hotspot'")
-    expect(componentSource).toContain("label: t('nav.studioHotspot')")
-    expect(componentSource).toContain("path: '/studio/generate'")
-    expect(componentSource).toContain("label: t('nav.studioGenerate')")
+    expect(componentSource).toContain("import { STUDIO_FEATURES, isStudioFeatureVisible }")
+    expect(componentSource).toContain('const studioNavItems = computed')
+    expect(componentSource).toContain('.filter((feature) => isStudioFeatureVisible')
+    expect(componentSource).toContain('path: feature.path')
+    expect(componentSource).toContain('label: t(feature.navKey)')
     expect(componentSource).not.toContain("path: '/studio/script', label: t('nav.studioScript')")
   })
 
   it('puts fanqie hotlist and cover generation before the other studio tools', () => {
-    const navBlock = componentSource.match(/const studioNavItems = computed\(\(\): NavItem\[\] => \[([\s\S]*?)\]\)/)?.[1] ?? ''
-
-    const fanqieIndex = navBlock.indexOf("path: '/studio/fanqie'")
-    const coverIndex = navBlock.indexOf("path: '/studio/cover'")
-    const worksIndex = navBlock.indexOf("path: '/studio/works'")
-    const teardownIndex = navBlock.indexOf("path: '/studio/teardown'")
-    const hotspotIndex = navBlock.indexOf("path: '/studio/hotspot'")
-    const generateIndex = navBlock.indexOf("path: '/studio/generate'")
+    const order = STUDIO_FEATURES.map((feature) => feature.path)
+    const fanqieIndex = order.indexOf('/studio/fanqie')
+    const coverIndex = order.indexOf('/studio/cover')
+    const worksIndex = order.indexOf('/studio/works')
+    const teardownIndex = order.indexOf('/studio/teardown')
+    const hotspotIndex = order.indexOf('/studio/hotspot')
+    const generateIndex = order.indexOf('/studio/generate')
 
     expect(fanqieIndex).toBeGreaterThanOrEqual(0)
     expect(coverIndex).toBeGreaterThan(fanqieIndex)

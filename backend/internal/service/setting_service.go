@@ -225,6 +225,50 @@ type AuthSourceDefaultSettings struct {
 	ForceEmailOnThirdPartySignup bool
 }
 
+var studioFeatureIDs = []string{"fanqie", "cover", "works", "teardown", "hotspot", "generate"}
+
+func defaultStudioFeatureVisibility() map[string]bool {
+	visibility := make(map[string]bool, len(studioFeatureIDs))
+	for _, id := range studioFeatureIDs {
+		visibility[id] = true
+	}
+	return visibility
+}
+
+func parseStudioFeatureVisibility(raw string) map[string]bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return defaultStudioFeatureVisibility()
+	}
+
+	var incoming map[string]bool
+	if err := json.Unmarshal([]byte(raw), &incoming); err != nil {
+		return defaultStudioFeatureVisibility()
+	}
+
+	visibility := defaultStudioFeatureVisibility()
+	for _, id := range studioFeatureIDs {
+		if value, ok := incoming[id]; ok {
+			visibility[id] = value
+		}
+	}
+	return visibility
+}
+
+func marshalStudioFeatureVisibility(visibility map[string]bool) (string, error) {
+	normalized := defaultStudioFeatureVisibility()
+	for _, id := range studioFeatureIDs {
+		if value, ok := visibility[id]; ok {
+			normalized[id] = value
+		}
+	}
+	data, err := json.Marshal(normalized)
+	if err != nil {
+		return "", fmt.Errorf("marshal studio feature visibility: %w", err)
+	}
+	return string(data), nil
+}
+
 type authSourceDefaultKeySet struct {
 	// source 是 auth source 标识（如 "email"、"github"），仅用于 parse 时
 	// slog.Warn 诊断输出，不再参与 key 拼接（platformQuotas 字段已存完整 key）。
@@ -724,6 +768,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyTablePageSizeOptions,
 		SettingKeyCustomMenuItems,
 		SettingKeyCustomEndpoints,
+		SettingKeyStudioFeatureVisibility,
 		SettingKeyLinuxDoConnectEnabled,
 		SettingKeyDingTalkConnectEnabled,
 		SettingKeyWeChatConnectEnabled,
@@ -849,6 +894,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		TablePageSizeOptions:             tablePageSizeOptions,
 		CustomMenuItems:                  settings[SettingKeyCustomMenuItems],
 		CustomEndpoints:                  settings[SettingKeyCustomEndpoints],
+		StudioFeatureVisibility:          parseStudioFeatureVisibility(settings[SettingKeyStudioFeatureVisibility]),
 		LinuxDoOAuthEnabled:              linuxDoEnabled,
 		DingTalkOAuthEnabled:             dingTalkEnabled,
 		WeChatOAuthEnabled:               weChatEnabled,
@@ -1163,6 +1209,7 @@ type PublicSettingsInjectionPayload struct {
 	TablePageSizeOptions             []int                    `json:"table_page_size_options"`
 	CustomMenuItems                  json.RawMessage          `json:"custom_menu_items"`
 	CustomEndpoints                  json.RawMessage          `json:"custom_endpoints"`
+	StudioFeatureVisibility          map[string]bool          `json:"studio_feature_visibility"`
 	LinuxDoOAuthEnabled              bool                     `json:"linuxdo_oauth_enabled"`
 	DingTalkOAuthEnabled             bool                     `json:"dingtalk_oauth_enabled"`
 	WeChatOAuthEnabled               bool                     `json:"wechat_oauth_enabled"`
@@ -1229,6 +1276,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		TablePageSizeOptions:             settings.TablePageSizeOptions,
 		CustomMenuItems:                  filterUserVisibleMenuItems(settings.CustomMenuItems),
 		CustomEndpoints:                  safeRawJSONArray(settings.CustomEndpoints),
+		StudioFeatureVisibility:          settings.StudioFeatureVisibility,
 		LinuxDoOAuthEnabled:              settings.LinuxDoOAuthEnabled,
 		DingTalkOAuthEnabled:             settings.DingTalkOAuthEnabled,
 		WeChatOAuthEnabled:               settings.WeChatOAuthEnabled,
@@ -1830,6 +1878,11 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyTablePageSizeOptions] = string(tablePageSizeOptionsJSON)
 	updates[SettingKeyCustomMenuItems] = settings.CustomMenuItems
 	updates[SettingKeyCustomEndpoints] = settings.CustomEndpoints
+	studioFeatureVisibilityJSON, err := marshalStudioFeatureVisibility(settings.StudioFeatureVisibility)
+	if err != nil {
+		return nil, err
+	}
+	updates[SettingKeyStudioFeatureVisibility] = studioFeatureVisibilityJSON
 
 	// 默认配置
 	updates[SettingKeyDefaultConcurrency] = strconv.Itoa(settings.DefaultConcurrency)
@@ -2696,6 +2749,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyTablePageSizeOptions:                      "[10,20,50,100]",
 		SettingKeyCustomMenuItems:                           "[]",
 		SettingKeyCustomEndpoints:                           "[]",
+		SettingKeyStudioFeatureVisibility:                   `{"fanqie":true,"cover":true,"works":true,"teardown":true,"hotspot":true,"generate":true}`,
 		SettingKeyWeChatConnectEnabled:                      "false",
 		SettingKeyWeChatConnectAppID:                        "",
 		SettingKeyWeChatConnectAppSecret:                    "",
@@ -2890,6 +2944,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		PurchaseSubscriptionURL:          strings.TrimSpace(settings[SettingKeyPurchaseSubscriptionURL]),
 		CustomMenuItems:                  settings[SettingKeyCustomMenuItems],
 		CustomEndpoints:                  settings[SettingKeyCustomEndpoints],
+		StudioFeatureVisibility:          parseStudioFeatureVisibility(settings[SettingKeyStudioFeatureVisibility]),
 		BackendModeEnabled:               settings[SettingKeyBackendModeEnabled] == "true",
 	}
 	result.TableDefaultPageSize, result.TablePageSizeOptions = parseTablePreferences(

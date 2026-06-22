@@ -8,8 +8,8 @@
           <p>把榜单当作素材雷达：看热榜、巅峰榜、男生榜、女生榜前 30，搜索指定小说，并在授权范围内下载完整小说做个人备份与拆解。</p>
         </div>
         <div class="head-actions">
-          <router-link to="/studio/hotspot">送去爆款对标</router-link>
-          <router-link class="primary" to="/studio/generate">生成创作方向</router-link>
+          <router-link v-if="isStudioVisible('hotspot')" to="/studio/hotspot">送去爆款对标</router-link>
+          <router-link v-if="isStudioVisible('generate')" class="primary" to="/studio/generate">生成创作方向</router-link>
         </div>
       </header>
 
@@ -163,7 +163,7 @@
               <button data-test="fanqie-fast-analyze" type="button" :disabled="analyzeLoading" @click="analyzeSelectedBook">
                 {{ analyzeLoading ? '分析中...' : '分析前10章' }}
               </button>
-              <button data-test="fanqie-fast-hotspot" type="button" @click="sendSelectedBookTo('hotspot')">送去对标</button>
+              <button v-if="isStudioVisible('hotspot')" data-test="fanqie-fast-hotspot" type="button" @click="sendSelectedBookTo('hotspot')">送去对标</button>
               <a href="#fanqie-backup">授权下载</a>
             </nav>
 
@@ -258,17 +258,17 @@
                 </div>
               </section>
 
-              <section data-test="fanqie-sample-downstream-card">
+              <section v-if="hasDownstreamStudioActions" data-test="fanqie-sample-downstream-card">
                 <span>下游加工</span>
                 <p>把热榜样本带到拆书、对标和生成页，自动预填标题、题材和素材。</p>
                 <div class="sample-actions">
-                  <button data-test="fanqie-send-teardown" type="button" class="secondary" @click="sendSelectedBookTo('teardown')">
+                  <button v-if="isStudioVisible('teardown')" data-test="fanqie-send-teardown" type="button" class="secondary" @click="sendSelectedBookTo('teardown')">
                     送去拆书
                   </button>
-                  <button data-test="fanqie-send-hotspot" type="button" class="secondary" @click="sendSelectedBookTo('hotspot')">
+                  <button v-if="isStudioVisible('hotspot')" data-test="fanqie-send-hotspot" type="button" class="secondary" @click="sendSelectedBookTo('hotspot')">
                     送去对标
                   </button>
-                  <button data-test="fanqie-send-generate" type="button" class="secondary" @click="sendSelectedBookTo('generate')">
+                  <button v-if="isStudioVisible('generate')" data-test="fanqie-send-generate" type="button" class="secondary" @click="sendSelectedBookTo('generate')">
                     生成方向
                   </button>
                 </div>
@@ -348,7 +348,9 @@ import {
   type FanqieDownloadResult,
   type FanqieRankChannel,
 } from '@/api/studio'
+import { useAppStore, useAuthStore } from '@/stores'
 import { buildFanqieBridgePayload, saveStudioBridgePayload, type StudioBridgeTarget } from '@/utils/studioBridge'
+import { isStudioFeatureVisible, type StudioFeatureId } from '@/utils/studioFeatures'
 
 const channels: { value: FanqieRankChannel; label: string; hint: string }[] = [
   { value: 'hot', label: '热榜', hint: '综合热度样本' },
@@ -376,9 +378,15 @@ const consent = ref(false)
 const downloadResult = ref<FanqieDownloadResult | null>(null)
 const analysisResult = ref<FanqieAnalysisReport | null>(null)
 const router = useRouter()
+const appStore = useAppStore()
+const authStore = useAuthStore()
 
+const studioVisibility = computed(() => appStore.cachedPublicSettings?.studio_feature_visibility)
 const activeChannelLabel = computed(() => channels.find((item) => item.value === activeChannel.value)?.label || '热榜')
 const currentBooks = computed(() => showingSearch.value ? searchResults.value : rankBooks.value)
+const hasDownstreamStudioActions = computed(() => (
+  isStudioVisible('teardown') || isStudioVisible('hotspot') || isStudioVisible('generate')
+))
 const updatedAtLabel = computed(() => {
   if (!updatedAt.value) return '待刷新'
   const d = new Date(updatedAt.value)
@@ -438,7 +446,12 @@ function formatRankErrorMessage(err: unknown) {
   return msg
 }
 
+function isStudioVisible(id: StudioFeatureId) {
+  return isStudioFeatureVisible(id, studioVisibility.value, authStore.isAdmin)
+}
+
 function sendSelectedBookTo(target: StudioBridgeTarget) {
+  if (!isStudioVisible(target)) return
   if (!selectedBook.value) return
   saveStudioBridgePayload(buildFanqieBridgePayload(selectedBook.value, benchmarkText.value, target))
   const label = target === 'teardown' ? '拆书诊断' : target === 'hotspot' ? '爆款对标' : '创作生成'

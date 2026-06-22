@@ -7,7 +7,7 @@
           <h1>创作生成</h1>
           <p>围绕同一份素材生成大纲、正文续写、改写增强和改编脚本。每次结果都会进入作品归档，方便回看和继续加工。</p>
         </div>
-        <router-link class="head-link studio-action-link" to="/studio/works">查看我的作品</router-link>
+        <router-link v-if="isStudioVisible('works')" class="head-link studio-action-link" to="/studio/works">查看我的作品</router-link>
       </header>
 
       <div class="model-strip model-strip-compact" :class="{ ready: configured }" data-test="model-auto-config-strip">
@@ -125,7 +125,7 @@
 
             <div class="result-actions" aria-label="生成结果操作">
               <button type="button" @click="copyResult">复制结果</button>
-              <router-link to="/studio/works">查看归档</router-link>
+              <router-link v-if="isStudioVisible('works')" to="/studio/works">查看归档</router-link>
             </div>
             <p v-if="copyStatus" class="copy-status">{{ copyStatus }}</p>
 
@@ -197,9 +197,13 @@ import {
   type CreativeMode,
   type CreativeResult,
 } from '@/api/studio'
+import { useAppStore, useAuthStore } from '@/stores'
 import { consumeStudioBridgePayload } from '@/utils/studioBridge'
+import { isStudioFeatureVisible, type StudioFeatureId } from '@/utils/studioFeatures'
 
 const MIN_LEN = 50
+const appStore = useAppStore()
+const authStore = useAuthStore()
 
 const content = ref('')
 const brief = ref('')
@@ -233,6 +237,7 @@ const creativeTemplates = [
 
 const contentLength = computed(() => content.value.trim().length)
 const canSubmit = computed(() => configured.value && contentLength.value >= MIN_LEN && !loading.value)
+const studioVisibility = computed(() => appStore.cachedPublicSettings?.studio_feature_visibility)
 const outputContract = computed(() => {
   const contracts: Record<CreativeMode, { title: string; points: string[] }> = {
     outline: {
@@ -267,6 +272,10 @@ const resultText = computed(() => {
   const sections = result.value.sections.map((section) => `${section.heading}\n${section.content}`)
   return [result.value.title, result.value.summary, ...sections].filter(Boolean).join('\n\n')
 })
+
+function isStudioVisible(id: StudioFeatureId) {
+  return isStudioFeatureVisible(id, studioVisibility.value, authStore.isAdmin)
+}
 
 onMounted(async () => {
   try {

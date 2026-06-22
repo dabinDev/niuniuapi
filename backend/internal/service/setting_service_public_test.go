@@ -123,6 +123,58 @@ func TestSettingService_GetPublicSettings_ExposesAllowUserViewErrorRequests(t *t
 	require.True(t, settings.AllowUserViewErrorRequests)
 }
 
+func TestSettingService_GetPublicSettings_ExposesStudioFeatureVisibility(t *testing.T) {
+	repo := &settingPublicRepoStub{
+		values: map[string]string{
+			SettingKeyStudioFeatureVisibility: `{"fanqie":false,"cover":true,"works":true,"teardown":false,"hotspot":true,"generate":true}`,
+		},
+	}
+	svc := NewSettingService(repo, &config.Config{})
+
+	settings, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, map[string]bool{
+		"fanqie":   false,
+		"cover":    true,
+		"works":    true,
+		"teardown": false,
+		"hotspot":  true,
+		"generate": true,
+	}, settings.StudioFeatureVisibility)
+}
+
+func TestSettingService_GetPublicSettings_DefaultsStudioFeatureVisibilityOpen(t *testing.T) {
+	repo := &settingPublicRepoStub{
+		values: map[string]string{
+			SettingKeyStudioFeatureVisibility: `{"fanqie":false,"unknown":false}`,
+		},
+	}
+	svc := NewSettingService(repo, &config.Config{})
+
+	settings, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, map[string]bool{
+		"fanqie":   false,
+		"cover":    true,
+		"works":    true,
+		"teardown": true,
+		"hotspot":  true,
+		"generate": true,
+	}, settings.StudioFeatureVisibility)
+
+	repo.values[SettingKeyStudioFeatureVisibility] = `{bad json`
+	settings, err = svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, map[string]bool{
+		"fanqie":   true,
+		"cover":    true,
+		"works":    true,
+		"teardown": true,
+		"hotspot":  true,
+		"generate": true,
+	}, settings.StudioFeatureVisibility)
+}
+
 func TestSettingService_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {
 	svc := NewSettingService(&settingPublicRepoStub{
 		values: map[string]string{

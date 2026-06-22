@@ -180,6 +180,11 @@ export interface CustomEndpoint {
   description: string
 }
 
+export type StudioFeatureVisibility = Partial<Record<
+  'fanqie' | 'cover' | 'works' | 'teardown' | 'hotspot' | 'generate',
+  boolean
+>>
+
 export interface LoginAgreementDocument {
   id: string
   title: string
@@ -215,6 +220,7 @@ export interface PublicSettings {
   table_page_size_options: number[]
   custom_menu_items: CustomMenuItem[]
   custom_endpoints: CustomEndpoint[]
+  studio_feature_visibility: StudioFeatureVisibility
   linuxdo_oauth_enabled: boolean
   dingtalk_oauth_enabled?: boolean
   wechat_oauth_enabled: boolean

@@ -218,6 +218,7 @@ import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } 
 import VersionBadge from '@/components/common/VersionBadge.vue'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
+import { STUDIO_FEATURES, isStudioFeatureVisible } from '@/utils/studioFeatures'
 
 interface NavItem {
   path: string
@@ -734,14 +735,25 @@ function finalizeNav(items: NavItem[]): NavItem[] {
 }
 
 // Studio (创作台) navigation items — visible to all authenticated users.
-const studioNavItems = computed((): NavItem[] => [
-  { path: '/studio/fanqie', label: t('nav.studioFanqieHotlist'), icon: StudioDownloaderIcon },
-  { path: '/studio/cover', label: t('nav.studioCover'), icon: StudioCoverIcon },
-  { path: '/studio/works', label: t('nav.studioWorks'), icon: StudioWorksIcon },
-  { path: '/studio/teardown', label: t('nav.studioTeardown'), icon: StudioTeardownIcon },
-  { path: '/studio/hotspot', label: t('nav.studioHotspot'), icon: StudioHotspotIcon },
-  { path: '/studio/generate', label: t('nav.studioGenerate'), icon: StudioGenerateIcon },
-])
+const studioIconById = {
+  fanqie: StudioDownloaderIcon,
+  cover: StudioCoverIcon,
+  works: StudioWorksIcon,
+  teardown: StudioTeardownIcon,
+  hotspot: StudioHotspotIcon,
+  generate: StudioGenerateIcon,
+}
+
+const studioNavItems = computed((): NavItem[] => {
+  const visibility = appStore.cachedPublicSettings?.studio_feature_visibility
+  return STUDIO_FEATURES
+    .filter((feature) => isStudioFeatureVisible(feature.id, visibility, isAdmin.value))
+    .map((feature) => ({
+      path: feature.path,
+      label: t(feature.navKey),
+      icon: studioIconById[feature.id],
+    }))
+})
 
 // User navigation items (for regular users)
 const userNavItems = computed((): NavItem[] => finalizeNav(buildSelfNavItems(true)))

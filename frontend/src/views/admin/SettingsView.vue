@@ -5233,8 +5233,41 @@
         </div>
         <!-- /Tab: Login Agreement -->
 
-	        <!-- Tab: Features (功能开关) -->
+        <!-- Tab: Features (功能开关) -->
         <div v-show="activeTab === 'features'" class="space-y-6">
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              创作台功能可见性
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              控制普通用户是否能看到番茄热榜、封面生成、我的作品、拆书诊断、爆款对标和创作生成。关闭后侧边栏、首页卡片、页面互跳入口都会隐藏；管理员始终可见。
+            </p>
+          </div>
+          <div class="grid gap-3 p-6 md:grid-cols-2">
+            <div
+              v-for="feature in STUDIO_FEATURES"
+              :key="feature.id"
+              class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 dark:border-dark-700 dark:bg-dark-800/60"
+              :data-test="`studio-feature-toggle-${feature.id}`"
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <label class="text-sm font-semibold text-gray-900 dark:text-white">
+                    {{ feature.title }}
+                  </label>
+                  <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                    {{ feature.description }}
+                  </p>
+                  <p class="mt-2 text-[11px] font-medium text-gray-400 dark:text-gray-500">
+                    {{ feature.path }}
+                  </p>
+                </div>
+                <Toggle v-model="form.studio_feature_visibility[feature.id]" />
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
@@ -6808,6 +6841,11 @@ import {
   normalizeRegistrationEmailSuffixDomains,
   parseRegistrationEmailSuffixWhitelistInput,
 } from "@/utils/registrationEmailPolicy";
+import {
+  DEFAULT_STUDIO_FEATURE_VISIBILITY,
+  STUDIO_FEATURES,
+  normalizeStudioFeatureVisibility,
+} from "@/utils/studioFeatures";
 
 const { t, locale } = useI18n();
 const appStore = useAppStore();
@@ -7078,6 +7116,8 @@ type SettingsForm = Omit<
   openai_advanced_scheduler_enabled: boolean;
   // 系统全局平台限额 map；form 内始终归一化为全 4 平台对象（模板非空绑定依赖此不变量）
   default_platform_quotas: DefaultPlatformQuotasMap;
+  // 创作台内置功能在表单内始终归一化为完整布尔表，避免 Toggle 绑定到 undefined。
+  studio_feature_visibility: typeof DEFAULT_STUDIO_FEATURE_VISIBILITY;
 };
 
 const form = reactive<SettingsForm>({
@@ -7112,6 +7152,7 @@ const form = reactive<SettingsForm>({
   home_content: "",
   backend_mode_enabled: false,
   hide_ccs_import_button: false,
+  studio_feature_visibility: { ...DEFAULT_STUDIO_FEATURE_VISIBILITY },
   payment_enabled: false,
   risk_control_enabled: false,
   payment_min_amount: 1,
@@ -7904,6 +7945,9 @@ async function loadSettings() {
     form.custom_menu_items = normalizeCustomMenuItemsForAdminForm(
       settings.custom_menu_items,
     );
+    form.studio_feature_visibility = normalizeStudioFeatureVisibility(
+      settings.studio_feature_visibility,
+    );
     form.login_agreement_mode =
       settings.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
     form.login_agreement_updated_at =
@@ -8276,6 +8320,9 @@ async function saveSettings() {
         form.custom_menu_items,
       ),
       custom_endpoints: form.custom_endpoints,
+      studio_feature_visibility: normalizeStudioFeatureVisibility(
+        form.studio_feature_visibility,
+      ),
       frontend_url: form.frontend_url,
       smtp_host: form.smtp_host,
       smtp_port: form.smtp_port,
@@ -8487,6 +8534,9 @@ async function saveSettings() {
       }
     }
     Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(updated));
+    form.studio_feature_visibility = normalizeStudioFeatureVisibility(
+      updated.studio_feature_visibility,
+    );
     form.default_platform_quotas = normalizePlatformQuotasMap(updated.default_platform_quotas);
     registrationEmailSuffixWhitelistTags.value =
       normalizeRegistrationEmailSuffixDomains(

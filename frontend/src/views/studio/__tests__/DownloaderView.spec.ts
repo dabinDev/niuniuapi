@@ -6,10 +6,22 @@ const searchFanqieBooks = vi.hoisted(() => vi.fn())
 const downloadFanqieBook = vi.hoisted(() => vi.fn())
 const analyzeFanqieBook = vi.hoisted(() => vi.fn())
 const routerPush = vi.hoisted(() => vi.fn())
+const studioVisibility = vi.hoisted(() => ({ value: {} as Record<string, boolean> }))
+const isAdmin = vi.hoisted(() => ({ value: false }))
 
 vi.mock('@/api/studio', () => ({ getFanqieRank, searchFanqieBooks, downloadFanqieBook, analyzeFanqieBook }))
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: routerPush }),
+}))
+vi.mock('@/stores', () => ({
+  useAppStore: () => ({
+    cachedPublicSettings: { studio_feature_visibility: studioVisibility.value },
+  }),
+  useAuthStore: () => ({
+    get isAdmin() {
+      return isAdmin.value
+    },
+  }),
 }))
 
 import DownloaderView from '../DownloaderView.vue'
@@ -46,6 +58,8 @@ describe('DownloaderView as FanqieHotlist', () => {
     downloadFanqieBook.mockReset()
     analyzeFanqieBook.mockReset()
     routerPush.mockReset()
+    studioVisibility.value = {}
+    isAdmin.value = false
     localStorage.clear()
     getFanqieRank.mockResolvedValue({
       channel: 'hot',
@@ -168,6 +182,20 @@ describe('DownloaderView as FanqieHotlist', () => {
     expect(wrapper.find('[data-test="fanqie-send-teardown"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="fanqie-send-hotspot"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="fanqie-send-generate"]').exists()).toBe(true)
+  })
+
+  it('hides downstream entries disabled by admin studio visibility settings', async () => {
+    studioVisibility.value = { teardown: false, hotspot: false, generate: false }
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="fanqie-fast-hotspot"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="fanqie-send-teardown"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="fanqie-send-hotspot"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="fanqie-send-generate"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="fanqie-sample-downstream-card"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('送去爆款对标')
+    expect(wrapper.text()).not.toContain('生成创作方向')
   })
 
   it('uses designed cover placeholders when fanqie does not provide images', async () => {

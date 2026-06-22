@@ -43,8 +43,8 @@
               别等读者划走才发现。把章节丢进来，先做一次毒舌烂度体检——套路、注水、纸片人、假反转全给你标红，再告诉你怎么改成能卖的。
             </p>
             <div class="hero-actions">
-              <router-link :to="studioPath" class="cta">开始拆书质检 <span aria-hidden="true">→</span></router-link>
-              <router-link to="/studio/cover" class="cta-ghost">生成小说封面</router-link>
+              <router-link v-if="hasVisibleStudioFeatures" :to="studioPath" class="cta">开始拆书质检 <span aria-hidden="true">→</span></router-link>
+              <router-link v-if="isStudioVisible('cover')" to="/studio/cover" class="cta-ghost">生成小说封面</router-link>
             </div>
             <ul class="rot-tags">
               <li>🩸 烂梗雷达</li>
@@ -82,7 +82,7 @@
             <p class="eyebrow">烂度报告 · ROTTEN REPORT</p>
             <h2 class="band-title">不哄你写得好，<br />专挑你写得烂。</h2>
             <p class="band-desc">每次拆书都吐一份毒舌诊断：综合分、维度评分、烂点清单和能直接动刀的改写建议。烂得明明白白，改得清清楚楚。</p>
-            <router-link :to="studioPath" class="cta small">丢一章试试 <span aria-hidden="true">→</span></router-link>
+            <router-link v-if="hasVisibleStudioFeatures" :to="studioPath" class="cta small">丢一章试试 <span aria-hidden="true">→</span></router-link>
           </div>
 
           <div class="report-card fade-up delay-1">
@@ -164,7 +164,7 @@
             </div>
             <div class="conversion-actions">
               <router-link to="/purchase" class="cta">查看 Token 套餐 <span aria-hidden="true">→</span></router-link>
-              <router-link :to="isAuthenticated ? studioPath : '/register'" class="cta-ghost">
+              <router-link v-if="hasVisibleStudioFeatures" :to="isAuthenticated ? studioPath : '/register'" class="cta-ghost">
                 {{ isAuthenticated ? '进入创作台' : '免费注册' }}
               </router-link>
             </div>
@@ -177,8 +177,8 @@
       <div class="band-inner footer-inner">
         <p>© {{ currentYear }} 番茄 · 毒舌 AI 创作质检台</p>
         <div class="footer-links">
-          <router-link to="/studio/teardown">拆书质检</router-link>
-          <router-link to="/studio/cover">封面生成</router-link>
+          <router-link v-if="isStudioVisible('teardown')" to="/studio/teardown">拆书质检</router-link>
+          <router-link v-if="isStudioVisible('cover')" to="/studio/cover">封面生成</router-link>
           <router-link to="/purchase">Token 套餐</router-link>
           <a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer">文档</a>
         </div>
@@ -192,6 +192,7 @@ import { computed, ref } from 'vue'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { firstVisibleStudioPath, isStudioFeatureVisible, type StudioFeatureId } from '@/utils/studioFeatures'
 
 const authStore = useAuthStore()
 const appStore = useAppStore()
@@ -202,8 +203,18 @@ const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const isAdmin = computed(() => authStore.isAdmin)
 const dashboardPath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
-const studioPath = computed(() => (isAuthenticated.value ? '/studio/teardown' : '/login?redirect=/studio/teardown'))
+const studioVisibility = computed(() => appStore.cachedPublicSettings?.studio_feature_visibility)
+const firstStudioPath = computed(() => firstVisibleStudioPath(studioVisibility.value, isAdmin.value))
+const hasVisibleStudioFeatures = computed(() => firstStudioPath.value !== '/dashboard')
+const studioPath = computed(() => {
+  const path = firstStudioPath.value
+  return isAuthenticated.value ? path : `/login?redirect=${encodeURIComponent(path)}`
+})
 const currentYear = computed(() => new Date().getFullYear())
+
+function isStudioVisible(id: StudioFeatureId): boolean {
+  return isStudioFeatureVisible(id, studioVisibility.value, isAdmin.value)
+}
 
 const rottenReport = {
   score: 18,
@@ -217,15 +228,19 @@ const rottenReport = {
   rotten: ['签到系统毫无代价，张力直接归零', '配角是工具纸片人，没有动机', '中段大量注水，三段重复同一桥段', '关键反转靠巧合，读者不买账'],
 }
 
-const features = [
-  { index: '01', tag: 'COVER', title: '小说封面生成', desc: '按书名、题材和卖点生成封面方向，第一眼先替你抢点击。', to: '/studio/cover' },
-  { index: '02', tag: 'TEARDOWN', title: '拆书诊断', desc: '拆人物、爽点、伏笔和章节结构，把一坨稿子切成可复用模块。', to: '/studio/teardown' },
-  { index: '03', tag: 'HOTSPOT', title: '爆款对标', desc: '用题材榜单、爽点结构和同类样本给你的稿子找参照。', to: '/studio/hotspot' },
-  { index: '04', tag: 'RANK', title: '番茄热榜', desc: '抓热榜、巅峰榜、男生女生榜单，快速找到可对标的题材样本。', to: '/studio/fanqie' },
-  { index: '05', tag: 'WORKS', title: '我的作品', desc: '封面、报告、剧本一处归档，每次生成都能随时回看。', to: '/studio/works' },
-  { index: '06', tag: 'GENERATE', title: '创作生成', desc: '把小说片段转成短剧脚本、分镜和口播素材，一稿多吃。', to: '/studio/generate' },
-  { index: '07', tag: 'TOKEN', title: 'Token 套餐', desc: '把底层额度包装成作者的创作燃料，按需购买、按量消耗。', to: '/purchase' },
+const studioFeatureCards: Array<{ id: StudioFeatureId; index: string; tag: string; title: string; desc: string; to: string }> = [
+  { id: 'cover', index: '01', tag: 'COVER', title: '小说封面生成', desc: '按书名、题材和卖点生成封面方向，第一眼先替你抢点击。', to: '/studio/cover' },
+  { id: 'teardown', index: '02', tag: 'TEARDOWN', title: '拆书诊断', desc: '拆人物、爽点、伏笔和章节结构，把一坨稿子切成可复用模块。', to: '/studio/teardown' },
+  { id: 'hotspot', index: '03', tag: 'HOTSPOT', title: '爆款对标', desc: '用题材榜单、爽点结构和同类样本给你的稿子找参照。', to: '/studio/hotspot' },
+  { id: 'fanqie', index: '04', tag: 'RANK', title: '番茄热榜', desc: '抓热榜、巅峰榜、男生女生榜单，快速找到可对标的题材样本。', to: '/studio/fanqie' },
+  { id: 'works', index: '05', tag: 'WORKS', title: '我的作品', desc: '封面、报告、剧本一处归档，每次生成都能随时回看。', to: '/studio/works' },
+  { id: 'generate', index: '06', tag: 'GENERATE', title: '创作生成', desc: '把小说片段转成短剧脚本、分镜和口播素材，一稿多吃。', to: '/studio/generate' },
 ]
+
+const features = computed(() => [
+  ...studioFeatureCards.filter((feature) => isStudioVisible(feature.id)),
+  { index: '07', tag: 'TOKEN', title: 'Token 套餐', desc: '把底层额度包装成作者的创作燃料，按需购买、按量消耗。', to: '/purchase' },
+])
 
 const workflow = [
   { step: 'A', title: '丢稿', desc: '输入章节、书名、简介或榜单样本，先不急着美化。' },

@@ -7,7 +7,7 @@
           <h1>爆款对标</h1>
           <p>把你的章节和对标样本放在同一张质检台上，找出题材卖点、爽点缺口和下一步能直接改的动作。</p>
         </div>
-        <router-link class="hero-link studio-action-link" to="/studio/works">回到作品工作台</router-link>
+        <router-link v-if="isStudioVisible('works')" class="hero-link studio-action-link" to="/studio/works">回到作品工作台</router-link>
       </header>
 
       <div
@@ -149,7 +149,7 @@
             </div>
 
             <div class="result-actions" data-test="hotspot-result-actions">
-              <button data-test="hotspot-send-generate" type="button" @click="sendBenchmarkToGenerate">带动作生成正文</button>
+              <button v-if="isStudioVisible('generate')" data-test="hotspot-send-generate" type="button" @click="sendBenchmarkToGenerate">带动作生成正文</button>
             </div>
 
             <div class="three-col">
@@ -227,11 +227,15 @@ import {
   type HotspotReport,
   type HotspotRequest,
 } from '@/api/studio'
+import { useAppStore, useAuthStore } from '@/stores'
 import { consumeStudioBridgePayload, saveStudioBridgePayload } from '@/utils/studioBridge'
+import { isStudioFeatureVisible, type StudioFeatureId } from '@/utils/studioFeatures'
 
 const MIN_LEN = 80
 
 const router = useRouter()
+const appStore = useAppStore()
+const authStore = useAuthStore()
 
 const title = ref('')
 const genre = ref('')
@@ -258,6 +262,7 @@ const benchmarkTemplates = [
 
 const contentLength = computed(() => content.value.trim().length)
 const canSubmit = computed(() => configured.value && contentLength.value >= MIN_LEN && !loading.value)
+const studioVisibility = computed(() => appStore.cachedPublicSettings?.studio_feature_visibility)
 
 onMounted(async () => {
   try {
@@ -309,7 +314,12 @@ function applyBenchmarkTemplate(key: string) {
   benchmark.value = '对标样本：短剧开头 15 秒先给羞辱/背叛/危机，30 秒内出现反击信号，结尾卡在更大危机。'
 }
 
+function isStudioVisible(id: StudioFeatureId) {
+  return isStudioFeatureVisible(id, studioVisibility.value, authStore.isAdmin)
+}
+
 function sendBenchmarkToGenerate() {
+  if (!isStudioVisible('generate')) return
   if (!report.value) return
   const workTitle = title.value.trim() || '未命名作品'
   const workGenre = genre.value.trim() || ''

@@ -4,10 +4,22 @@ import { flushPromises, mount } from '@vue/test-utils'
 const analyzeHotspot = vi.hoisted(() => vi.fn())
 const getModelConfig = vi.hoisted(() => vi.fn())
 const routerPush = vi.hoisted(() => vi.fn())
+const studioVisibility = vi.hoisted(() => ({ value: {} as Record<string, boolean> }))
+const isAdmin = vi.hoisted(() => ({ value: false }))
 
 vi.mock('@/api/studio', () => ({ analyzeHotspot, getModelConfig }))
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: routerPush }),
+}))
+vi.mock('@/stores', () => ({
+  useAppStore: () => ({
+    cachedPublicSettings: { studio_feature_visibility: studioVisibility.value },
+  }),
+  useAuthStore: () => ({
+    get isAdmin() {
+      return isAdmin.value
+    },
+  }),
 }))
 
 import HotspotView from '../HotspotView.vue'
@@ -27,6 +39,8 @@ describe('HotspotView', () => {
     analyzeHotspot.mockReset()
     getModelConfig.mockReset()
     routerPush.mockReset()
+    studioVisibility.value = {}
+    isAdmin.value = false
     localStorage.clear()
     getModelConfig.mockResolvedValue({ text: { api_key_id: 1, model: 'gpt-5.4' } })
   })
@@ -174,6 +188,33 @@ describe('HotspotView', () => {
     expect(setItem).toHaveBeenCalledWith('studio_bridge_payload', expect.stringContaining('下一步动作：把第 2 章补成一次低成本胜利'))
     expect(setItem).toHaveBeenCalledWith('studio_bridge_payload', expect.stringContaining('按爆款对标动作生成可直接改稿的正文方案'))
     expect(routerPush).toHaveBeenCalledWith('/studio/generate')
+    setItem.mockRestore()
+  })
+
+  it('hides disabled works and generation entries from the benchmark page', async () => {
+    studioVisibility.value = { works: false, generate: false }
+    analyzeHotspot.mockResolvedValue({
+      market_score: 91,
+      verdict: '卖点可用',
+      radar: [{ label: '钩子', value: 88 }],
+      tropes: ['开局压迫'],
+      gaps: [],
+      actions: ['补第一章兑现'],
+      samples: [],
+    })
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-test="hotspot-content"]').setValue('主角被逐出家族后得到旧神书塔，准备用禁忌知识反击。'.repeat(8))
+    await wrapper.find('[data-test="hotspot-benchmark"]').setValue('同题材热榜样本：前三章完成压迫、反杀和代价钩子。')
+    await wrapper.find('[data-test="hotspot-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('回到作品工作台')
+    expect(wrapper.find('[data-test="hotspot-send-generate"]').exists()).toBe(false)
+    expect(setItem).not.toHaveBeenCalled()
+    expect(routerPush).not.toHaveBeenCalled()
     setItem.mockRestore()
   })
 })

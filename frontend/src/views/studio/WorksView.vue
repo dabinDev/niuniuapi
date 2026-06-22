@@ -8,9 +8,9 @@
           <p>把导入、诊断、对标、生成和封面历史收进同一个任务台；先看当前动作，再进入归档继续加工。</p>
         </div>
         <div class="quick-actions" aria-label="作品快捷入口">
-          <router-link to="/studio/fanqie">查看热榜</router-link>
-          <router-link to="/studio/teardown">拆书诊断</router-link>
-          <router-link class="primary" to="/studio/generate">创作生成</router-link>
+          <router-link v-if="isStudioVisible('fanqie')" to="/studio/fanqie">查看热榜</router-link>
+          <router-link v-if="isStudioVisible('teardown')" to="/studio/teardown">拆书诊断</router-link>
+          <router-link v-if="isStudioVisible('generate')" class="primary" to="/studio/generate">创作生成</router-link>
         </div>
       </header>
 
@@ -30,9 +30,9 @@
           <strong>下一步动作</strong>
           <p>{{ selected ? selectedActionHint : '先创建素材，再把作品推进到拆书、对标或生成。' }}</p>
           <div class="mission-actions">
-            <router-link to="/studio/fanqie">热榜选样本</router-link>
-            <router-link to="/studio/teardown">拆书诊断</router-link>
-            <router-link class="primary" to="/studio/generate">生成下一版</router-link>
+            <router-link v-if="isStudioVisible('fanqie')" to="/studio/fanqie">热榜选样本</router-link>
+            <router-link v-if="isStudioVisible('teardown')" to="/studio/teardown">拆书诊断</router-link>
+            <router-link v-if="isStudioVisible('generate')" class="primary" to="/studio/generate">生成下一版</router-link>
           </div>
         </article>
       </section>
@@ -257,9 +257,9 @@
                     </span>
                     <strong>{{ importContentStatus.description }}</strong>
                   </div>
-                  <button type="button" data-test="import-send-teardown" @click="sendImportTo('teardown')">送去拆书</button>
-                  <button type="button" data-test="import-send-hotspot" @click="sendImportTo('hotspot')">送去对标</button>
-                  <button type="button" data-test="import-send-generate" @click="sendImportTo('generate')">生成续写</button>
+                  <button v-if="isStudioVisible('teardown')" type="button" data-test="import-send-teardown" @click="sendImportTo('teardown')">送去拆书</button>
+                  <button v-if="isStudioVisible('hotspot')" type="button" data-test="import-send-hotspot" @click="sendImportTo('hotspot')">送去对标</button>
+                  <button v-if="isStudioVisible('generate')" type="button" data-test="import-send-generate" @click="sendImportTo('generate')">生成续写</button>
                 </div>
                 <div
                   class="chapter-summary"
@@ -298,6 +298,8 @@ import { useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import CoverImageViewer from '@/components/studio/CoverImageViewer.vue'
 import { getWork, listWorks, type CoverImage, type WorkDetail, type WorkItem } from '@/api/studio'
+import { useAppStore, useAuthStore } from '@/stores'
+import { isStudioFeatureVisible, type StudioFeatureId } from '@/utils/studioFeatures'
 
 const ListGroup = defineComponent({
   name: 'ListGroup',
@@ -316,28 +318,36 @@ const ListGroup = defineComponent({
   },
 })
 
-const tabs = [
+const archiveTabs: Array<{ value: string; label: string; feature?: StudioFeatureId }> = [
   { value: 'all', label: '全部' },
   { value: 'import', label: '导入' },
-  { value: 'teardown', label: '拆书' },
-  { value: 'hotspot', label: '爆款' },
-  { value: 'generate', label: '生成' },
-  { value: 'script', label: '剧本' },
-  { value: 'cover', label: '封面' },
+  { value: 'teardown', label: '拆书', feature: 'teardown' },
+  { value: 'hotspot', label: '爆款', feature: 'hotspot' },
+  { value: 'generate', label: '生成', feature: 'generate' },
+  { value: 'script', label: '剧本', feature: 'generate' },
+  { value: 'cover', label: '封面', feature: 'cover' },
 ]
 
-const projectMetrics = [
-  { label: '综合诊断', value: '待分析', hint: '从拆书报告自动汇总' },
-  { label: '爆款潜力', value: '待对标', hint: '对标后形成雷达' },
+const projectMetricDefinitions: Array<{ label: string; value: string; hint: string; feature?: StudioFeatureId }> = [
+  { label: '综合诊断', value: '待分析', hint: '从拆书报告自动汇总', feature: 'teardown' },
+  { label: '爆款潜力', value: '待对标', hint: '对标后形成雷达', feature: 'hotspot' },
   { label: '设定一致性', value: '待沉淀', hint: '导入章节后建立设定库' },
 ]
 
-const workbenchTabs = ['概览', '拆书', '爆款', '大纲', '正文', '剧本', '热榜']
+const workbenchTabDefinitions: Array<{ label: string; feature?: StudioFeatureId }> = [
+  { label: '概览' },
+  { label: '拆书', feature: 'teardown' },
+  { label: '爆款', feature: 'hotspot' },
+  { label: '大纲', feature: 'generate' },
+  { label: '正文', feature: 'generate' },
+  { label: '剧本', feature: 'generate' },
+  { label: '热榜', feature: 'fanqie' },
+]
 
-const chapterNodes = [
-  { index: '01', title: '导入首章', note: '先把开篇送去拆书，确定钩子和节奏。', state: 'good' },
-  { index: '02', title: '诊断缺口', note: '用爆款对标确认爽点兑现是否偏慢。', state: 'warn' },
-  { index: '03', title: '生成修订', note: '把改法喂给创作生成台，形成新版本。', state: 'good' },
+const chapterNodeDefinitions: Array<{ index: string; title: string; note: string; state: string; feature?: StudioFeatureId }> = [
+  { index: '01', title: '导入首章', note: '先把开篇送去拆书，确定钩子和节奏。', state: 'good', feature: 'teardown' },
+  { index: '02', title: '诊断缺口', note: '用爆款对标确认爽点兑现是否偏慢。', state: 'warn', feature: 'hotspot' },
+  { index: '03', title: '生成修订', note: '把改法喂给创作台，形成新版本。', state: 'good', feature: 'generate' },
 ]
 
 const settingGroups = [
@@ -347,10 +357,10 @@ const settingGroups = [
   { label: '伏笔表', value: '跟踪埋设与回收' },
 ]
 
-const todoItems = [
-  '先从热榜找 3 个同题材样本，确认读者正在追什么。',
-  '用拆书报告找出黄金三章的掉线位置。',
-  '把爆款对标动作直接带进创作生成，形成下一版正文。',
+const todoItemDefinitions: Array<{ text: string; feature?: StudioFeatureId }> = [
+  { text: '先从热榜找 3 个同题材样本，确认读者正在追什么。', feature: 'fanqie' },
+  { text: '用拆书报告找出黄金三章的掉线位置。', feature: 'teardown' },
+  { text: '把爆款对标动作直接带进创作生成，形成下一版正文。', feature: 'generate' },
 ]
 
 const activeType = ref('all')
@@ -361,6 +371,8 @@ const detailLoading = ref(false)
 const viewerOpen = ref(false)
 const viewerIndex = ref(0)
 const router = useRouter()
+const appStore = useAppStore()
+const authStore = useAuthStore()
 const importPreviewLimit = 60
 
 type ImportedChapter = {
@@ -420,6 +432,7 @@ function buildImportContent() {
 }
 
 function sendImportTo(target: 'teardown' | 'hotspot' | 'generate') {
+  if (!isStudioVisible(target)) return
   if (!selected.value) return
   localStorage.setItem('studio_bridge_payload', JSON.stringify({
     source: 'works',
@@ -430,6 +443,22 @@ function sendImportTo(target: 'teardown' | 'hotspot' | 'generate') {
     brief: `${selected.value.title}：${importChapterStats.value.count} 章，${importContentStatus.value.title}`,
   }))
   void router.push(`/studio/${target}`)
+}
+
+const studioVisibility = computed(() => appStore.cachedPublicSettings?.studio_feature_visibility)
+const tabs = computed(() => archiveTabs.filter((tab) => !tab.feature || isStudioVisible(tab.feature)))
+const projectMetrics = computed(() => projectMetricDefinitions.filter((metric) => !metric.feature || isStudioVisible(metric.feature)))
+const workbenchTabs = computed(() => workbenchTabDefinitions.filter((tab) => !tab.feature || isStudioVisible(tab.feature)).map((tab) => tab.label))
+const todoItems = computed(() => todoItemDefinitions.filter((todo) => !todo.feature || isStudioVisible(todo.feature)).map((todo) => todo.text))
+const chapterNodes = computed(() => chapterNodeDefinitions.filter((node) => !node.feature || isStudioVisible(node.feature)))
+const visibleImportHandoffLabels = computed(() => [
+  isStudioVisible('teardown') ? '拆书' : '',
+  isStudioVisible('hotspot') ? '对标' : '',
+  isStudioVisible('generate') ? '续写' : '',
+].filter(Boolean))
+
+function isStudioVisible(id: StudioFeatureId) {
+  return isStudioFeatureVisible(id, studioVisibility.value, authStore.isAdmin)
 }
 
 const out = computed<Record<string, unknown>>(() => (selected.value?.output as Record<string, unknown>) || {})
@@ -478,10 +507,13 @@ const importChapterStats = computed(() => {
 })
 const importContentStatus = computed(() => {
   if (importChapterStats.value.chaptersWithContent > 0) {
+    const handoffText = visibleImportHandoffLabels.value.length
+      ? `可继续用于${visibleImportHandoffLabels.value.join('、')}。`
+      : '可在作品归档中查看正文。'
     return {
       className: 'content-ready',
       title: '全本内容已入库',
-      description: `已有 ${importChapterStats.value.chaptersWithContent} 章正文，可继续拆书、对标和生成。`,
+      description: `已有 ${importChapterStats.value.chaptersWithContent} 章正文，${handoffText}`,
     }
   }
   return {
@@ -499,9 +531,14 @@ const selectedStatusText = computed(() => {
 })
 const selectedActionHint = computed(() => {
   if (!selected.value) return ''
-  if (selected.value.type === 'import') return '把导入作品送去拆书诊断、爆款对标或创作生成。'
+  if (selected.value.type === 'import') {
+    return visibleImportHandoffLabels.value.length
+      ? `把导入作品送去${visibleImportHandoffLabels.value.join('、')}继续加工。`
+      : '当前下游功能入口已关闭，可先在作品归档中查看导入内容。'
+  }
   if (selected.value.type === 'cover') return '封面可放入作品档案，下一步补齐简介和卖点。'
-  return '回到热榜选样本，或把当前结论推进到下一版正文。'
+  if (isStudioVisible('fanqie')) return '回到热榜选样本，或把当前结论推进到下一版正文。'
+  return '当前结论已归档，可先复制结果或等待管理员开放更多入口。'
 })
 
 async function load() {

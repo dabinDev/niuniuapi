@@ -4,10 +4,22 @@ import { flushPromises, mount } from '@vue/test-utils'
 const listWorks = vi.hoisted(() => vi.fn())
 const getWork = vi.hoisted(() => vi.fn())
 const push = vi.hoisted(() => vi.fn())
+const studioVisibility = vi.hoisted(() => ({ value: {} as Record<string, boolean> }))
+const isAdmin = vi.hoisted(() => ({ value: false }))
 
 vi.mock('@/api/studio', () => ({ listWorks, getWork }))
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
+}))
+vi.mock('@/stores', () => ({
+  useAppStore: () => ({
+    cachedPublicSettings: { studio_feature_visibility: studioVisibility.value },
+  }),
+  useAuthStore: () => ({
+    get isAdmin() {
+      return isAdmin.value
+    },
+  }),
 }))
 
 import WorksView from '../WorksView.vue'
@@ -27,6 +39,8 @@ describe('WorksView', () => {
     listWorks.mockReset()
     getWork.mockReset()
     push.mockReset()
+    studioVisibility.value = {}
+    isAdmin.value = false
     localStorage.clear()
     listWorks.mockResolvedValue([
       { id: 1, type: 'teardown', title: '拆书报告', model: 'gpt-5.4', created_at: '2026-06-15T00:00:00Z' },
@@ -342,6 +356,36 @@ describe('WorksView', () => {
     expect(payload.content).toContain('第2章 说谎')
     expect(payload.content).toContain('每个人都必须付出说谎的代价')
     expect(payload.brief).toContain('十日终焉导入')
+  })
+
+  it('hides disabled studio entries and blocks import handoff to disabled tools', async () => {
+    studioVisibility.value = { fanqie: false, teardown: false, hotspot: false, generate: false }
+    listWorks.mockResolvedValue([
+      { id: 11, type: 'import', title: '十日终焉导入', model: 'fanqie-importer', created_at: '2026-06-15T03:00:00Z' },
+    ])
+    getWork.mockResolvedValue({
+      id: 11,
+      type: 'import',
+      title: '十日终焉导入',
+      model: 'fanqie-importer',
+      created_at: '2026-06-15T03:00:00Z',
+      output: {
+        chapters: [{ title: '第1章 空屋', word_count: 1496, content: '齐夏醒来。' }],
+        next_actions: [],
+      },
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('查看热榜')
+    expect(wrapper.text()).not.toContain('热榜选样本')
+    expect(wrapper.text()).not.toContain('拆书诊断')
+    expect(wrapper.text()).not.toContain('创作生成')
+    expect(wrapper.find('[data-test="import-send-teardown"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="import-send-hotspot"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="import-send-generate"]').exists()).toBe(false)
+    expect(push).not.toHaveBeenCalled()
+    expect(localStorage.getItem('studio_bridge_payload')).toBeNull()
   })
 
   it('opens cover works in the shared image viewer with multi-image navigation', async () => {
