@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -46,6 +47,24 @@ func (s *settingPublicRepoStub) GetAll(ctx context.Context) (map[string]string, 
 
 func (s *settingPublicRepoStub) Delete(ctx context.Context, key string) error {
 	panic("unexpected Delete call")
+}
+
+func TestFilterUserVisibleMenuItemsRequiresExplicitUserVisibility(t *testing.T) {
+	raw := `[
+		{"id":"legacy","label":"Legacy","url":"https://legacy.example","sort_order":0},
+		{"id":"blank","label":"Blank","url":"https://blank.example","visibility":"","sort_order":1},
+		{"id":"invalid","label":"Invalid","url":"https://invalid.example","visibility":"public","sort_order":2},
+		{"id":"admin","label":"Admin","url":"https://admin.example","visibility":"admin","sort_order":3},
+		{"id":"user","label":"User","url":"https://user.example","visibility":"user","sort_order":4}
+	]`
+
+	filtered := filterUserVisibleMenuItems(raw)
+
+	var items []map[string]any
+	require.NoError(t, json.Unmarshal(filtered, &items))
+	require.Len(t, items, 1)
+	require.Equal(t, "user", items[0]["id"])
+	require.Equal(t, "user", items[0]["visibility"])
 }
 
 func TestSettingService_GetPublicSettings_ExposesRegistrationEmailSuffixWhitelist(t *testing.T) {

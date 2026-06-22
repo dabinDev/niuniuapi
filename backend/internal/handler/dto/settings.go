@@ -463,12 +463,13 @@ func ParseCustomMenuItems(raw string) []CustomMenuItem {
 	return items
 }
 
-// ParseUserVisibleMenuItems parses custom menu items and filters out admin-only entries.
+// ParseUserVisibleMenuItems parses custom menu items and returns only entries
+// explicitly enabled for regular users.
 func ParseUserVisibleMenuItems(raw string) []CustomMenuItem {
 	items := ParseCustomMenuItems(raw)
 	filtered := make([]CustomMenuItem, 0, len(items))
 	for _, item := range items {
-		if item.Visibility != "admin" {
+		if item.Visibility == "user" {
 			filtered = append(filtered, item)
 		}
 	}

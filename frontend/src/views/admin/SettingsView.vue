@@ -4946,21 +4946,27 @@
                     />
                   </div>
 
-                  <!-- Visibility -->
-                  <div>
+                  <!-- User visibility -->
+                  <div class="sm:col-span-2">
                     <label
-                      class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
+                      class="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm dark:border-dark-600 dark:bg-dark-800/50"
                     >
-                      {{ t("admin.settings.customMenu.visibility") }}
+                      <input
+                        :data-testid="`custom-menu-user-visible-${index}`"
+                        type="checkbox"
+                        class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        :checked="isCustomMenuUserVisible(item.visibility)"
+                        @change="handleCustomMenuUserVisibleChange(item, $event)"
+                      />
+                      <span>
+                        <span class="block font-medium text-gray-700 dark:text-gray-200">
+                          {{ t("admin.settings.customMenu.userVisible") }}
+                        </span>
+                        <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                          {{ t("admin.settings.customMenu.userVisibleHint") }}
+                        </span>
+                      </span>
                     </label>
-                    <select v-model="item.visibility" class="input text-sm">
-                      <option value="user">
-                        {{ t("admin.settings.customMenu.visibilityUser") }}
-                      </option>
-                      <option value="admin">
-                        {{ t("admin.settings.customMenu.visibilityAdmin") }}
-                      </option>
-                    </select>
                   </div>
 
                   <!-- URL (full width) -->
@@ -6792,6 +6798,11 @@ import { useAppStore } from "@/stores";
 import { useAdminSettingsStore } from "@/stores/adminSettings";
 import { normalizeVisibleMethod } from "@/components/payment/paymentFlow";
 import {
+  customMenuVisibilityFromUserVisible,
+  isCustomMenuUserVisible,
+  normalizeCustomMenuItemsForAdminForm,
+} from "@/utils/customMenuVisibility";
+import {
   isRegistrationEmailSuffixDomainValid,
   normalizeRegistrationEmailSuffixDomain,
   normalizeRegistrationEmailSuffixDomains,
@@ -7765,9 +7776,18 @@ function addMenuItem() {
     label: "",
     icon_svg: "",
     url: "",
-    visibility: "user",
+    visibility: "admin",
     sort_order: form.custom_menu_items.length,
   });
+}
+
+function handleCustomMenuUserVisibleChange(
+  item: SettingsForm["custom_menu_items"][number],
+  event: Event,
+) {
+  item.visibility = customMenuVisibilityFromUserVisible(
+    (event.target as HTMLInputElement | null)?.checked === true,
+  );
 }
 
 function removeMenuItem(index: number) {
@@ -7881,6 +7901,9 @@ async function loadSettings() {
         (form as Record<string, unknown>)[key] = value;
       }
     }
+    form.custom_menu_items = normalizeCustomMenuItemsForAdminForm(
+      settings.custom_menu_items,
+    );
     form.login_agreement_mode =
       settings.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
     form.login_agreement_updated_at =
@@ -8249,7 +8272,9 @@ async function saveSettings() {
       hide_ccs_import_button: form.hide_ccs_import_button,
       table_default_page_size: form.table_default_page_size,
       table_page_size_options: form.table_page_size_options,
-      custom_menu_items: form.custom_menu_items,
+      custom_menu_items: normalizeCustomMenuItemsForAdminForm(
+        form.custom_menu_items,
+      ),
       custom_endpoints: form.custom_endpoints,
       frontend_url: form.frontend_url,
       smtp_host: form.smtp_host,

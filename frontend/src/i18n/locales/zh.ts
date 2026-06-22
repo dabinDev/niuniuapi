@@ -6005,7 +6005,7 @@ export default {
       },
       customMenu: {
         title: '自定义菜单页面',
-        description: '添加自定义 iframe 页面到侧边栏导航。每个页面可以设置为普通用户或管理员可见。',
+        description: '添加自定义 iframe 页面到侧边栏导航。默认仅管理员可见，勾选后才会展示给普通用户。',
         itemLabel: '菜单项 #{n}',
         name: '菜单名称',
         namePlaceholder: '如：帮助中心',
@@ -6019,6 +6019,8 @@ export default {
         visibility: '可见角色',
         visibilityUser: '普通用户',
         visibilityAdmin: '管理员',
+        userVisible: '用户可见',
+        userVisibleHint: '默认关闭。只有管理员勾选并保存后，普通用户侧边栏才会显示这个自定义页面。',
         add: '添加菜单项',
         remove: '删除',
         moveUp: '上移',

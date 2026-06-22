@@ -1406,8 +1406,8 @@ func (s *SettingService) effectiveEmailOAuthConfig(settings map[string]string, p
 	return cfg
 }
 
-// filterUserVisibleMenuItems filters out admin-only menu items from a raw JSON
-// array string, returning only items with visibility != "admin".
+// filterUserVisibleMenuItems returns only custom menu items that administrators
+// explicitly marked as visible to regular users.
 func filterUserVisibleMenuItems(raw string) json.RawMessage {
 	raw = strings.TrimSpace(raw)
 	if raw == "" || raw == "[]" {
@@ -1428,7 +1428,7 @@ func filterUserVisibleMenuItems(raw string) json.RawMessage {
 
 	var filtered []json.RawMessage
 	for i, item := range items {
-		if item.Visibility != "admin" {
+		if item.Visibility == "user" {
 			filtered = append(filtered, fullItems[i])
 		}
 	}
