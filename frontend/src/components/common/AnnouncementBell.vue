@@ -71,6 +71,27 @@
 
             <!-- Body -->
             <div class="max-h-[65vh] overflow-y-auto">
+              <RouterLink
+                to="/dashboard#ccswitch-codex-tutorial"
+                class="m-4 mb-0 flex items-center gap-3 rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md dark:border-rose-500/20 dark:from-rose-500/10 dark:to-orange-500/10"
+                @click="closeModal"
+              >
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-600 text-white shadow-lg shadow-rose-900/20">
+                  <Icon name="terminal" size="md" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold text-gray-950 dark:text-white">
+                    CCSWITCH / Codex 接入教程
+                  </p>
+                  <p class="mt-1 text-xs leading-5 text-gray-600 dark:text-dark-300">
+                    先看教程，再处理公告：一键导入、Codex 客户端、Codex CLI 和手动 config 配置都在这里。
+                  </p>
+                </div>
+                <svg class="h-5 w-5 shrink-0 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </RouterLink>
+
               <!-- Loading -->
               <div v-if="loading" class="flex items-center justify-center py-16">
                 <div class="relative">

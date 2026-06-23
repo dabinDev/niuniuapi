@@ -11,7 +11,7 @@ import { useAdminComplianceStore } from '@/stores/adminCompliance'
 import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
 import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/api/setup'
-import { firstVisibleStudioPath, isStudioFeatureVisible, studioFeatureForPath } from '@/utils/studioFeatures'
+import { resolveStudioVisibilityRedirect } from '@/utils/studioRouteAccess'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveDocumentTitle } from './title'
 
@@ -918,16 +918,9 @@ router.beforeEach(async (to, _from, next) => {
 
   if (to.path === '/studio' || to.path.startsWith('/studio/')) {
     const visibility = appStore.cachedPublicSettings?.studio_feature_visibility
-    const fallbackPath = firstVisibleStudioPath(visibility, authStore.isAdmin)
-    const featureId = studioFeatureForPath(to.path)
-
-    if (to.path === '/studio') {
-      next(fallbackPath)
-      return
-    }
-
-    if (!authStore.isAdmin && featureId && !isStudioFeatureVisible(featureId, visibility, false)) {
-      next(fallbackPath === to.path ? '/dashboard' : fallbackPath)
+    const redirectPath = resolveStudioVisibilityRedirect(to.path, visibility, authStore.isAdmin)
+    if (redirectPath) {
+      next(redirectPath)
       return
     }
   }

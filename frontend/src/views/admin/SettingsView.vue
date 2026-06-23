@@ -5235,14 +5235,42 @@
 
         <!-- Tab: Features (功能开关) -->
         <div v-show="activeTab === 'features'" class="space-y-6">
-        <div class="card">
+        <div class="card" data-test="studio-menu-visibility-card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-              创作台功能可见性
+              创作台菜单可见性
             </h2>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              控制普通用户是否能看到番茄热榜、封面生成、我的作品、拆书诊断、爆款对标和创作生成。关闭后侧边栏、首页卡片、页面互跳入口都会隐藏；管理员始终可见。
+              控制普通用户是否能看到番茄热榜、封面生成、我的作品、拆书诊断、爆款对标和创作生成。关闭后侧边栏、首页卡片、页面互跳入口都会隐藏。
             </p>
+            <div class="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+              该开关只控制普通用户；管理员始终可见全部入口，方便恢复配置。用管理员账号测试时，请以下方“普通用户当前可见”作为最终显示结果。
+            </div>
+            <div class="mt-4 rounded-2xl border border-gray-100 bg-white p-4 dark:border-dark-700 dark:bg-dark-900/70">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-dark-400">
+                  普通用户当前可见
+                </span>
+                <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500 dark:bg-dark-800 dark:text-dark-300">
+                  已隐藏 {{ hiddenStudioFeatureCount }} 个入口
+                </span>
+              </div>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <span
+                  v-for="feature in visibleStudioFeaturesForUsers"
+                  :key="feature.id"
+                  class="rounded-full bg-primary-50 px-3 py-1.5 text-sm font-semibold text-primary-700 dark:bg-primary-500/10 dark:text-primary-300"
+                >
+                  {{ feature.title }}
+                </span>
+                <span
+                  v-if="visibleStudioFeaturesForUsers.length === 0"
+                  class="rounded-full bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-500 dark:bg-dark-800 dark:text-dark-300"
+                >
+                  暂无入口
+                </span>
+              </div>
+            </div>
           </div>
           <div class="grid gap-3 p-6 md:grid-cols-2">
             <div
@@ -7332,6 +7360,17 @@ const form = reactive<SettingsForm>({
   // Allow user view error requests
   allow_user_view_error_requests: false,
 });
+
+const visibleStudioFeaturesForUsers = computed(() => {
+  const visibility = normalizeStudioFeatureVisibility(
+    form.studio_feature_visibility,
+  );
+  return STUDIO_FEATURES.filter((feature) => visibility[feature.id]);
+});
+
+const hiddenStudioFeatureCount = computed(
+  () => STUDIO_FEATURES.length - visibleStudioFeaturesForUsers.value.length,
+);
 
 const authSourceDefaults = reactive<AuthSourceDefaultsState>(
   buildAuthSourceDefaultsState({}),

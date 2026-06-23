@@ -8,6 +8,7 @@ import { resolveDocumentTitle } from '@/router/title'
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore, useAdminComplianceStore } from '@/stores'
 import { getSetupStatus } from '@/api/setup'
+import { resolveStudioVisibilityRedirect } from '@/utils/studioRouteAccess'
 
 const router = useRouter()
 const route = useRoute()
@@ -100,6 +101,18 @@ router.afterEach(() => {
     announcementStore.fetchAnnouncements()
   }
 })
+
+watch(
+  () => appStore.cachedPublicSettings?.studio_feature_visibility,
+  (visibility) => {
+    if (!authStore.isAuthenticated) return
+    const redirectPath = resolveStudioVisibilityRedirect(route.path, visibility, authStore.isAdmin)
+    if (redirectPath && redirectPath !== route.path) {
+      router.replace(redirectPath)
+    }
+  },
+  { deep: true },
+)
 
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', onVisibilityChange)

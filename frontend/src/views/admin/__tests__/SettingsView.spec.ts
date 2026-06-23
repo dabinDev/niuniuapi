@@ -641,11 +641,31 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(payload).not.toHaveProperty("payment_visible_method_wxpay_enabled");
   });
 
-  it("renders and submits studio feature visibility switches", async () => {
+  it("renders and submits studio menu visibility switches with regular-user guidance", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      studio_feature_visibility: {
+        fanqie: false,
+        cover: true,
+        works: false,
+        teardown: false,
+        hotspot: false,
+        generate: false,
+      },
+    });
     const wrapper = mountView();
 
     await flushPromises();
     await openFeaturesTab(wrapper);
+
+    const studioCard = wrapper.find('[data-test="studio-menu-visibility-card"]');
+    expect(studioCard.exists()).toBe(true);
+    expect(studioCard.text()).toContain("创作台菜单可见性");
+    expect(studioCard.text()).toContain("只控制普通用户");
+    expect(studioCard.text()).toContain("管理员始终可见全部入口");
+    expect(studioCard.text()).toContain("普通用户当前可见");
+    expect(studioCard.text()).toContain("封面生成");
+    expect(studioCard.text()).toContain("已隐藏 5 个入口");
 
     expect(wrapper.find('[data-test="studio-feature-toggle-fanqie"]').exists()).toBe(true);
     expect(wrapper.find('[data-test="studio-feature-toggle-cover"]').exists()).toBe(true);
@@ -664,12 +684,12 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         studio_feature_visibility: expect.objectContaining({
-          fanqie: true,
+          fanqie: false,
           cover: false,
-          works: true,
-          teardown: true,
-          hotspot: true,
-          generate: true,
+          works: false,
+          teardown: false,
+          hotspot: false,
+          generate: false,
         }),
       }),
     );
