@@ -7174,4 +7174,10 @@ export default {
     },
   },
 
+  tutorials: {
+    ccswitchCodex: {
+      title: 'CCSWITCH / Codex Tutorial',
+      description: 'A complete guide for using Tomato API keys with CCSWITCH and Codex',
+    },
+  },
 }

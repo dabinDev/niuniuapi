@@ -7353,4 +7353,10 @@ export default {
     },
   },
 
+  tutorials: {
+    ccswitchCodex: {
+      title: 'CCSWITCH / Codex 使用教程',
+      description: '番茄 API 密钥接入 CCSWITCH 与 Codex 的完整教程',
+    },
+  },
 }

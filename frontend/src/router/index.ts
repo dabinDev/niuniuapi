@@ -195,6 +195,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/tutorials/ccswitch-codex',
+    name: 'CcswitchCodexTutorial',
+    component: () => import('@/views/tutorials/CcswitchCodexTutorialView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'CCSWITCH / Codex 使用教程',
+      titleKey: 'tutorials.ccswitchCodex.title',
+      descriptionKey: 'tutorials.ccswitchCodex.description'
+    }
+  },
+  {
     path: '/keys',
     name: 'Keys',
     component: () => import('@/views/user/KeysView.vue'),

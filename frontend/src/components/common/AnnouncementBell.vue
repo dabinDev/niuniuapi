@@ -72,7 +72,7 @@
             <!-- Body -->
             <div class="max-h-[65vh] overflow-y-auto">
               <RouterLink
-                to="/dashboard#ccswitch-codex-tutorial"
+                to="/tutorials/ccswitch-codex"
                 class="m-4 mb-0 flex items-center gap-3 rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md dark:border-rose-500/20 dark:from-rose-500/10 dark:to-orange-500/10"
                 @click="closeModal"
               >

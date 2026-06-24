@@ -4,24 +4,27 @@ import { describe, expect, it } from 'vitest'
 import CcswitchCodexTutorial from '../CcswitchCodexTutorial.vue'
 
 describe('CcswitchCodexTutorial', () => {
-  it('documents CCSWITCH import, Codex desktop, Codex CLI, and manual config paths', () => {
+  it('links to the full CCSWITCH and Codex tutorial from the dashboard', () => {
     const wrapper = mount(CcswitchCodexTutorial, {
       global: {
         stubs: {
           RouterLink: {
-            template: '<a><slot /></a>',
+            props: ['to'],
+            template: '<a :href="to"><slot /></a>',
           },
         },
       },
     })
 
     const text = wrapper.text()
-    expect(text).toContain('CCSWITCH 一键导入')
+    expect(text).toContain('先看完整教程，再接入本地工具')
+    expect(text).toContain('一键导入 CCSWITCH')
     expect(text).toContain('Codex 客户端')
     expect(text).toContain('Codex CLI')
-    expect(text).toContain('手动配置 config.toml')
-    expect(text).toContain('auth.json')
+    expect(text).toContain('常见错误排查')
     expect(wrapper.find('#ccswitch-codex-tutorial').exists()).toBe(true)
-    expect(wrapper.findAll('img[alt*="真实截图"]')).toHaveLength(4)
+    expect(wrapper.find('a[href="/tutorials/ccswitch-codex"]').text()).toContain('查看完整教程')
+    expect(wrapper.find('a[href="/keys"]').text()).toContain('去 API 密钥页')
+    expect(wrapper.findAll('img')).toHaveLength(0)
   })
 })

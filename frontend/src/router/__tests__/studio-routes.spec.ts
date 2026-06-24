@@ -4,6 +4,14 @@ import router from '@/router'
 import { firstVisibleStudioPath, isStudioFeatureVisible, studioFeatureForPath } from '@/utils/studioFeatures'
 
 describe('studio information architecture routes', () => {
+  it('registers a standalone CCSWITCH and Codex tutorial route', () => {
+    const tutorial = router.getRoutes().find((route) => route.path === '/tutorials/ccswitch-codex')
+
+    expect(tutorial?.name).toBe('CcswitchCodexTutorial')
+    expect(tutorial?.meta.requiresAuth).toBe(true)
+    expect(tutorial?.meta.titleKey).toBe('tutorials.ccswitchCodex.title')
+  })
+
   it('opens the studio workbench on the fanqie hotlist by default', () => {
     const studioRoot = router.getRoutes().find((route) => route.path === '/studio')
 
